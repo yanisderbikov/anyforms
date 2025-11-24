@@ -102,7 +102,7 @@ public class LeadProcessingService {
 
         Long currentStatusId = lead.getStatusId();
         AmoLeadStatus currentStatus = AmoLeadStatus.fromStatusId(currentStatusId);
-        if (currentStatus == AmoLeadStatus.PAID) {
+        if (currentStatus != AmoLeadStatus.PAID) {
             System.out.println("Lead " + lead.getId() + " status is not '" + AmoLeadStatus.PAID.getDescription() +
                     "' (current: " + currentStatus.getDescription() + " / " + currentStatusId + "). Skipping status update.");
             return;
