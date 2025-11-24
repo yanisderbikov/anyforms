@@ -10,6 +10,7 @@ import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CdekWebhook;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -106,6 +107,16 @@ public class CdekWebhookService {
                     logger.info("Заказ {} принят на доставку, обрабатываем...", cdekNumber);
                     processAcceptedForDelivery(cdekNumber);
                 }
+                // Проверяем, является ли статус "доставлен" (можно забрать)
+                else if (isDelivered(orderStatus)) {
+                    logger.info("Заказ {} доставлен, обрабатываем...", cdekNumber);
+                    processDelivered(cdekNumber);
+                }
+                // Проверяем, является ли статус "вручен" (клиент забрал)
+                else if (isHandedTo(orderStatus)) {
+                    logger.info("Заказ {} вручен клиенту, обрабатываем...", cdekNumber);
+                    processHandedTo(cdekNumber);
+                }
             } else {
                 logger.warn("Не найдена строка с трекером {} в таблице '{}'", cdekNumber, sheetName);
             }
@@ -129,10 +140,29 @@ public class CdekWebhookService {
     }
     
     /**
-     * Обрабатывает заказ, который был принят на доставку
-     * Находит трекер и сделку в Google таблице, обновляет CRM и отправляет сообщение
+     * Проверяет, является ли статус "доставлен" (можно забрать)
      */
-    private void processAcceptedForDelivery(String trackerNumber) {
+    private boolean isDelivered(CdekOrderStatus status) {
+        return status == CdekOrderStatus.DELIVERED ||
+               status == CdekOrderStatus.DELIVERED_TO_PICKUP_POINT ||
+               status == CdekOrderStatus.ACCEPTED_AT_PICKUP_POINT;
+    }
+    
+    /**
+     * Проверяет, является ли статус "вручен" (клиент забрал)
+     */
+    private boolean isHandedTo(CdekOrderStatus status) {
+        return status == CdekOrderStatus.HANDED_TO;
+    }
+    
+    /**
+     * Общий метод для обработки заказа по трекеру
+     * Находит сделку в Google таблице и выполняет переданное действие
+     * @param trackerNumber номер трекера
+     * @param action действие для выполнения после нахождения сделки (leadId, trackerNumber)
+     * @param errorContext контекст ошибки для логирования
+     */
+    private void processOrderByTracker(String trackerNumber, BiConsumer<Long, String> action, String errorContext) {
         try {
             // Читаем все строки из таблицы
             List<List<Object>> allRows = googleSheetsService.readAllRows(sheetName);
@@ -172,33 +202,8 @@ public class CdekWebhookService {
                     
                     logger.info("Извлечен ID сделки: {} из ссылки: {}", leadId, dealLink);
                     
-                    // Добавляем трекер в CRM под id 2348069
-                    boolean updated = amoCrmService.updateLeadCustomField(leadId, TRACKER_FIELD_ID, trackerNumber);
-                    if (updated) {
-                        logger.info("Трекер {} успешно добавлен в CRM для сделки {}", trackerNumber, leadId);
-                    } else {
-                        logger.error("Не удалось добавить трекер {} в CRM для сделки {}", trackerNumber, leadId);
-                        return;
-                    }
-                    
-                    // Отправляем сообщение в мессенджер
-                    String message = "Ваш заказ был отправлен:\n\nТрекер: " + trackerNumber;
-                    boolean messageSent = amoCrmService.sendMessageToContact(leadId, message);
-                    if (messageSent) {
-                        logger.info("Сообщение успешно отправлено в мессенджер для сделки {}", leadId);
-                    } else {
-                        logger.warn("Не удалось отправить сообщение в мессенджер для сделки {}", leadId);
-                    }
-                    
-                    // Обновляем статус сделки на "отправлен"
-                    boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT, null);
-                    if (statusUpdated) {
-                        logger.info("Статус сделки {} успешно обновлен на '{}' ({})", 
-                                leadId, AmoLeadStatus.SENT.getDescription(), AmoLeadStatus.SENT.getStatusId());
-                    } else {
-                        logger.warn("Не удалось обновить статус сделки {} на '{}'", 
-                                leadId, AmoLeadStatus.SENT.getDescription());
-                    }
+                    // Выполняем переданное действие
+                    action.accept(leadId, trackerNumber);
                     
                     return;
                 }
@@ -207,8 +212,45 @@ public class CdekWebhookService {
             logger.warn("Не найдена строка с трекером {} в таблице '{}'", trackerNumber, sheetName);
             
         } catch (Exception e) {
-            logger.error("Ошибка при обработке заказа, принятого на доставку: {}", e.getMessage(), e);
+            logger.error("Ошибка при обработке заказа ({}) для трекера {}: {}", 
+                    errorContext, trackerNumber, e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Обрабатывает заказ, который был принят на доставку
+     * Находит трекер и сделку в Google таблице, обновляет CRM и отправляет сообщение
+     */
+    private void processAcceptedForDelivery(String trackerNumber) {
+        processOrderByTracker(trackerNumber, (leadId, tracker) -> {
+            // Добавляем трекер в CRM под id 2348069
+            boolean updated = amoCrmService.updateLeadCustomField(leadId, TRACKER_FIELD_ID, tracker);
+            if (updated) {
+                logger.info("Трекер {} успешно добавлен в CRM для сделки {}", tracker, leadId);
+            } else {
+                logger.error("Не удалось добавить трекер {} в CRM для сделки {}", tracker, leadId);
+                return;
+            }
+            
+            // Отправляем сообщение в мессенджер
+            String message = "Ваш заказ был отправлен:\n\nТрекер: " + tracker;
+            boolean messageSent = amoCrmService.sendMessageToContact(leadId, message);
+            if (messageSent) {
+                logger.info("Сообщение успешно отправлено в мессенджер для сделки {}", leadId);
+            } else {
+                logger.warn("Не удалось отправить сообщение в мессенджер для сделки {}", leadId);
+            }
+            
+            // Обновляем статус сделки на "отправлен"
+            boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT, null);
+            if (statusUpdated) {
+                logger.info("Статус сделки {} успешно обновлен на '{}' ({})", 
+                        leadId, AmoLeadStatus.SENT.getDescription(), AmoLeadStatus.SENT.getStatusId());
+            } else {
+                logger.warn("Не удалось обновить статус сделки {} на '{}'", 
+                        leadId, AmoLeadStatus.SENT.getDescription());
+            }
+        }, "принят на доставку");
     }
     
     /**
@@ -247,6 +289,51 @@ public class CdekWebhookService {
         }
         
         return null;
+    }
+    
+    /**
+     * Обрабатывает заказ, который был доставлен (можно забрать)
+     * Находит сделку в Google таблице, обновляет статус в CRM и отправляет сообщение
+     */
+    private void processDelivered(String trackerNumber) {
+        processOrderByTracker(trackerNumber, (leadId, tracker) -> {
+            // Отправляем сообщение в мессенджер о доставке
+            String message = "Ваша посылка приехала и готова к получению!\n\nТрекер: " + tracker;
+            boolean messageSent = amoCrmService.sendMessageToContact(leadId, message);
+            if (messageSent) {
+                logger.info("Сообщение о доставке успешно отправлено в мессенджер для сделки {}", leadId);
+            } else {
+                logger.warn("Не удалось отправить сообщение о доставке в мессенджер для сделки {}", leadId);
+            }
+            
+            // Обновляем статус сделки на "доставлен"
+            boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.DELIVERED, null);
+            if (statusUpdated) {
+                logger.info("Статус сделки {} успешно обновлен на '{}' ({})", 
+                        leadId, AmoLeadStatus.DELIVERED.getDescription(), AmoLeadStatus.DELIVERED.getStatusId());
+            } else {
+                logger.warn("Не удалось обновить статус сделки {} на '{}'", 
+                        leadId, AmoLeadStatus.DELIVERED.getDescription());
+            }
+        }, "доставлен");
+    }
+    
+    /**
+     * Обрабатывает заказ, который был вручен клиенту
+     * Находит сделку в Google таблице и обновляет статус в CRM
+     */
+    private void processHandedTo(String trackerNumber) {
+        processOrderByTracker(trackerNumber, (leadId, tracker) -> {
+            // Обновляем статус сделки на "реализовано"
+            boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.REALIZED, null);
+            if (statusUpdated) {
+                logger.info("Статус сделки {} успешно обновлен на '{}' ({})", 
+                        leadId, AmoLeadStatus.REALIZED.getDescription(), AmoLeadStatus.REALIZED.getStatusId());
+            } else {
+                logger.warn("Не удалось обновить статус сделки {} на '{}'", 
+                        leadId, AmoLeadStatus.REALIZED.getDescription());
+            }
+        }, "вручен клиенту");
     }
 }
 
