@@ -168,4 +168,212 @@ public class AmoCrmService {
             return false;
         }
     }
+
+    /**
+     * Обновляет кастомное поле сделки в amoCRM
+     * @param leadId ID сделки
+     * @param fieldId ID кастомного поля
+     * @param value значение для установки
+     * @return true если поле успешно обновлено, false в противном случае
+     */
+    public boolean updateLeadCustomField(Long leadId, Long fieldId, String value) {
+        try {
+            // Получаем текущую сделку для сохранения других полей
+            AmoLead lead = getLead(leadId);
+            if (lead == null) {
+                System.err.println("Failed to get lead " + leadId);
+                return false;
+            }
+
+            // Формируем JSON для обновления кастомного поля
+            JsonObject leadUpdate = new JsonObject();
+            leadUpdate.addProperty("id", leadId);
+
+            // Создаем массив кастомных полей
+            JsonArray customFieldsArray = new JsonArray();
+            JsonObject customField = new JsonObject();
+            customField.addProperty("field_id", fieldId);
+            
+            JsonArray valuesArray = new JsonArray();
+            JsonObject fieldValue = new JsonObject();
+            fieldValue.addProperty("value", value);
+            valuesArray.add(fieldValue);
+            
+            customField.add("values", valuesArray);
+            customFieldsArray.add(customField);
+            
+            leadUpdate.add("custom_fields_values", customFieldsArray);
+
+            JsonArray leadsArray = new JsonArray();
+            leadsArray.add(leadUpdate);
+
+            String url = "/api/v4/leads";
+            String response = webClient.patch()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(leadsArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Successfully updated custom field " + fieldId + " for lead " + leadId + " with value: " + value);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to update custom field in amoCRM: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Отправляет сообщение в последний мессенджер контакта, связанного со сделкой
+     * @param leadId ID сделки
+     * @param message текст сообщения
+     * @return true если сообщение успешно отправлено, false в противном случае
+     */
+    public boolean sendMessageToContact(Long leadId, String message) {
+        try {
+            // Получаем ID контакта из сделки
+            Long contactId = getContactIdFromLead(leadId);
+            if (contactId == null) {
+                System.err.println("Failed to get contact ID from lead " + leadId);
+                return false;
+            }
+
+            // Получаем список чатов контакта
+            String chatsUrl = "/api/v4/chats?contact_id=" + contactId;
+            String chatsResponse = webClient.get()
+                    .uri(chatsUrl)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            if (chatsResponse == null || chatsResponse.trim().isEmpty()) {
+                System.err.println("Failed to get chats for contact " + contactId);
+                return false;
+            }
+
+            // Парсим ответ и находим последний активный чат
+            JsonObject chatsJson = JsonParser.parseString(chatsResponse).getAsJsonObject();
+            JsonArray chatsArray = null;
+            
+            if (chatsJson.has("_embedded") && chatsJson.getAsJsonObject("_embedded").has("chats")) {
+                chatsArray = chatsJson.getAsJsonObject("_embedded").getAsJsonArray("chats");
+            } else if (chatsJson.has("chats")) {
+                chatsArray = chatsJson.getAsJsonArray("chats");
+            }
+
+            if (chatsArray == null || chatsArray.size() == 0) {
+                System.err.println("No chats found for contact " + contactId);
+                // Пробуем отправить через unsorted API как fallback
+                return sendMessageViaUnsorted(contactId, message);
+            }
+
+            // Берем последний чат (обычно это последний активный)
+            JsonObject lastChat = chatsArray.get(chatsArray.size() - 1).getAsJsonObject();
+            Long chatId = null;
+            if (lastChat.has("id") && !lastChat.get("id").isJsonNull()) {
+                chatId = lastChat.get("id").getAsLong();
+            }
+
+            if (chatId == null) {
+                System.err.println("Failed to get chat ID for contact " + contactId);
+                return sendMessageViaUnsorted(contactId, message);
+            }
+
+            // Отправляем сообщение в чат
+            JsonObject messageObj = new JsonObject();
+            messageObj.addProperty("text", message);
+
+            JsonArray messagesArray = new JsonArray();
+            messagesArray.add(messageObj);
+
+            String messageUrl = "/api/v4/chats/" + chatId + "/messages";
+            String response = webClient.post()
+                    .uri(messageUrl)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(messagesArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Successfully sent message to chat " + chatId + " for contact " + contactId + " (lead " + leadId + ")");
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to send message in amoCRM: " + e.getMessage());
+            e.printStackTrace();
+            // Пробуем fallback метод
+            try {
+                Long contactId = getContactIdFromLead(leadId);
+                if (contactId != null) {
+                    return sendMessageViaUnsorted(contactId, message);
+                }
+            } catch (Exception ex) {
+                // Игнорируем ошибку fallback
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Отправляет сообщение через unsorted API (fallback метод)
+     */
+    private boolean sendMessageViaUnsorted(Long contactId, String message) {
+        try {
+            AmoContact contact = getContact(contactId);
+            if (contact == null) {
+                return false;
+            }
+
+            String phone = null;
+            if (contact.getPhone() != null && !contact.getPhone().isEmpty()) {
+                phone = contact.getPhone().get(contact.getPhone().size() - 1).getValue();
+            }
+
+            if (phone == null || phone.trim().isEmpty()) {
+                return false;
+            }
+
+            JsonObject unsortedRequest = new JsonObject();
+            unsortedRequest.addProperty("source_name", "api");
+            unsortedRequest.addProperty("source_uid", "api_" + System.currentTimeMillis());
+            unsortedRequest.addProperty("created_at", System.currentTimeMillis() / 1000);
+
+            JsonObject contactObj = new JsonObject();
+            JsonArray phonesArray = new JsonArray();
+            JsonObject phoneObj = new JsonObject();
+            phoneObj.addProperty("value", phone);
+            phonesArray.add(phoneObj);
+            contactObj.add("phone", phonesArray);
+
+            JsonObject messageObj = new JsonObject();
+            messageObj.addProperty("text", message);
+            messageObj.addProperty("service", "whatsapp");
+
+            JsonArray messagesArray = new JsonArray();
+            messagesArray.add(messageObj);
+
+            unsortedRequest.add("contact", contactObj);
+            unsortedRequest.add("messages", messagesArray);
+
+            JsonArray unsortedArray = new JsonArray();
+            unsortedArray.add(unsortedRequest);
+
+            String url = "/api/v4/leads/unsorted";
+            webClient.post()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(unsortedArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Successfully sent message via unsorted API for contact " + contactId);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to send message via unsorted API: " + e.getMessage());
+            return false;
+        }
+    }
 }
