@@ -12,6 +12,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Service
 public class AmoCrmService {
@@ -247,31 +248,41 @@ public class AmoCrmService {
     }
 
     /**
-     * Отправляет сообщение в последний мессенджер контакта, связанного со сделкой
+     * Отправляет сообщение в последний мессенджер сделки
      * @param leadId ID сделки
      * @param message текст сообщения
      * @return true если сообщение успешно отправлено, false в противном случае
      */
     public boolean sendMessageToContact(Long leadId, String message) {
         try {
-            // Получаем ID контакта из сделки
-            Long contactId = getContactIdFromLead(leadId);
-            if (contactId == null) {
-                System.err.println("Failed to get contact ID from lead " + leadId);
+            // Получаем список чатов сделки
+            String chatsUrl = "/api/v4/chats?entity_id=" + leadId + "&entity_type=lead";
+            String chatsResponse;
+            try {
+                chatsResponse = webClient.get()
+                        .uri(chatsUrl)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
+            } catch (WebClientResponseException.NotFound e) {
+                // Если чаты не найдены (404), пробуем альтернативный вариант или fallback
+                System.err.println("Chats endpoint returned 404 for lead " + leadId + ", trying alternative method");
+                // Пробуем получить чаты через контакт как fallback
+                Long contactId = getContactIdFromLead(leadId);
+                if (contactId != null) {
+                    return sendMessageViaUnsorted(contactId, message);
+                }
                 return false;
             }
 
-            // Получаем список чатов контакта
-            String chatsUrl = "/api/v4/chats?contact_id=" + contactId;
-            String chatsResponse = webClient.get()
-                    .uri(chatsUrl)
-                    .header("Authorization", "Bearer " + accessToken)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
             if (chatsResponse == null || chatsResponse.trim().isEmpty()) {
-                System.err.println("Failed to get chats for contact " + contactId);
+                System.err.println("Failed to get chats for lead " + leadId + ", trying fallback method");
+                // Пробуем получить чаты через контакт как fallback
+                Long contactId = getContactIdFromLead(leadId);
+                if (contactId != null) {
+                    return sendMessageViaUnsorted(contactId, message);
+                }
                 return false;
             }
 
@@ -286,9 +297,13 @@ public class AmoCrmService {
             }
 
             if (chatsArray == null || chatsArray.size() == 0) {
-                System.err.println("No chats found for contact " + contactId);
+                System.err.println("No chats found for lead " + leadId);
                 // Пробуем отправить через unsorted API как fallback
-                return sendMessageViaUnsorted(contactId, message);
+                Long contactId = getContactIdFromLead(leadId);
+                if (contactId != null) {
+                    return sendMessageViaUnsorted(contactId, message);
+                }
+                return false;
             }
 
             // Берем последний чат (обычно это последний активный)
@@ -299,8 +314,13 @@ public class AmoCrmService {
             }
 
             if (chatId == null) {
-                System.err.println("Failed to get chat ID for contact " + contactId);
-                return sendMessageViaUnsorted(contactId, message);
+                System.err.println("Failed to get chat ID for lead " + leadId);
+                // Пробуем отправить через unsorted API как fallback
+                Long contactId = getContactIdFromLead(leadId);
+                if (contactId != null) {
+                    return sendMessageViaUnsorted(contactId, message);
+                }
+                return false;
             }
 
             // Отправляем сообщение в чат
@@ -319,7 +339,7 @@ public class AmoCrmService {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully sent message to chat " + chatId + " for contact " + contactId + " (lead " + leadId + ")");
+            System.out.println("Successfully sent message to chat " + chatId + " for lead " + leadId);
             return true;
         } catch (Exception e) {
             System.err.println("Failed to send message in amoCRM: " + e.getMessage());
@@ -333,6 +353,63 @@ public class AmoCrmService {
             } catch (Exception ex) {
                 // Игнорируем ошибку fallback
             }
+            return false;
+        }
+    }
+
+    /**
+     * Обновляет несколько полей сделки одновременно (price и кастомные поля)
+     * @param leadId ID сделки
+     * @param price цена (бюджет), может быть null
+     * @param customFields Map с ID кастомных полей и их значениями
+     * @return true если поля успешно обновлены, false в противном случае
+     */
+    public boolean updateLeadFields(Long leadId, Long price, java.util.Map<Long, String> customFields) {
+        try {
+            // Формируем JSON для обновления полей
+            JsonObject leadUpdate = new JsonObject();
+            leadUpdate.addProperty("id", leadId);
+            
+            // Добавляем price если указан
+            if (price != null) {
+                leadUpdate.addProperty("price", price);
+            }
+            
+            // Добавляем кастомные поля если есть
+            if (customFields != null && !customFields.isEmpty()) {
+                JsonArray customFieldsArray = new JsonArray();
+                for (java.util.Map.Entry<Long, String> entry : customFields.entrySet()) {
+                    JsonObject customField = new JsonObject();
+                    customField.addProperty("field_id", entry.getKey());
+                    
+                    JsonArray valuesArray = new JsonArray();
+                    JsonObject fieldValue = new JsonObject();
+                    fieldValue.addProperty("value", entry.getValue());
+                    valuesArray.add(fieldValue);
+                    
+                    customField.add("values", valuesArray);
+                    customFieldsArray.add(customField);
+                }
+                leadUpdate.add("custom_fields_values", customFieldsArray);
+            }
+
+            JsonArray leadsArray = new JsonArray();
+            leadsArray.add(leadUpdate);
+
+            String url = "/api/v4/leads";
+            String response = webClient.patch()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(leadsArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Successfully updated fields for lead " + leadId);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to update lead fields in amoCRM: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
