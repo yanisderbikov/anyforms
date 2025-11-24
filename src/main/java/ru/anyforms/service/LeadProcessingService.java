@@ -2,6 +2,7 @@ package ru.anyforms.service;
 
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoLead;
+import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.service.DataExtractionService.ExtractedData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,12 +19,6 @@ public class LeadProcessingService {
     private final LeadValidationService leadValidationService;
     private final DataExtractionService dataExtractionService;
     private final DataConversionService dataConversionService;
-
-    @Value("${amocrm.status.paid.id:}")
-    private Long paidStatusId;
-
-    @Value("${amocrm.status.ready.to.ship.id:}")
-    private Long readyToShipStatusId;
 
     /**
      * Обрабатывает лид: проверяет кэш, валидирует, извлекает данные и добавляет в Google Sheets
@@ -104,23 +99,19 @@ public class LeadProcessingService {
      * @param lead сделка для проверки и обновления статуса
      */
     private void updateStatusIfNeeded(AmoLead lead) {
-        // Проверяем, что ID статусов настроены
-        if (paidStatusId == null || readyToShipStatusId == null) {
-            System.out.println("Status IDs are not configured. Skipping status update.");
-            return;
-        }
 
-        // Проверяем, что текущий статус соответствует "Оплачен"
         Long currentStatusId = lead.getStatusId();
-        if (currentStatusId == null || !currentStatusId.equals(paidStatusId)) {
-            System.out.println("Lead " + lead.getId() + " status is not 'Оплачен' (current: " + currentStatusId + "). Skipping status update.");
+        if (currentStatusId == null || !currentStatusId.equals(AmoLeadStatus.PAID)) {
+            AmoLeadStatus currentStatus = AmoLeadStatus.fromStatusId(currentStatusId);
+            System.out.println("Lead " + lead.getId() + " status is not '" + AmoLeadStatus.PAID.getDescription() + 
+                    "' (current: " + currentStatus.getDescription() + " / " + currentStatusId + "). Skipping status update.");
             return;
         }
 
-        // Меняем статус на "готов к отправке"
-        boolean updated = amoCrmService.updateLeadStatus(lead.getId(), readyToShipStatusId, lead.getPipelineId());
+        boolean updated = amoCrmService.updateLeadStatus(lead.getId(), AmoLeadStatus.READY_TO_SHIP, lead.getPipelineId());
         if (updated) {
-            System.out.println("Successfully changed status for lead " + lead.getId() + " from 'Оплачен' to 'готов к отправке'");
+            System.out.println("Successfully changed status for lead " + lead.getId() + 
+                    " from '" + AmoLeadStatus.PAID.getDescription() + "' to '" + AmoLeadStatus.READY_TO_SHIP.getDescription() + "'");
         } else {
             System.err.println("Failed to change status for lead " + lead.getId());
         }

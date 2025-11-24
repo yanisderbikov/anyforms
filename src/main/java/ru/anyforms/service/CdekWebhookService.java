@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CdekWebhook;
 
@@ -187,6 +188,16 @@ public class CdekWebhookService {
                         logger.info("Сообщение успешно отправлено в мессенджер для сделки {}", leadId);
                     } else {
                         logger.warn("Не удалось отправить сообщение в мессенджер для сделки {}", leadId);
+                    }
+                    
+                    // Обновляем статус сделки на "отправлен"
+                    boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT, null);
+                    if (statusUpdated) {
+                        logger.info("Статус сделки {} успешно обновлен на '{}' ({})", 
+                                leadId, AmoLeadStatus.SENT.getDescription(), AmoLeadStatus.SENT.getStatusId());
+                    } else {
+                        logger.warn("Не удалось обновить статус сделки {} на '{}'", 
+                                leadId, AmoLeadStatus.SENT.getDescription());
                     }
                     
                     return;

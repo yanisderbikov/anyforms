@@ -2,6 +2,7 @@ package ru.anyforms.service;
 
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoLead;
+import ru.anyforms.model.AmoLeadStatus;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -124,6 +125,21 @@ public class AmoCrmService {
     /**
      * Обновляет статус сделки в amoCRM
      * @param leadId ID сделки
+     * @param status статус из enum AmoLeadStatus
+     * @param pipelineId ID воронки (опционально, если null - используется текущая воронка сделки)
+     * @return true если статус успешно обновлен, false в противном случае
+     */
+    public boolean updateLeadStatus(Long leadId, AmoLeadStatus status, Long pipelineId) {
+        if (status == null || status.getStatusId() == null) {
+            System.err.println("Status ID is not configured for status: " + (status != null ? status.getDescription() : "null"));
+            return false;
+        }
+        return updateLeadStatus(leadId, status.getStatusId(), pipelineId);
+    }
+
+    /**
+     * Обновляет статус сделки в amoCRM
+     * @param leadId ID сделки
      * @param statusId ID нового статуса
      * @param pipelineId ID воронки (опционально, если null - используется текущая воронка сделки)
      * @return true если статус успешно обновлен, false в противном случае
@@ -160,7 +176,12 @@ public class AmoCrmService {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully updated status for lead " + leadId + " to status " + statusId);
+            // Пытаемся определить статус для логирования
+            AmoLeadStatus status = AmoLeadStatus.fromStatusId(statusId);
+            String statusDescription = status != AmoLeadStatus.UNKNOWN 
+                    ? status.getDescription() + " (" + statusId + ")"
+                    : String.valueOf(statusId);
+            System.out.println("Successfully updated status for lead " + leadId + " to " + statusDescription);
             return true;
         } catch (Exception e) {
             System.err.println("Failed to update lead status in amoCRM: " + e.getMessage());
