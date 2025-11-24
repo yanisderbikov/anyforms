@@ -23,7 +23,7 @@ public class DataConversionService {
         
         rowData.add(data.getFio() != null ? data.getFio() : "");
         rowData.add(data.getQuantity() != null ? data.getQuantity() : "");
-        rowData.add(data.getPhone() != null ? data.getPhone() : "");
+        rowData.add(data.getPhone() != null ? dataFormattingService.normalizePhone(data.getPhone()) : "");
         rowData.add(""); // Инстаграм - пусто
         rowData.add(data.getCrmLink());
         rowData.add(data.getPvzSdek() != null ? data.getPvzSdek() : "");

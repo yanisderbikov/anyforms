@@ -34,5 +34,16 @@ public class DataFormattingService {
             return dateValue;
         }
     }
+
+    /**
+     * Нормализует номер телефона: убирает символы "+" и дефисы
+     */
+    public String normalizePhone(String phone) {
+        if (phone == null || phone.isEmpty()) {
+            return "";
+        }
+        // Убираем все символы "+" и дефисы
+        return phone.replace("+", "").replace("-", "");
+    }
 }
 
