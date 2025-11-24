@@ -36,14 +36,18 @@ public class DataFormattingService {
     }
 
     /**
-     * Нормализует номер телефона: убирает символы "+" и дефисы
+     * Нормализует номер телефона: убирает символы "+", дефисы, пробелы и скобки
      */
     public String normalizePhone(String phone) {
         if (phone == null || phone.isEmpty()) {
             return "";
         }
-        // Убираем все символы "+" и дефисы
-        return phone.replace("+", "").replace("-", "");
+        // Убираем все символы: +, -, пробелы, ( и )
+        return phone.replace("+", "")
+                    .replace("-", "")
+                    .replace(" ", "")
+                    .replace("(", "")
+                    .replace(")", "");
     }
 }
 
