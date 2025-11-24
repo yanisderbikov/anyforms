@@ -65,8 +65,12 @@ public class AmoCrmCalculateService {
                 return false;
             }
 
-            // Расчет 1: Минимальное кол-во форм = ceil((baseAmount - проект) / Форма)
-            double minFormsCountDouble = (double)(baseAmount - projectPrice) / formPrice;
+            // Добавляем 20% к проекту и 10% к форме
+            long projectPriceWithMargin = Math.round(projectPrice * 1.2); // +20%
+            long formPriceWithMargin = Math.round(formPrice * 1.1); // +10%
+
+            // Расчет 1: Минимальное кол-во форм = ceil((baseAmount - проект_с_наценкой) / Форма_с_наценкой)
+            double minFormsCountDouble = (double)(baseAmount - projectPriceWithMargin) / formPriceWithMargin;
             long minFormsCount = (long) Math.ceil(minFormsCountDouble);
             
             // Убеждаемся, что результат не отрицательный
@@ -74,26 +78,18 @@ public class AmoCrmCalculateService {
                 minFormsCount = 0;
             }
 
-            // Расчет 2: Бюджет = проект + Форма * кол-во форм
+            // Расчет 2: Бюджет = проект_с_наценкой + Форма_с_наценкой * кол-во форм
             long formsCount = minFormsCount; // кол-во форм = Мин-кол-во форм
-            long budget = projectPrice + formPrice * formsCount;
+            long budget = projectPriceWithMargin + formPriceWithMargin * formsCount;
 
-            // Подготавливаем данные для обновления
+            // Подготавливаем данные для обновления всех полей
             Map<Long, String> customFields = new HashMap<>();
+            customFields.put(FIELD_PROJECT_PRICE, String.valueOf(projectPriceWithMargin)); // Обновляем проект с наценкой
+            customFields.put(FIELD_FORM_PRICE, String.valueOf(formPriceWithMargin)); // Обновляем форму с наценкой
             customFields.put(FIELD_MIN_FORMS_COUNT, String.valueOf(minFormsCount));
             customFields.put(FIELD_FORMS_COUNT, String.valueOf(formsCount));
 
-            // Обновляем поля в сделке
-            boolean updated = amoCrmService.updateLeadFields(leadId, budget, customFields);
-            
-            if (updated) {
-                System.out.println("Successfully calculated and updated lead " + leadId);
-                System.out.println("Min forms count: " + minFormsCount);
-                System.out.println("Forms count: " + formsCount);
-                System.out.println("Budget: " + budget);
-            }
-            
-            return updated;
+            return amoCrmService.updateLeadFields(leadId, budget, customFields);
         } catch (Exception e) {
             System.err.println("Error calculating and updating lead " + leadId + ": " + e.getMessage());
             e.printStackTrace();
