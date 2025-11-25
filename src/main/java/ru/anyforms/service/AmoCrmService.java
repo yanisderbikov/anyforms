@@ -474,4 +474,38 @@ public class AmoCrmService {
             return false;
         }
     }
+
+    /**
+     * Добавляет примечание к сделке в amoCRM
+     * @param leadId ID сделки
+     * @param noteText текст примечания
+     * @return true если примечание успешно добавлено, false в противном случае
+     */
+    public boolean addNoteToLead(Long leadId, String noteText) {
+        try {
+            JsonObject note = new JsonObject();
+            note.addProperty("entity_id", leadId);
+            note.addProperty("note_type", "common");
+            note.addProperty("text", noteText);
+
+            JsonArray notesArray = new JsonArray();
+            notesArray.add(note);
+
+            String url = "/api/v4/leads/" + leadId + "/notes";
+            String response = webClient.post()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(notesArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Successfully added note to lead " + leadId);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Failed to add note to lead in amoCRM: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
