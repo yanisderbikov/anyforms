@@ -112,6 +112,11 @@ public enum CdekOrderStatus {
     ISSUED_FOR_DELIVERY("ISSUED_FOR_DELIVERY", "Выдан на доставку"),
     
     /**
+     * Заказ не найден или уже доставлен
+     */
+    NOT_FOUND_OR_DELIVERED("NOT_FOUND_OR_DELIVERED", "Заказ не найден или доставлен"),
+    
+    /**
      * Неизвестный статус (для случаев, когда код не распознан)
      */
     UNKNOWN("UNKNOWN", "Неизвестный статус");
