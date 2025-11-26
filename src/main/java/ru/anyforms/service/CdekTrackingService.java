@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import ru.anyforms.model.CdekOrderStatus;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -259,8 +260,8 @@ public class CdekTrackingService {
                     .header("Content-Type", "application/json")
                     .retrieve()
                     .onStatus(status -> status.value() == 400, clientResponse -> {
-                        logger.info("Заказ {} не найден (ошибка 400), возвращаем статус NOT_FOUND_OR_DELIVERED", cleanTrackingNumber);
-                        return Mono.error(new RuntimeException("NOT_FOUND_OR_DELIVERED"));
+                        logger.info("Заказ {} не найден (ошибка 400), возвращаем статус {}", CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode(), cleanTrackingNumber);
+                        return Mono.error(new RuntimeException(CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode()));
                     })
                     .bodyToMono(String.class)
                     .timeout(Duration.ofSeconds(10))
@@ -274,8 +275,8 @@ public class CdekTrackingService {
             return null;
             
         } catch (RuntimeException e) {
-            if ("NOT_FOUND_OR_DELIVERED".equals(e.getMessage())) {
-                return "NOT_FOUND_OR_DELIVERED";
+            if (CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode().equals(e.getMessage())) {
+                return CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode();
             }
             logger.error("Ошибка при получении кода статуса трекера СДЭК {}: {}", trackingNumber, e.getMessage(), e);
             return null;

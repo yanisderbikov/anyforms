@@ -9,6 +9,7 @@ import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CdekWebhook;
+import ru.anyforms.util.CdekStatusHelper;
 
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -104,17 +105,17 @@ public class CdekWebhookService {
                 
                 // Проверяем, является ли статус "принят на доставку" (после Created)
                 // Это может быть ACCEPTED, RECEIVED_AT_SHIPMENT_WAREHOUSE и т.д.
-                if (isAcceptedForDelivery(orderStatus)) {
+                if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
                     logger.info("Заказ {} принят на доставку, обрабатываем...", cdekNumber);
                     processAcceptedForDelivery(cdekNumber);
                 }
                 // Проверяем, является ли статус "доставлен" (можно забрать)
-                else if (isDelivered(orderStatus)) {
+                else if (CdekStatusHelper.isDelivered(orderStatus)) {
                     logger.info("Заказ {} доставлен, обрабатываем...", cdekNumber);
                     processDelivered(cdekNumber);
                 }
                 // Проверяем, является ли статус "вручен" (клиент забрал)
-                else if (isHandedTo(orderStatus)) {
+                else if (CdekStatusHelper.isHandedTo(orderStatus)) {
                     logger.info("Заказ {} вручен клиенту, обрабатываем...", cdekNumber);
                     processHandedTo(cdekNumber);
                 }
@@ -125,35 +126,6 @@ public class CdekWebhookService {
         } catch (Exception e) {
             logger.error("Ошибка при обработке вебхука СДЭК: {}", e.getMessage(), e);
         }
-    }
-    
-    /**
-     * Проверяет, является ли статус "принят на доставку" (после Created)
-     */
-    private boolean isAcceptedForDelivery(CdekOrderStatus status) {
-        // Статусы, которые означают "принят на доставку" после Created
-        return status == CdekOrderStatus.ACCEPTED ||
-               status == CdekOrderStatus.RECEIVED_AT_SHIPMENT_WAREHOUSE ||
-               status == CdekOrderStatus.ACCEPTED_AT_SHIPMENT_WAREHOUSE ||
-               status == CdekOrderStatus.DELIVERED_TO_SHIPMENT_WAREHOUSE ||
-               status == CdekOrderStatus.RECEIVED_IN_SENDER_CITY ||
-               status == CdekOrderStatus.TRANSFERRED_TO_DELIVERY_IN_SENDER_CITY;
-    }
-    
-    /**
-     * Проверяет, является ли статус "доставлен" (можно забрать)
-     */
-    private boolean isDelivered(CdekOrderStatus status) {
-        return status == CdekOrderStatus.DELIVERED ||
-               status == CdekOrderStatus.DELIVERED_TO_PICKUP_POINT ||
-               status == CdekOrderStatus.ACCEPTED_AT_PICKUP_POINT;
-    }
-    
-    /**
-     * Проверяет, является ли статус "вручен" (клиент забрал)
-     */
-    private boolean isHandedTo(CdekOrderStatus status) {
-        return status == CdekOrderStatus.HANDED_TO;
     }
     
     /**
@@ -299,13 +271,13 @@ public class CdekWebhookService {
     private void processDelivered(String trackerNumber) {
         processOrderByTracker(trackerNumber, (leadId, tracker) -> {
             // Отправляем сообщение в мессенджер о доставке
-            String message = "Ваша посылка приехала и готова к получению!\n\nТрекер: " + tracker;
-            boolean messageSent = amoCrmService.sendMessageToContact(leadId, message);
-            if (messageSent) {
-                logger.info("Сообщение о доставке успешно отправлено в мессенджер для сделки {}", leadId);
-            } else {
-                logger.warn("Не удалось отправить сообщение о доставке в мессенджер для сделки {}", leadId);
-            }
+//            String message = "Ваша посылка приехала и готова к получению!\n\nТрекер: " + tracker;
+//            boolean messageSent = amoCrmService.sendMessageToContact(leadId, message);
+//            if (messageSent) {
+//                logger.info("Сообщение о доставке успешно отправлено в мессенджер для сделки {}", leadId);
+//            } else {
+//                logger.warn("Не удалось отправить сообщение о доставке в мессенджер для сделки {}", leadId);
+//            }
             
             // Обновляем статус сделки на "доставлен"
             boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.DELIVERED, null);

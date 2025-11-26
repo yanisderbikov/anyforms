@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
+import ru.anyforms.util.CdekStatusHelper;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -90,8 +91,8 @@ public class OrderShipmentCheckerService {
     /**
      * Проверяет, нужно ли обрабатывать строку
      * Условия:
-     * - Колонка J пустая или содержит "CREATED"
      * - Колонка I содержит валидный трекер
+     * - Колонка J пустая или содержит статус, который НЕ DELIVERED или NOT_FOUND_OR_DELIVERED
      */
     private boolean shouldProcessRow(List<Object> row, int rowNumber) {
         if (row == null || row.isEmpty()) {
@@ -106,51 +107,84 @@ public class OrderShipmentCheckerService {
             return false;
         }
         
-        // Проверка 2: Колонка J должна быть пустая или содержать "CREATED"
+        // Проверка 2: Колонка J должна быть пустая или содержать статус, который НЕ DELIVERED или NOT_FOUND_OR_DELIVERED
         String columnJUpper = columnJ.toUpperCase().trim();
-        if (!columnJ.isEmpty() && !columnJUpper.equals("CREATED")) {
-            return false;
+        if (!columnJ.isEmpty()) {
+            if (columnJUpper.equals(CdekOrderStatus.DELIVERED.getCode()) || columnJUpper.equals(CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode())) {
+                return false;
+            }
         }
         
         return true;
     }
     
     /**
-     * Проверяет статус заказа и обрабатывает его, если он отправлен
-     * @return true если заказ был отправлен и обработан
+     * Проверяет статус заказа и обрабатывает его, если статус изменился
+     * @return true если заказ был обработан
      */
     private boolean checkAndProcessShippedOrder(List<Object> row, int rowNumber, String trackingNumber) {
         try {
-            // Получаем код статуса из СДЭК
-            String statusCode = cdekTrackingService.getOrderStatusCode(trackingNumber);
+            // Получаем текущий статус из колонки J
+            String currentStatus = googleSheetsService.getCellValue(row, COLUMN_J_INDEX);
+            String currentStatusUpper = currentStatus.toUpperCase().trim();
             
-            if (statusCode == null || statusCode.isEmpty()) {
+            // Получаем новый статус из СДЭК
+            String newStatusCode = cdekTrackingService.getOrderStatusCode(trackingNumber);
+            
+            if (newStatusCode == null || newStatusCode.isEmpty()) {
                 logger.warn("Не удалось получить статус для трекера {} в строке {}", trackingNumber, rowNumber);
                 return false;
             }
             
-            // Если заказ не найден или доставлен, записываем статус в таблицу
-            if ("NOT_FOUND_OR_DELIVERED".equals(statusCode)) {
+            // Если заказ не найден или доставлен, записываем статус в таблицу и не обрабатываем дальше
+            if ("NOT_FOUND_OR_DELIVERED".equals(newStatusCode)) {
                 logger.info("Заказ {} в строке {} не найден или доставлен, записываем статус в таблицу", 
                         trackingNumber, rowNumber);
-                writeStatusToTable(trackingNumber, rowNumber, statusCode);
+                writeStatusToTable(trackingNumber, rowNumber, newStatusCode);
+                return false;
+            }
+            
+            // Если статус DELIVERED, записываем и не обрабатываем дальше
+            if ("DELIVERED".equals(newStatusCode)) {
+                logger.info("Заказ {} в строке {} доставлен, записываем статус в таблицу", 
+                        trackingNumber, rowNumber);
+                writeStatusToTable(trackingNumber, rowNumber, newStatusCode);
+                updateAmoCrmStatusIfNeeded(row, rowNumber, trackingNumber, newStatusCode);
                 return false;
             }
             
             // Определяем статус заказа
-            CdekOrderStatus orderStatus = CdekOrderStatus.fromCode(statusCode);
+            CdekOrderStatus orderStatus = CdekOrderStatus.fromCode(newStatusCode);
             
-            // Проверяем, является ли статус более чем RECEIVED_AT_SHIPMENT_WAREHOUSE
-            if (isShipped(orderStatus)) {
-                logger.info("Заказ {} в строке {} отправлен (статус: {}), обрабатываем...", 
-                        trackingNumber, rowNumber, statusCode);
+            // Нормализуем текущий статус для сравнения
+            String normalizedCurrentStatus = currentStatusUpper.isEmpty() ? "" : currentStatusUpper;
+            String normalizedNewStatus = newStatusCode.toUpperCase().trim();
+            
+            // Проверяем, изменился ли статус
+            boolean statusChanged = !normalizedCurrentStatus.equals(normalizedNewStatus);
+            
+            if (statusChanged) {
+                logger.info("Статус заказа {} в строке {} изменился: {} -> {}", 
+                        trackingNumber, rowNumber, currentStatus, newStatusCode);
                 
-                // Обрабатываем отправленный заказ
-                processShippedOrder(row, rowNumber, trackingNumber);
-                return true;
+                // Записываем новый статус в таблицу
+                writeStatusToTable(trackingNumber, rowNumber, newStatusCode);
+                
+                // Обновляем статус в AmoCRM, если нужно
+                updateAmoCrmStatusIfNeeded(row, rowNumber, trackingNumber, newStatusCode);
+                
+                // Если заказ отправлен (более чем RECEIVED_AT_SHIPMENT_WAREHOUSE), обрабатываем отправку
+                if (isShipped(orderStatus)) {
+                    logger.info("Заказ {} в строке {} отправлен (статус: {}), обрабатываем...", 
+                            trackingNumber, rowNumber, newStatusCode);
+                    
+                    // Обрабатываем отправленный заказ (добавляем трекер, отправляем сообщение, обновляем статус на SENT)
+                    processShippedOrder(row, rowNumber, trackingNumber);
+                    return true;
+                }
             } else {
-                logger.debug("Заказ {} в строке {} еще не отправлен (статус: {})", 
-                        trackingNumber, rowNumber, statusCode);
+                logger.debug("Статус заказа {} в строке {} не изменился: {}", 
+                        trackingNumber, rowNumber, newStatusCode);
             }
             
         } catch (Exception e) {
@@ -364,5 +398,69 @@ public class OrderShipmentCheckerService {
                     rowNumber, e.getMessage(), e);
         }
     }
+    
+    /**
+     * Обновляет статус сделки в AmoCRM на основе статуса CDEK, если нужно
+     * @param row строка таблицы
+     * @param rowNumber номер строки в таблице (1-based)
+     * @param trackingNumber номер трекера
+     * @param statusCode код статуса CDEK
+     */
+    private void updateAmoCrmStatusIfNeeded(List<Object> row, int rowNumber, String trackingNumber, String statusCode) {
+        try {
+            // Получаем ссылку на сделку из столбца E
+            String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+            
+            if (dealLink == null || dealLink.trim().isEmpty()) {
+                logger.warn("Не найдена ссылка на сделку в столбце E для трекера {} в строке {}", 
+                        trackingNumber, rowNumber);
+                return;
+            }
+            
+            // Извлекаем ID сделки из ссылки
+            Long leadId = extractLeadIdFromUrl(dealLink);
+            if (leadId == null) {
+                logger.warn("Не удалось извлечь ID сделки из ссылки: {} для трекера {} в строке {}", 
+                        dealLink, trackingNumber, rowNumber);
+                return;
+            }
+            
+            // Определяем статус заказа
+            CdekOrderStatus orderStatus = CdekOrderStatus.fromCode(statusCode);
+            
+            // Определяем, какой статус AmoCRM нужно установить
+            AmoLeadStatus targetAmoStatus = null;
+            
+            // Если статус "доставлен" (можно забрать)
+            if (CdekStatusHelper.isDelivered(orderStatus)) {
+                targetAmoStatus = AmoLeadStatus.DELIVERED;
+            }
+            // Если статус "вручен" (клиент забрал)
+            else if (CdekStatusHelper.isHandedTo(orderStatus)) {
+                targetAmoStatus = AmoLeadStatus.REALIZED;
+            }
+            // Если статус "принят на доставку" (после Created)
+            else if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
+                targetAmoStatus = AmoLeadStatus.SENT;
+            }
+            
+            // Обновляем статус в AmoCRM, если нужно
+            if (targetAmoStatus != null) {
+                boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, targetAmoStatus, null);
+                if (statusUpdated) {
+                    logger.info("Статус сделки {} успешно обновлен на '{}' ({}) для трекера {} (статус CDEK: {})", 
+                            leadId, targetAmoStatus.getDescription(), targetAmoStatus.getStatusId(), trackingNumber, statusCode);
+                } else {
+                    logger.warn("Не удалось обновить статус сделки {} на '{}' для трекера {} (статус CDEK: {})", 
+                            leadId, targetAmoStatus.getDescription(), trackingNumber, statusCode);
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("Ошибка при обновлении статуса AmoCRM для трекера {} в строке {}: {}", 
+                    trackingNumber, rowNumber, e.getMessage(), e);
+        }
+    }
+    
 }
 
