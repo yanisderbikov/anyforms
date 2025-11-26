@@ -37,11 +37,11 @@ public class LeadProcessingService {
                 return;
             }
 
-            // Validate lead conditions
-            if (!leadValidationService.isValidLead(lead)) {
-                System.out.println("Lead is not valid: " + leadId);
-                return; // Conditions not met
-            }
+//            // Validate lead conditions
+//            if (!leadValidationService.isValidLead(lead)) {
+//                System.out.println("Lead is not valid: " + leadId);
+//                return; // Conditions not met
+//            }
 
             // Get contact ID from lead
             Long contactId = amoCrmService.getContactIdFromLead(leadId);
