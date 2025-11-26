@@ -98,6 +98,7 @@ public class LeadProcessingService {
     /**
      * Обновляет статус сделки с "Оплачен" на "готов к отправке" если текущий статус соответствует
      * @param lead сделка для проверки и обновления статуса
+     * @throws RuntimeException если в поле PRODUCT_TYPE выбрано 2 объекта
      */
     private void updateStatusIfNeeded(AmoLead lead) {
 
@@ -107,6 +108,12 @@ public class LeadProcessingService {
             System.out.println("Lead " + lead.getId() + " status is not '" + AmoLeadStatus.PAID.getDescription() +
                     "' (current: " + currentStatus.getDescription() + " / " + currentStatusId + "). Skipping status update.");
             return;
+        }
+
+        // Проверяем количество выбранных товаров в поле PRODUCT_TYPE (2482683)
+        int productTypeCount = lead.getCustomFieldValuesCount(AmoCrmFieldId.PRODUCT_TYPE.getId());
+        if (productTypeCount == 2) {
+            throw new RuntimeException("Несколько товаров");
         }
 
         boolean updated = amoCrmService.updateLeadStatus(lead.getId(), AmoLeadStatus.READY_TO_SHIP, lead.getPipelineId());

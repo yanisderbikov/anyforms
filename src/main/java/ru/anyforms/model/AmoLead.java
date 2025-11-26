@@ -74,5 +74,19 @@ public class AmoLead {
                 .anyMatch(f -> f.values != null && f.values.stream()
                         .anyMatch(v -> enumValue.equals(v.value) || enumValue.equals(v.enumCode)));
     }
+
+    /**
+     * Получает количество выбранных значений в мультисписке
+     * @param fieldId ID кастомного поля
+     * @return количество выбранных значений или 0, если поле не найдено или пусто
+     */
+    public int getCustomFieldValuesCount(Long fieldId) {
+        if (customFieldsValues == null) return 0;
+        return customFieldsValues.stream()
+                .filter(f -> f.fieldId != null && f.fieldId.equals(fieldId))
+                .findFirst()
+                .map(f -> f.values != null ? f.values.size() : 0)
+                .orElse(0);
+    }
 }
 

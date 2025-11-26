@@ -1,9 +1,10 @@
-package ru.anyforms.service;
+package ru.anyforms.service.task;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import ru.anyforms.service.OrderShipmentCheckerService;
 
 @Component
 public class OrderShipmentCheckerScheduler {

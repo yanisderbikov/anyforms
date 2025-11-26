@@ -30,7 +30,7 @@ public class CdekStatusHelper {
      * @param status статус заказа CDEK
      * @return true если статус означает "доставлен"
      */
-    public static boolean isDelivered(CdekOrderStatus status) {
+    public static boolean isReadyToPickUp(CdekOrderStatus status) {
         if (status == null || status == CdekOrderStatus.UNKNOWN) {
             return false;
         }
@@ -43,7 +43,7 @@ public class CdekStatusHelper {
      * @param status статус заказа CDEK
      * @return true если статус означает "вручен"
      */
-    public static boolean isHandedTo(CdekOrderStatus status) {
+    public static boolean isDelivered(CdekOrderStatus status) {
         if (status == null || status == CdekOrderStatus.UNKNOWN) {
             return false;
         }
