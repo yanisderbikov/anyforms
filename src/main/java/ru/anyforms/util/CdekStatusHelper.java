@@ -35,7 +35,7 @@ public class CdekStatusHelper {
             return false;
         }
         return status == CdekOrderStatus.DELIVERED_TO_PICKUP_POINT ||
-               status == CdekOrderStatus.ACCEPTED_AT_PICKUP_POINT;
+               status == CdekOrderStatus.ACCEPTED_AT_PICK_UP_POINT;
     }
     
     /**

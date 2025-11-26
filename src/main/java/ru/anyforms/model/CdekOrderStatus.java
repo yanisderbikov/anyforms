@@ -54,7 +54,7 @@ public enum CdekOrderStatus {
     /**
      * Принят в пункте выдачи
      */
-    ACCEPTED_AT_PICKUP_POINT("ACCEPTED_AT_PICKUP_POINT", "Принят в пункте выдачи"),
+    ACCEPTED_AT_PICK_UP_POINT("ACCEPTED_AT_PICK_UP_POINT", "Принят в пункте выдачи"),
     
     /**
      * Доставлен в пункт выдачи

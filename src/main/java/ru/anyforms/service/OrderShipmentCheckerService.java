@@ -233,7 +233,7 @@ public class OrderShipmentCheckerService {
                status == CdekOrderStatus.RECEIVED_AT_DELIVERY_WAREHOUSE ||
                status == CdekOrderStatus.ACCEPTED_AT_DELIVERY_WAREHOUSE ||
                status == CdekOrderStatus.DELIVERED_TO_DELIVERY_WAREHOUSE ||
-               status == CdekOrderStatus.ACCEPTED_AT_PICKUP_POINT ||
+               status == CdekOrderStatus.ACCEPTED_AT_PICK_UP_POINT ||
                status == CdekOrderStatus.DELIVERED_TO_PICKUP_POINT ||
                status == CdekOrderStatus.ISSUED_FOR_DELIVERY ||
                status == CdekOrderStatus.DELIVERED ||
