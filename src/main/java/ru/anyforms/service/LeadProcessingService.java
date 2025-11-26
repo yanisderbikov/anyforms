@@ -1,6 +1,7 @@
 package ru.anyforms.service;
 
 import ru.anyforms.model.AmoContact;
+import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.service.DataExtractionService.ExtractedData;
@@ -60,8 +61,8 @@ public class LeadProcessingService {
             // Convert to Google Sheets format
             List<Object> rowData = dataConversionService.convertToGoogleSheetsRow(extractedData);
 
-            // Get sheet name from lead field 2482683 (multiselect field)
-            String sheetNameFromLead = lead.getCustomFieldValue(2482683L);
+            // Get sheet name from lead field (multiselect field)
+            String sheetNameFromLead = lead.getCustomFieldValue(AmoCrmFieldId.PRODUCT_TYPE.getId());
             // If sheet name is not found in lead, use default from env
             if (sheetNameFromLead == null || sheetNameFromLead.trim().isEmpty()) {
                 sheetNameFromLead = null; // Will use default from GoogleSheetsService

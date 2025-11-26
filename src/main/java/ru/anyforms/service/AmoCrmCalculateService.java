@@ -3,6 +3,7 @@ package ru.anyforms.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
 
 import java.util.HashMap;
@@ -15,12 +16,6 @@ public class AmoCrmCalculateService {
     
     @Value("${amocrm.calculate.base.amount}")
     private Long baseAmount;
-    
-    // ID кастомных полей
-    private static final Long FIELD_MIN_FORMS_COUNT = 2337779L; // Мин-кол-во форм
-    private static final Long FIELD_FORMS_COUNT = 2351399L; // кол-во форм
-    private static final Long FIELD_FORM_PRICE = 2337773L; // Форма
-    private static final Long FIELD_PROJECT_PRICE = 2337775L; // проект
 
     /**
      * Выполняет расчеты для сделки и обновляет поля
@@ -37,8 +32,8 @@ public class AmoCrmCalculateService {
             }
 
             // Получаем значения полей
-            String projectPriceStr = lead.getCustomFieldValue(FIELD_PROJECT_PRICE);
-            String formPriceStr = lead.getCustomFieldValue(FIELD_FORM_PRICE);
+            String projectPriceStr = lead.getCustomFieldValue(AmoCrmFieldId.PROJECT_PRICE.getId());
+            String formPriceStr = lead.getCustomFieldValue(AmoCrmFieldId.FORM_PRICE.getId());
             
             if (projectPriceStr == null || formPriceStr == null) {
                 System.err.println("Required fields are missing for lead " + leadId);
@@ -84,10 +79,10 @@ public class AmoCrmCalculateService {
 
             // Подготавливаем данные для обновления всех полей
             Map<Long, String> customFields = new HashMap<>();
-            customFields.put(FIELD_PROJECT_PRICE, String.valueOf(projectPriceWithMargin)); // Обновляем проект с наценкой
-            customFields.put(FIELD_FORM_PRICE, String.valueOf(formPriceWithMargin)); // Обновляем форму с наценкой
-            customFields.put(FIELD_MIN_FORMS_COUNT, String.valueOf(minFormsCount));
-            customFields.put(FIELD_FORMS_COUNT, String.valueOf(formsCount));
+            customFields.put(AmoCrmFieldId.PROJECT_PRICE.getId(), String.valueOf(projectPriceWithMargin)); // Обновляем проект с наценкой
+            customFields.put(AmoCrmFieldId.FORM_PRICE.getId(), String.valueOf(formPriceWithMargin)); // Обновляем форму с наценкой
+            customFields.put(AmoCrmFieldId.MIN_FORMS_COUNT.getId(), String.valueOf(minFormsCount));
+            customFields.put(AmoCrmFieldId.FORMS_COUNT.getId(), String.valueOf(formsCount));
 
             return amoCrmService.updateLeadFields(leadId, budget, customFields);
         } catch (Exception e) {

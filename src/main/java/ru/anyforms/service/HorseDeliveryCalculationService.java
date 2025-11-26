@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.anyforms.model.AmoContact;
+import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
 
 @Service
@@ -14,11 +15,6 @@ public class HorseDeliveryCalculationService {
     
     private final AmoCrmService amoCrmService;
     private final CdekDeliveryCalculatorService cdekDeliveryCalculatorService;
-    
-    // ID полей в amoCRM
-    private static final Long FIELD_PRODUCT_TYPE = 2482683L; // Тип продукта (объект)
-    private static final Long FIELD_HORSE_COUNT = 2351399L; // Количество лошадок
-    private static final Long FIELD_CONTACT_PVZ = 2370939L; // ПВЗ у контакта
     
     // Значение для "Лошадка"
     private static final String PRODUCT_HORSE = "Лошадка";
@@ -52,14 +48,14 @@ public class HorseDeliveryCalculationService {
             }
             
             // Проверяем, что это объект "Лошадка"
-            String productType = lead.getCustomFieldValue(FIELD_PRODUCT_TYPE);
+            String productType = lead.getCustomFieldValue(AmoCrmFieldId.PRODUCT_TYPE.getId());
             if (productType == null || !productType.contains(PRODUCT_HORSE)) {
                 logger.info("Сделка {} не является объектом 'Лошадка' (тип: {})", leadId, productType);
                 return false;
             }
             
             // Получаем количество лошадок
-            String horseCountStr = lead.getCustomFieldValue(FIELD_HORSE_COUNT);
+            String horseCountStr = lead.getCustomFieldValue(AmoCrmFieldId.HORSE_COUNT.getId());
             if (horseCountStr == null || horseCountStr.trim().isEmpty()) {
                 logger.error("Не указано количество лошадок для сделки {}", leadId);
                 return false;
@@ -108,7 +104,7 @@ public class HorseDeliveryCalculationService {
             }
             
             // Получаем ПВЗ у контакта
-            String pvz = contact.getCustomFieldValue(FIELD_CONTACT_PVZ);
+            String pvz = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ.getId());
             if (pvz == null || pvz.trim().isEmpty()) {
                 logger.error("Не указан ПВЗ у контакта {} для сделки {}", contactId, leadId);
                 return false;

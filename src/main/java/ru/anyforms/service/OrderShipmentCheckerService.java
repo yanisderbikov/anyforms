@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 
@@ -23,9 +24,6 @@ public class OrderShipmentCheckerService {
     private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
     private static final int COLUMN_J_INDEX = 9;  // Колонка J (статус)
     private static final int COLUMN_E_INDEX = 4;  // Колонка E (ссылка на сделку)
-    
-    // ID кастомного поля в CRM для трекера
-    private static final Long TRACKER_FIELD_ID = 2348069L;
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
@@ -228,8 +226,8 @@ public class OrderShipmentCheckerService {
             
             logger.info("Обработка отправленного заказа: трекер {}, сделка {}", trackingNumber, leadId);
             
-            // Добавляем трекер в CRM под id 2348069
-            boolean updated = amoCrmService.updateLeadCustomField(leadId, TRACKER_FIELD_ID, trackingNumber);
+            // Добавляем трекер в CRM
+            boolean updated = amoCrmService.updateLeadCustomField(leadId, AmoCrmFieldId.TRACKER.getId(), trackingNumber);
             if (updated) {
                 logger.info("Трекер {} успешно добавлен в CRM для сделки {}", trackingNumber, leadId);
             } else {
@@ -309,9 +307,61 @@ public class OrderShipmentCheckerService {
             googleSheetsService.writeCell(sheetName, rowNumber, COLUMN_J_INDEX, statusCode);
             logger.info("Статус '{}' записан в колонку J для трекера {} в строке {}", 
                     statusCode, trackingNumber, rowNumber);
+            
+            // Обновляем статус доставки в amoCRM (поле 2601105)
+            updateDeliveryStatusInAmoCrm(rowNumber, statusCode);
         } catch (Exception e) {
             logger.error("Ошибка при записи статуса в таблицу для трекера {} в строке {}: {}", 
                     trackingNumber, rowNumber, e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Обновляет статус доставки в amoCRM (поле 2601105) на основе статуса из Google таблицы
+     * @param rowNumber номер строки в таблице (1-based)
+     * @param statusText текст статуса для записи в amoCRM
+     */
+    private void updateDeliveryStatusInAmoCrm(int rowNumber, String statusText) {
+        try {
+            // Читаем все строки из таблицы
+            List<List<Object>> allRows = googleSheetsService.readAllRows(sheetName);
+            
+            if (allRows == null || allRows.isEmpty() || rowNumber > allRows.size()) {
+                logger.warn("Не удалось обновить статус доставки в amoCRM: строка {} не найдена в таблице", rowNumber);
+                return;
+            }
+            
+            // Получаем строку (rowNumber - 1, так как rowNumber 1-based, а список 0-based)
+            List<Object> row = allRows.get(rowNumber - 1);
+            
+            // Получаем ссылку на сделку из столбца E
+            String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+            
+            if (dealLink == null || dealLink.trim().isEmpty()) {
+                logger.warn("Не найдена ссылка на сделку в столбце E для строки {}, не удалось обновить статус доставки в amoCRM", rowNumber);
+                return;
+            }
+            
+            // Извлекаем ID сделки из ссылки
+            Long leadId = extractLeadIdFromUrl(dealLink);
+            if (leadId == null) {
+                logger.warn("Не удалось извлечь ID сделки из ссылки: {} для строки {}, не удалось обновить статус доставки в amoCRM", dealLink, rowNumber);
+                return;
+            }
+            
+            // Обновляем поле статуса доставки в amoCRM
+            boolean updated = amoCrmService.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_STATUS.getId(), statusText);
+            if (updated) {
+                logger.info("Статус доставки '{}' успешно обновлен в amoCRM (поле {}) для сделки {} в строке {}", 
+                        statusText, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, rowNumber);
+            } else {
+                logger.error("Не удалось обновить статус доставки '{}' в amoCRM (поле {}) для сделки {} в строке {}", 
+                        statusText, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, rowNumber);
+            }
+            
+        } catch (Exception e) {
+            logger.error("Ошибка при обновлении статуса доставки в amoCRM для строки {}: {}", 
+                    rowNumber, e.getMessage(), e);
         }
     }
 }

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CdekWebhook;
@@ -26,9 +27,6 @@ public class CdekWebhookService {
     private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
     private static final int COLUMN_J_INDEX = 9;  // Колонка J (статус)
     private static final int COLUMN_E_INDEX = 4;  // Колонка E (ссылка на сделку)
-    
-    // ID кастомного поля в CRM для трекера
-    private static final Long TRACKER_FIELD_ID = 2348069L;
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
@@ -100,6 +98,9 @@ public class CdekWebhookService {
             
             if (found) {
                 logger.info("Статус '{}' успешно записан в таблицу для трекера {}", statusText, cdekNumber);
+                
+                // Обновляем статус доставки в amoCRM (поле 2601105)
+                updateDeliveryStatusInAmoCrm(cdekNumber, statusText);
                 
                 // Проверяем, является ли статус "принят на доставку" (после Created)
                 // Это может быть ACCEPTED, RECEIVED_AT_SHIPMENT_WAREHOUSE и т.д.
@@ -223,8 +224,8 @@ public class CdekWebhookService {
      */
     private void processAcceptedForDelivery(String trackerNumber) {
         processOrderByTracker(trackerNumber, (leadId, tracker) -> {
-            // Добавляем трекер в CRM под id 2348069
-            boolean updated = amoCrmService.updateLeadCustomField(leadId, TRACKER_FIELD_ID, tracker);
+            // Добавляем трекер в CRM
+            boolean updated = amoCrmService.updateLeadCustomField(leadId, AmoCrmFieldId.TRACKER.getId(), tracker);
             if (updated) {
                 logger.info("Трекер {} успешно добавлен в CRM для сделки {}", tracker, leadId);
             } else {
@@ -334,6 +335,69 @@ public class CdekWebhookService {
                         leadId, AmoLeadStatus.REALIZED.getDescription());
             }
         }, "вручен клиенту");
+    }
+    
+    /**
+     * Обновляет статус доставки в amoCRM (поле 2601105) на основе статуса из Google таблицы
+     * @param trackerNumber номер трекера для поиска строки в таблице
+     * @param statusText текст статуса для записи в amoCRM
+     */
+    private void updateDeliveryStatusInAmoCrm(String trackerNumber, String statusText) {
+        try {
+            // Читаем все строки из таблицы
+            List<List<Object>> allRows = googleSheetsService.readAllRows(sheetName);
+            
+            if (allRows == null || allRows.isEmpty()) {
+                logger.warn("Таблица '{}' пуста, не удалось обновить статус доставки в amoCRM", sheetName);
+                return;
+            }
+            
+            // Ищем строку с нужным трекером (начиная со второй строки, пропуская заголовок)
+            for (int i = 1; i < allRows.size(); i++) {
+                List<Object> row = allRows.get(i);
+                String cellValue = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
+                
+                // Очищаем значения для сравнения (убираем пробелы и дефисы)
+                String cleanedSearchValue = trackerNumber.trim().replaceAll("[\\s-]", "");
+                String cleanedCellValue = cellValue.trim().replaceAll("[\\s-]", "");
+                
+                if (cleanedCellValue.equals(cleanedSearchValue)) {
+                    // Нашли строку с трекером
+                    // Получаем ссылку на сделку из столбца E
+                    String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+                    
+                    if (dealLink == null || dealLink.trim().isEmpty()) {
+                        logger.warn("Не найдена ссылка на сделку в столбце E для трекера {}, не удалось обновить статус доставки в amoCRM", trackerNumber);
+                        return;
+                    }
+                    
+                    // Извлекаем ID сделки из ссылки
+                    Long leadId = extractLeadIdFromUrl(dealLink);
+                    if (leadId == null) {
+                        logger.warn("Не удалось извлечь ID сделки из ссылки: {} для трекера {}, не удалось обновить статус доставки в amoCRM", dealLink, trackerNumber);
+                        return;
+                    }
+                    
+                    // Обновляем поле статуса доставки в amoCRM
+                    boolean updated = amoCrmService.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_STATUS.getId(), statusText);
+                    if (updated) {
+                        logger.info("Статус доставки '{}' успешно обновлен в amoCRM (поле {}) для сделки {} (трекер {})", 
+                                statusText, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, trackerNumber);
+                    } else {
+                        logger.error("Не удалось обновить статус доставки '{}' в amoCRM (поле {}) для сделки {} (трекер {})", 
+                                statusText, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, trackerNumber);
+                    }
+                    
+                    return;
+                }
+            }
+            
+            logger.warn("Не найдена строка с трекером {} в таблице '{}', не удалось обновить статус доставки в amoCRM", trackerNumber, sheetName);
+            
+        } catch (Exception e) {
+            logger.error("Ошибка при обновлении статуса доставки в amoCRM для трекера {}: {}", 
+                    trackerNumber, e.getMessage(), e);
+        }
     }
 }
 
