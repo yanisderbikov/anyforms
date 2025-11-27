@@ -10,12 +10,6 @@ services:
       - "8090:8090"
     env_file:
       - .env
-    environment:
-      # Переопределяем путь к credentials файлу для контейнера
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/copper-moon-457905-b3-d56e0e2cd594.json
-    volumes:
-      # Монтируем credentials файл (опционально, если нужно обновлять без пересборки)
-      - ./src/main/resources/copper-moon-457905-b3-d56e0e2cd594.json:/app/credentials/copper-moon-457905-b3-d56e0e2cd594.json:ro
     restart: unless-stopped
     networks:
       - anyforms-network

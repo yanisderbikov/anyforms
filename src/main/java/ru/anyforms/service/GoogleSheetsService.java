@@ -12,9 +12,11 @@ import com.google.api.services.sheets.v4.model.ValueRange;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.List;
@@ -31,25 +33,20 @@ public class GoogleSheetsService {
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
 
-    @Value("${google.sheets.credentials.path:copper-moon-457905-b3-d56e0e2cd594.json}")
-    private String credentialsPath;
+    @Value("${google.sheets.credentials.json}")
+    private String credentialsJson;
 
     private GoogleCredentials getCredentials() throws IOException {
         InputStream credentialsStream = null;
         
-        // Try to load as absolute file path first
-        java.io.File file = new java.io.File(credentialsPath);
-        if (file.exists() && file.isFile()) {
-            credentialsStream = new FileInputStream(file);
-        } else {
-            // Try to load from resources (relative path)
-            credentialsStream = GoogleSheetsService.class.getResourceAsStream("/" + credentialsPath);
+        // First, try to load from environment variable (JSON content)
+        if (credentialsJson != null && !credentialsJson.trim().isEmpty()) {
+            credentialsStream = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
         }
         
         if (credentialsStream == null) {
-            throw new IOException("Service account credentials not found at: " + credentialsPath + 
-                    ". Please check google.sheets.credentials.path in application.properties or " +
-                    "GOOGLE_APPLICATION_CREDENTIALS environment variable.");
+            throw new IOException("Service account credentials not found. " +
+                    "Please set GOOGLE_CREDENTIALS_JSON environment variable with full JSON content.");
         }
 
         GoogleCredentials credentials = GoogleCredentials.fromStream(credentialsStream)
