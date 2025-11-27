@@ -21,9 +21,6 @@ WORKDIR /app
 # Копируем собранный JAR из стадии сборки
 COPY --from=build /app/target/*.jar app.jar
 
-# Копируем credentials файл (если нужен)
-COPY src/main/resources/copper-moon-457905-b3-d56e0e2cd594.json /app/credentials/
-
 # Открываем порт
 EXPOSE 8090
 
