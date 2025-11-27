@@ -10,9 +10,15 @@ services:
       - "8090:8090"
     env_file:
       - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - anyforms-network
+
+volumes:
+  postgres_data:
 
 networks:
   anyforms-network:

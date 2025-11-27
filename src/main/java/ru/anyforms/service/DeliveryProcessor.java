@@ -22,6 +22,7 @@ public class DeliveryProcessor {
     
     private final GoogleSheetsService googleSheetsService;
     private final AmoCrmService amoCrmService;
+    private final OrderService orderService;
     
     // Индексы колонок (0-based: A=0, B=1, ..., I=8, J=9, E=4)
     private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
@@ -34,9 +35,10 @@ public class DeliveryProcessor {
     // Паттерн для извлечения ID сделки из URL
     private static final Pattern LEAD_ID_PATTERN = Pattern.compile("leads/detail/(\\d+)");
 
-    public DeliveryProcessor(GoogleSheetsService googleSheetsService, AmoCrmService amoCrmService) {
+    public DeliveryProcessor(GoogleSheetsService googleSheetsService, AmoCrmService amoCrmService, OrderService orderService) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
+        this.orderService = orderService;
     }
 
     /**
@@ -180,6 +182,9 @@ public class DeliveryProcessor {
                                 statusText, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, trackerNumber);
                     }
                     
+                    // Обновляем статус в БД
+                    orderService.updateDeliveryStatus(leadId, statusText);
+                    
                     return;
                 }
             }
@@ -235,6 +240,9 @@ public class DeliveryProcessor {
                         statusText, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, rowNumber);
             }
             
+            // Обновляем статус в БД
+            orderService.updateDeliveryStatus(leadId, statusText);
+            
         } catch (Exception e) {
             logger.error("Ошибка при обновлении статуса доставки в amoCRM для строки {}: {}", 
                     rowNumber, e.getMessage(), e);
@@ -259,6 +267,9 @@ public class DeliveryProcessor {
                 logger.error("Не удалось обновить статус доставки '{}' в amoCRM (поле {}) для сделки {} (трекер {})", 
                         statusCode, AmoCrmFieldId.DELIVERY_STATUS.getId(), leadId, trackingNumber);
             }
+            
+            // Обновляем статус в БД
+            orderService.updateDeliveryStatus(leadId, statusCode);
 
             // Определяем статус заказа
             CdekOrderStatus orderStatus = CdekOrderStatus.fromCode(statusCode);
@@ -321,6 +332,9 @@ public class DeliveryProcessor {
                 logger.error("Не удалось добавить трекер {} в CRM для сделки {}", trackerNumber, leadId);
                 return;
             }
+            
+            // Обновляем трекер в БД
+            orderService.setTrackerForOrder(leadId, trackerNumber);
             
             // Отправляем сообщение в мессенджер
 //            String message = "Ваш заказ был отправлен:\n\nТрекер: " + trackerNumber;

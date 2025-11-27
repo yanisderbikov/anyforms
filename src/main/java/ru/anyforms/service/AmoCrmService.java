@@ -508,4 +508,88 @@ public class AmoCrmService {
             return false;
         }
     }
+
+    /**
+     * Получает товары из сделки через API links
+     * @param leadId ID сделки
+     * @return список товаров или пустой список, если товаров нет
+     */
+    public java.util.List<ru.anyforms.model.AmoProduct> getLeadProducts(Long leadId) {
+        try {
+            String url = "/api/v4/leads/" + leadId + "/links?with=catalog_elements";
+            String response = webClient.get()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            if (response == null || response.trim().isEmpty()) {
+                return new java.util.ArrayList<>();
+            }
+
+            JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
+            java.util.List<ru.anyforms.model.AmoProduct> products = new java.util.ArrayList<>();
+
+            // Парсим товары из _embedded.links
+            if (jsonObject.has("_embedded")) {
+                JsonObject embedded = jsonObject.getAsJsonObject("_embedded");
+                if (embedded.has("links")) {
+                    JsonArray links = embedded.getAsJsonArray("links");
+                    if (links != null) {
+                        for (int i = 0; i < links.size(); i++) {
+                            JsonObject link = links.get(i).getAsJsonObject();
+                            
+                            // Проверяем, что это товар из каталога (entity_type = "catalog_elements")
+                            if (link.has("entity_type") && "catalog_elements".equals(link.get("entity_type").getAsString())) {
+                                // Получаем информацию о товаре из _embedded.catalog_elements
+                                if (embedded.has("catalog_elements")) {
+                                    JsonArray catalogElements = embedded.getAsJsonArray("catalog_elements");
+                                    if (catalogElements != null) {
+                                        Long catalogElementId = link.has("to_entity_id") 
+                                                ? link.get("to_entity_id").getAsLong() 
+                                                : null;
+                                        
+                                        for (int j = 0; j < catalogElements.size(); j++) {
+                                            JsonObject element = catalogElements.get(j).getAsJsonObject();
+                                            if (element.has("id") && element.get("id").getAsLong() == catalogElementId) {
+                                                ru.anyforms.model.AmoProduct product = new ru.anyforms.model.AmoProduct();
+                                                product.setId(element.get("id").getAsLong());
+                                                product.setName(element.has("name") ? element.get("name").getAsString() : null);
+                                                
+                                                // Получаем цену и количество из link
+                                                if (link.has("metadata")) {
+                                                    JsonObject metadata = link.getAsJsonObject("metadata");
+                                                    if (metadata.has("quantity")) {
+                                                        product.setQuantity(metadata.get("quantity").getAsInt());
+                                                    }
+                                                    if (metadata.has("price")) {
+                                                        product.setPrice(metadata.get("price").getAsLong());
+                                                    }
+                                                }
+                                                
+                                                // Получаем catalog_id из link
+                                                if (link.has("to_catalog_id")) {
+                                                    product.setCatalogId(link.get("to_catalog_id").getAsLong());
+                                                }
+                                                
+                                                products.add(product);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return products;
+        } catch (Exception e) {
+            System.err.println("Failed to get products from lead " + leadId + ": " + e.getMessage());
+            e.printStackTrace();
+            return new java.util.ArrayList<>();
+        }
+    }
 }

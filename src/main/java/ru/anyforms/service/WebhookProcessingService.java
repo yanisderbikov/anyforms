@@ -13,6 +13,7 @@ public class WebhookProcessingService {
     private final WebhookParserService webhookParserService;
     private final LeadIdExtractionService leadIdExtractionService;
     private final LeadProcessingService leadProcessingService;
+    private final OrderService orderService;
 
     public void processFormDataWebhook(String formData) {
         try {
@@ -24,12 +25,16 @@ public class WebhookProcessingService {
                 List<Long> addLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataAdd(leads);
                 for (Long leadId : addLeadIds) {
                     leadProcessingService.processLead(leadId);
+                    // Синхронизируем заказ в БД
+                    orderService.syncOrderFromAmoCrm(leadId);
                 }
                 
                 // Extract lead IDs from other event types (status, mail_in, etc.)
                 List<Long> eventLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataEvents(leads);
                 for (Long leadId : eventLeadIds) {
                     leadProcessingService.processLead(leadId);
+                    // Синхронизируем заказ в БД
+                    orderService.syncOrderFromAmoCrm(leadId);
                 }
             }
         } catch (Exception e) {
@@ -53,6 +58,8 @@ public class WebhookProcessingService {
         List<Long> leadIds = leadIdExtractionService.extractLeadIdsFromWebhook(webhook);
         for (Long leadId : leadIds) {
             leadProcessingService.processLead(leadId);
+            // Синхронизируем заказ в БД
+            orderService.syncOrderFromAmoCrm(leadId);
         }
     }
 }
