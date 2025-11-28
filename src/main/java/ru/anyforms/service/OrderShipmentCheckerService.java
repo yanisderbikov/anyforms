@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.dto.SetTrackerRequestDTO;
 import ru.anyforms.model.CdekOrderStatus;
 
 import java.util.List;
@@ -15,6 +16,7 @@ public class OrderShipmentCheckerService {
     private final GoogleSheetsService googleSheetsService;
     private final CdekTrackingService cdekTrackingService;
     private final DeliveryProcessor deliveryProcessor;
+    private final OrderService orderService;
     
     // Индексы колонок (0-based: A=0, B=1, ..., I=8, J=9, E=4)
     private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
@@ -25,11 +27,12 @@ public class OrderShipmentCheckerService {
     private String sheetName;
 
     public OrderShipmentCheckerService(GoogleSheetsService googleSheetsService,
-                                      CdekTrackingService cdekTrackingService,
-                                      DeliveryProcessor deliveryProcessor) {
+                                       CdekTrackingService cdekTrackingService,
+                                       DeliveryProcessor deliveryProcessor, OrderService orderService) {
         this.googleSheetsService = googleSheetsService;
         this.cdekTrackingService = cdekTrackingService;
         this.deliveryProcessor = deliveryProcessor;
+        this.orderService = orderService;
     }
 
     /**
@@ -173,6 +176,7 @@ public class OrderShipmentCheckerService {
                 Long leadId = extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
+                    orderService.setTracker(new SetTrackerRequestDTO(leadId, trackingNumber));
                 }
                 
                 // Если заказ отправлен (более чем RECEIVED_AT_SHIPMENT_WAREHOUSE), обрабатываем отправку
