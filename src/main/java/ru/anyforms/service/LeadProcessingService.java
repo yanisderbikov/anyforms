@@ -1,5 +1,6 @@
 package ru.anyforms.service;
 
+import lombok.extern.log4j.Log4j2;
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Log4j2
 @Service
 @RequiredArgsConstructor
 public class LeadProcessingService {
@@ -116,12 +118,17 @@ public class LeadProcessingService {
             throw new RuntimeException("Несколько товаров");
         }
 
-        boolean updated = amoCrmService.updateLeadStatus(lead.getId(), AmoLeadStatus.READY_TO_SHIP, lead.getPipelineId());
-        if (updated) {
-            System.out.println("Successfully changed status for lead " + lead.getId() + 
-                    " from '" + AmoLeadStatus.PAID.getDescription() + "' to '" + AmoLeadStatus.READY_TO_SHIP.getDescription() + "'");
+        // todo check розниц
+        if (lead.getCustomFieldBoolean(AmoCrmFieldId.RETAIL.getId())) {
+            boolean updated = amoCrmService.updateLeadStatus(lead.getId(), AmoLeadStatus.READY_TO_SHIP, lead.getPipelineId());
+            if (updated) {
+                System.out.println("Successfully changed status for lead " + lead.getId() +
+                        " from '" + AmoLeadStatus.PAID.getDescription() + "' to '" + AmoLeadStatus.READY_TO_SHIP.getDescription() + "'");
+            } else {
+                System.err.println("Failed to change status for lead " + lead.getId());
+            }
         } else {
-            System.err.println("Failed to change status for lead " + lead.getId());
+            log.info("Не розница lead id : {}", lead.getId());
         }
     }
 }
