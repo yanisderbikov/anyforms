@@ -510,73 +510,113 @@ public class AmoCrmService {
     }
 
     /**
-     * Получает товары из сделки через API links
+     * Получает товары из сделки через параметр with=catalog_elements и каталог
      * @param leadId ID сделки
      * @return список товаров или пустой список, если товаров нет
      */
     public java.util.List<ru.anyforms.model.AmoProduct> getLeadProducts(Long leadId) {
         try {
-            String url = "/api/v4/leads/" + leadId + "/links?with=catalog_elements";
-            String response = webClient.get()
-                    .uri(url)
+            // Получаем сделку с товарами через параметр with=catalog_elements
+            String leadUrl = "/api/v4/leads/" + leadId + "?with=catalog_elements";
+            String leadResponse = webClient.get()
+                    .uri(leadUrl)
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
-            if (response == null || response.trim().isEmpty()) {
+            if (leadResponse == null || leadResponse.trim().isEmpty()) {
                 return new java.util.ArrayList<>();
             }
 
-            JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
+            JsonObject leadJson = JsonParser.parseString(leadResponse).getAsJsonObject();
             java.util.List<ru.anyforms.model.AmoProduct> products = new java.util.ArrayList<>();
+            java.util.Map<Long, JsonObject> productMetadataMap = new java.util.HashMap<>();
 
-            // Парсим товары из _embedded.links
-            if (jsonObject.has("_embedded")) {
-                JsonObject embedded = jsonObject.getAsJsonObject("_embedded");
-                if (embedded.has("links")) {
-                    JsonArray links = embedded.getAsJsonArray("links");
-                    if (links != null) {
-                        for (int i = 0; i < links.size(); i++) {
-                            JsonObject link = links.get(i).getAsJsonObject();
+            // Извлекаем товары из _embedded.catalog_elements
+            if (leadJson.has("_embedded")) {
+                JsonObject embedded = leadJson.getAsJsonObject("_embedded");
+                if (embedded.has("catalog_elements")) {
+                    JsonArray catalogElements = embedded.getAsJsonArray("catalog_elements");
+                    if (catalogElements != null) {
+                        for (int i = 0; i < catalogElements.size(); i++) {
+                            JsonObject catalogElement = catalogElements.get(i).getAsJsonObject();
+                            Long elementId = catalogElement.has("id") ? catalogElement.get("id").getAsLong() : null;
                             
-                            // Проверяем, что это товар из каталога (entity_type = "catalog_elements")
-                            if (link.has("entity_type") && "catalog_elements".equals(link.get("entity_type").getAsString())) {
-                                // Получаем информацию о товаре из _embedded.catalog_elements
-                                if (embedded.has("catalog_elements")) {
-                                    JsonArray catalogElements = embedded.getAsJsonArray("catalog_elements");
-                                    if (catalogElements != null) {
-                                        Long catalogElementId = link.has("to_entity_id") 
-                                                ? link.get("to_entity_id").getAsLong() 
-                                                : null;
+                            if (elementId != null) {
+                                // Сохраняем metadata для этого товара
+                                productMetadataMap.put(elementId, catalogElement);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (productMetadataMap.isEmpty()) {
+                return products;
+            }
+
+            // Получаем детали товаров (название и т.д.) из каталога
+            Long catalogId = 12983L; // ID каталога из URL
+            java.util.List<Long> productIds = new java.util.ArrayList<>(productMetadataMap.keySet());
+            
+            // AmoCRM API позволяет получить до 250 элементов за раз
+            // Разбиваем на батчи по 250 элементов
+            int batchSize = 250;
+            for (int i = 0; i < productIds.size(); i += batchSize) {
+                int endIndex = Math.min(i + batchSize, productIds.size());
+                java.util.List<Long> batch = productIds.subList(i, endIndex);
+                
+                // Формируем URL с фильтром по ID (формат: filter[id][]=1&filter[id][]=2)
+                StringBuilder urlBuilder = new StringBuilder("/api/v4/catalogs/");
+                urlBuilder.append(catalogId);
+                urlBuilder.append("/elements?");
+                for (int j = 0; j < batch.size(); j++) {
+                    if (j > 0) urlBuilder.append("&");
+                    urlBuilder.append("filter[id][]=").append(batch.get(j));
+                }
+                
+                String catalogUrl = urlBuilder.toString();
+                String catalogResponse = webClient.get()
+                        .uri(catalogUrl)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
+
+                if (catalogResponse != null && !catalogResponse.trim().isEmpty()) {
+                    JsonObject catalogJson = JsonParser.parseString(catalogResponse).getAsJsonObject();
+                    
+                    // Парсим товары из каталога
+                    if (catalogJson.has("_embedded")) {
+                        JsonObject catalogEmbedded = catalogJson.getAsJsonObject("_embedded");
+                        if (catalogEmbedded.has("elements")) {
+                            JsonArray elements = catalogEmbedded.getAsJsonArray("elements");
+                            if (elements != null) {
+                                for (int j = 0; j < elements.size(); j++) {
+                                    JsonObject element = elements.get(j).getAsJsonObject();
+                                    Long elementId = element.has("id") ? element.get("id").getAsLong() : null;
+                                    
+                                    if (elementId != null && productMetadataMap.containsKey(elementId)) {
+                                        ru.anyforms.model.AmoProduct product = new ru.anyforms.model.AmoProduct();
+                                        product.setId(elementId);
+                                        product.setName(element.has("name") ? element.get("name").getAsString() : null);
                                         
-                                        for (int j = 0; j < catalogElements.size(); j++) {
-                                            JsonObject element = catalogElements.get(j).getAsJsonObject();
-                                            if (element.has("id") && element.get("id").getAsLong() == catalogElementId) {
-                                                ru.anyforms.model.AmoProduct product = new ru.anyforms.model.AmoProduct();
-                                                product.setId(element.get("id").getAsLong());
-                                                product.setName(element.has("name") ? element.get("name").getAsString() : null);
-                                                
-                                                // Получаем цену и количество из link
-                                                if (link.has("metadata")) {
-                                                    JsonObject metadata = link.getAsJsonObject("metadata");
-                                                    if (metadata.has("quantity")) {
-                                                        product.setQuantity(metadata.get("quantity").getAsInt());
-                                                    }
-                                                    if (metadata.has("price")) {
-                                                        product.setPrice(metadata.get("price").getAsLong());
-                                                    }
-                                                }
-                                                
-                                                // Получаем catalog_id из link
-                                                if (link.has("to_catalog_id")) {
-                                                    product.setCatalogId(link.get("to_catalog_id").getAsLong());
-                                                }
-                                                
-                                                products.add(product);
-                                                break;
+                                        // Получаем metadata из catalog_elements
+                                        JsonObject catalogElement = productMetadataMap.get(elementId);
+                                        if (catalogElement.has("metadata")) {
+                                            JsonObject metadata = catalogElement.getAsJsonObject("metadata");
+                                            if (metadata.has("quantity")) {
+                                                product.setQuantity(metadata.get("quantity").getAsInt());
                                             }
+                                            if (metadata.has("catalog_id")) {
+                                                product.setCatalogId(metadata.get("catalog_id").getAsLong());
+                                            }
+                                            // Цена может быть в metadata.price или нужно получать из price_id
+                                            // Пока оставляем null, если нужно - можно получить из каталога
                                         }
+                                        
+                                        products.add(product);
                                     }
                                 }
                             }
