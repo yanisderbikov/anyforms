@@ -20,7 +20,7 @@ public class SheetRowCheckerScheduler {
      * Периодическая проверка строк в Google Sheets
      * Выполняется каждую минуту (60000 миллисекунд)
      */
-    @Scheduled(fixedRate = 3_600_000) // 1 минута = 60000 мс
+//    @Scheduled(fixedRate = 3_600_000) // 1 минута = 60000 мс
     public void checkSheetRows() {
         logger.debug("Запуск периодической проверки строк в таблице");
         sheetRowCheckerService.checkNextRow();
