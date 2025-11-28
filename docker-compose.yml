@@ -10,10 +10,6 @@ services:
       - "8090:8090"
     env_file:
       - .env
-
-    # Лимит контейнера по памяти — 512 МБ
-    mem_limit: 512m
-
     restart: unless-stopped
     networks:
       - anyforms-network
