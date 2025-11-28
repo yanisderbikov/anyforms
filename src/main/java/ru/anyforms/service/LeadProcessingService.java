@@ -1,5 +1,6 @@
 package ru.anyforms.service;
 
+import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
@@ -17,9 +18,9 @@ public class LeadProcessingService {
     private final CacheService cacheService;
     private final AmoCrmService amoCrmService;
     private final GoogleSheetsService googleSheetsService;
-    private final LeadValidationService leadValidationService;
     private final DataExtractionService dataExtractionService;
     private final DataConversionService dataConversionService;
+    private final OrderService orderService;
 
     /**
      * Обрабатывает лид: проверяет кэш, валидирует, извлекает данные и добавляет в Google Sheets
@@ -87,6 +88,7 @@ public class LeadProcessingService {
 
             // Add to cache
             cacheService.addLead(leadId);
+            orderService.syncOrder(new SyncOrderRequestDTO(leadId));
 
         } catch (Exception e) {
             // Log error but don't throw to avoid breaking webhook processing
