@@ -5,6 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.anyforms.dto.ApiResponseDTO;
+import ru.anyforms.dto.OrderItemDTO;
+import ru.anyforms.dto.OrderSummaryDTO;
+import ru.anyforms.dto.SetTrackerRequestDTO;
+import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoLead;
 import ru.anyforms.model.AmoProduct;
@@ -102,6 +107,42 @@ public class OrderService {
     }
 
     /**
+     * Получает все заказы без трекера в виде DTO
+     */
+    public List<OrderSummaryDTO> getOrdersWithoutTrackerDTOs() {
+        List<Order> orders = orderRepository.findOrdersWithoutTracker();
+        return orders.stream()
+                .map(this::convertToOrderSummaryDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Конвертирует Order в OrderSummaryDTO
+     */
+    private OrderSummaryDTO convertToOrderSummaryDTO(Order order) {
+        OrderSummaryDTO dto = new OrderSummaryDTO();
+        dto.setLeadId(order.getLeadId());
+        dto.setContactId(order.getContactId());
+        dto.setContactName(order.getContactName());
+        dto.setContactPhone(order.getContactPhone());
+        dto.setItems(order.getItems().stream()
+                .map(this::convertToOrderItemDTO)
+                .collect(Collectors.toList()));
+        return dto;
+    }
+
+    /**
+     * Конвертирует OrderItem в OrderItemDTO
+     */
+    private OrderItemDTO convertToOrderItemDTO(OrderItem item) {
+        OrderItemDTO dto = new OrderItemDTO();
+        dto.setProductName(item.getProductName());
+        dto.setQuantity(item.getQuantity());
+        dto.setProductId(item.getProductId());
+        return dto;
+    }
+
+    /**
      * Получает заказ по ID сделки
      */
     public Optional<Order> getOrderByLeadId(Long leadId) {
@@ -145,6 +186,53 @@ public class OrderService {
     }
 
     /**
+     * Устанавливает трекер для заказа через DTO
+     * Валидирует запрос и возвращает результат в виде DTO
+     */
+    public ApiResponseDTO setTracker(SetTrackerRequestDTO request) {
+        if (request.getLeadId() == null) {
+            return new ApiResponseDTO(null, "LeadId is required", null, null, null);
+        }
+
+        String tracker = request.getTracker();
+        if (tracker == null || tracker.trim().isEmpty()) {
+            return new ApiResponseDTO(null, "Tracker is required", null, null, null);
+        }
+
+        try {
+            boolean success = setTrackerForOrder(request.getLeadId(), tracker.trim());
+            if (!success) {
+                return new ApiResponseDTO(false, "Failed to set tracker", null, null, null);
+            }
+            return new ApiResponseDTO(true, null, request.getLeadId(), tracker, null);
+        } catch (Exception e) {
+            logger.error("Error setting tracker: {}", e.getMessage(), e);
+            return new ApiResponseDTO(false, e.getMessage(), null, null, null);
+        }
+    }
+
+    /**
+     * Синхронизирует заказ из AmoCRM через DTO
+     * Валидирует запрос и возвращает результат в виде DTO
+     */
+    public ApiResponseDTO syncOrder(SyncOrderRequestDTO request) {
+        if (request.getLeadId() == null) {
+            return new ApiResponseDTO(null, "LeadId is required", null, null, null);
+        }
+
+        try {
+            Order order = syncOrderFromAmoCrm(request.getLeadId());
+            if (order == null) {
+                return new ApiResponseDTO(false, "Order not found or failed to sync", null, null, null);
+            }
+            return new ApiResponseDTO(true, null, request.getLeadId(), null, order.getItems().size());
+        } catch (Exception e) {
+            logger.error("Error syncing order: {}", e.getMessage(), e);
+            return new ApiResponseDTO(false, e.getMessage(), null, null, null);
+        }
+    }
+
+    /**
      * Обновляет статус доставки в заказе и в AmoCRM
      */
     @Transactional
@@ -178,4 +266,5 @@ public class OrderService {
         }
     }
 }
+
 
