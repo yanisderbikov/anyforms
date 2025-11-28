@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.util.GoogleSheetsColumnIndex;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,11 +15,6 @@ public class SheetRowCheckerService {
     
     private final GoogleSheetsService googleSheetsService;
     private final CdekTrackingService cdekTrackingService;
-    
-    // Индексы колонок (0-based: A=0, B=1, ..., F=5, I=8, J=9)
-    private static final int COLUMN_F_INDEX = 5;  // Колонка F
-    private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
-    private static final int COLUMN_J_INDEX = 9;  // Колонка J
     
     // Слова, которые не должны быть в колонке F
     private static final String[] EXCLUDED_DELIVERY_TYPES = {"Лично", "курьер", "Курьер", "личная", "Личная"};
@@ -107,9 +103,9 @@ public class SheetRowCheckerService {
         }
         
         // Получаем значения из нужных колонок
-        String columnF = googleSheetsService.getCellValue(row, COLUMN_F_INDEX);
-        String columnI = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
-        String columnJ = googleSheetsService.getCellValue(row, COLUMN_J_INDEX);
+        String columnF = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_F_INDEX);
+        String columnI = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
+        String columnJ = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
         
         // Проверка 1: Колонка I должна содержать валидный трекер
         if (columnI.isEmpty() || !cdekTrackingService.isValidTrackingNumber(columnI)) {
@@ -141,7 +137,7 @@ public class SheetRowCheckerService {
      * Обрабатывает строку: проверяет статус трекера в СДЭК и логирует результат
      */
     private void processRow(List<Object> row, int rowNumber) {
-        String trackingNumber = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
+        String trackingNumber = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
         
         logger.info("Обработка строки {}: проверка статуса трекера СДЭК {}", rowNumber, trackingNumber);
         

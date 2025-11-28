@@ -3,6 +3,7 @@ package ru.anyforms.service;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.ApiResponseDTO;
@@ -16,9 +17,12 @@ import ru.anyforms.model.AmoProduct;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.repository.OrderRepository;
+import ru.anyforms.util.GoogleSheetsColumnIndex;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,8 +30,15 @@ import java.util.stream.Collectors;
 public class OrderService {
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     
+    // Паттерн для извлечения ID сделки из URL
+    private static final Pattern LEAD_ID_PATTERN = Pattern.compile("leads/detail/(\\d+)");
+    
     private final OrderRepository orderRepository;
     private final AmoCrmService amoCrmService;
+    private final GoogleSheetsService googleSheetsService;
+    
+    @Value("${google.sheets.sheet.name:Лошадка тест}")
+    private String sheetName;
 
     /**
      * Синхронизирует заказ из AmoCRM в БД
@@ -259,11 +270,92 @@ public class OrderService {
                 logger.info("Delivery status updated for order: leadId={}, status={}", leadId, status);
             }
 
+            // Записываем трекер в Google таблицу
+            writeTrackerToGoogleSheet(leadId, order.getTracker());
+
             return updated;
         } catch (Exception e) {
             logger.error("Error updating delivery status for order leadId {}: {}", leadId, e.getMessage(), e);
             return false;
         }
+    }
+
+    /**
+     * Записывает трекер в Google таблицу в столбец с трекером
+     * Находит строку по leadId в столбце E (ссылка на сделку) и записывает трекер в столбец I
+     * @param leadId ID сделки
+     * @param tracker номер трекера для записи
+     */
+    private void writeTrackerToGoogleSheet(Long leadId, String tracker) {
+        if (leadId == null) {
+            logger.warn("Cannot write tracker to Google Sheet: leadId is null");
+            return;
+        }
+
+        if (tracker == null || tracker.trim().isEmpty()) {
+            logger.debug("Tracker is empty for leadId {}, skipping Google Sheet update", leadId);
+            return;
+        }
+
+        try {
+            // Читаем все строки из таблицы
+            List<List<Object>> allRows = googleSheetsService.readAllRows(sheetName);
+
+            if (allRows == null || allRows.isEmpty()) {
+                logger.warn("Таблица '{}' пуста, не удалось записать трекер для leadId {}", sheetName, leadId);
+                return;
+            }
+
+            // Ищем строку с нужным leadId (начиная со второй строки, пропуская заголовок)
+            for (int i = 1; i < allRows.size(); i++) {
+                List<Object> row = allRows.get(i);
+                String dealLink = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_E_INDEX);
+
+                if (dealLink == null || dealLink.trim().isEmpty()) {
+                    continue;
+                }
+
+                // Извлекаем ID сделки из ссылки
+                Long rowLeadId = extractLeadIdFromUrl(dealLink);
+                if (rowLeadId == null || !rowLeadId.equals(leadId)) {
+                    continue;
+                }
+
+                // Нашли строку с нужным leadId, записываем трекер в столбец I
+                int rowNumber = i + 1; // Номер строки в таблице (1-based)
+                googleSheetsService.writeCell(sheetName, rowNumber, GoogleSheetsColumnIndex.COLUMN_I_INDEX, tracker.trim());
+                logger.info("Tracker written to Google Sheet: leadId={}, tracker={}, row={}", leadId, tracker, rowNumber);
+                return;
+            }
+
+            logger.warn("Строка с leadId {} не найдена в таблице '{}'", leadId, sheetName);
+        } catch (Exception e) {
+            logger.error("Ошибка при записи трекера в Google таблицу для leadId {}: {}", 
+                    leadId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Извлекает ID сделки из URL
+     * @param url ссылка на сделку (например, https://hairdoskeels38.amocrm.ru/leads/detail/123456)
+     * @return ID сделки или null, если не удалось извлечь
+     */
+    private Long extractLeadIdFromUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return null;
+        }
+
+        Matcher matcher = LEAD_ID_PATTERN.matcher(url);
+        if (matcher.find()) {
+            try {
+                return Long.parseLong(matcher.group(1));
+            } catch (NumberFormatException e) {
+                logger.warn("Не удалось преобразовать ID сделки в число: {}", matcher.group(1));
+                return null;
+            }
+        }
+
+        return null;
     }
 }
 

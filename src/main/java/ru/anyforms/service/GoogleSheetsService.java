@@ -11,6 +11,7 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.util.GoogleSheetsColumnIndex;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -82,9 +83,6 @@ public class GoogleSheetsService {
             return 1; // Таблица пустая, начинаем с первой строки
         }
         
-        // Столбец K имеет индекс 10 (A=0, B=1, ..., K=10)
-        final int COLUMN_K_INDEX = 10;
-        
         // Ищем первую пустую строку (игнорируя столбец K)
         for (int i = 0; i < values.size(); i++) {
             List<Object> row = values.get(i);
@@ -97,7 +95,7 @@ public class GoogleSheetsService {
             boolean isEmpty = true;
             for (int j = 0; j < row.size(); j++) {
                 // Пропускаем столбец K
-                if (j == COLUMN_K_INDEX) {
+                if (j == GoogleSheetsColumnIndex.COLUMN_K_INDEX) {
                     continue;
                 }
                 
@@ -195,13 +193,10 @@ public class GoogleSheetsService {
             return false;
         }
         
-        // Столбец K имеет индекс 10 (A=0, B=1, ..., K=10)
-        final int COLUMN_K_INDEX = 10;
-        
         // Проверяем, есть ли хотя бы одна заполненная ячейка (кроме K)
         for (int i = 0; i < row.size(); i++) {
             // Пропускаем столбец K
-            if (i == COLUMN_K_INDEX) {
+            if (i == GoogleSheetsColumnIndex.COLUMN_K_INDEX) {
                 continue;
             }
             

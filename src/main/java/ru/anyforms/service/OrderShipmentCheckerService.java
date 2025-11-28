@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.SetTrackerRequestDTO;
 import ru.anyforms.model.CdekOrderStatus;
+import ru.anyforms.util.GoogleSheetsColumnIndex;
 
 import java.util.List;
 
@@ -17,11 +18,6 @@ public class OrderShipmentCheckerService {
     private final CdekTrackingService cdekTrackingService;
     private final DeliveryProcessor deliveryProcessor;
     private final OrderService orderService;
-    
-    // Индексы колонок (0-based: A=0, B=1, ..., I=8, J=9, E=4)
-    private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
-    private static final int COLUMN_J_INDEX = 9;  // Колонка J (статус)
-    private static final int COLUMN_E_INDEX = 4;  // Колонка E (ссылка на сделку)
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
@@ -65,7 +61,7 @@ public class OrderShipmentCheckerService {
                 // Проверяем условия
                 if (shouldProcessRow(row, rowNumber)) {
                     processedCount++;
-                    String trackingNumber = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
+                    String trackingNumber = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
                     
                     logger.info("Проверка заказа в строке {}: трекер {}", rowNumber, trackingNumber);
                     
@@ -94,8 +90,8 @@ public class OrderShipmentCheckerService {
             return false;
         }
         
-        String columnI = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
-        String columnJ = googleSheetsService.getCellValue(row, COLUMN_J_INDEX);
+        String columnI = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
+        String columnJ = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
         
         // Проверка 1: Колонка I должна содержать валидный трекер
         if (columnI.isEmpty() || !cdekTrackingService.isValidTrackingNumber(columnI)) {
@@ -120,7 +116,7 @@ public class OrderShipmentCheckerService {
     private boolean checkAndProcessShippedOrder(List<Object> row, int rowNumber, String trackingNumber) {
         try {
             // Получаем текущий статус из колонки J
-            String currentStatus = googleSheetsService.getCellValue(row, COLUMN_J_INDEX);
+            String currentStatus = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
             String currentStatusUpper = currentStatus.toUpperCase().trim();
             
             // Получаем новый статус из СДЭК
@@ -251,7 +247,7 @@ public class OrderShipmentCheckerService {
      */
     private Long extractLeadIdFromRow(List<Object> row) {
         // Получаем ссылку на сделку из столбца E
-        String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+        String dealLink = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_E_INDEX);
         
         if (dealLink == null || dealLink.trim().isEmpty()) {
             return null;

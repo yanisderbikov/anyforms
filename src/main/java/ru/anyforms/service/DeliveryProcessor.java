@@ -8,6 +8,7 @@ import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.util.CdekStatusHelper;
+import ru.anyforms.util.GoogleSheetsColumnIndex;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -23,11 +24,6 @@ public class DeliveryProcessor {
     private final GoogleSheetsService googleSheetsService;
     private final AmoCrmService amoCrmService;
     private final OrderService orderService;
-    
-    // Индексы колонок (0-based: A=0, B=1, ..., I=8, J=9, E=4)
-    private static final int COLUMN_I_INDEX = 8;  // Колонка I (трекер)
-    private static final int COLUMN_J_INDEX = 9;  // Колонка J (статус)
-    private static final int COLUMN_E_INDEX = 4;  // Колонка E (ссылка на сделку)
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
@@ -89,9 +85,9 @@ public class DeliveryProcessor {
             // Сначала обновляем в таблице
             boolean found = googleSheetsService.findAndWriteCell(
                     sheetName,
-                    COLUMN_I_INDEX,  // Ищем в колонке I (трекер)
+                    GoogleSheetsColumnIndex.COLUMN_I_INDEX,  // Ищем в колонке I (трекер)
                     trackerNumber,   // По номеру трекера
-                    COLUMN_J_INDEX,  // Записываем в колонку J
+                    GoogleSheetsColumnIndex.COLUMN_J_INDEX,  // Записываем в колонку J
                     statusText       // Статус
             );
 
@@ -119,7 +115,7 @@ public class DeliveryProcessor {
     public void updateStatusInTableAndAmoCrm(int rowNumber, String statusText) {
         try {
             // Сначала обновляем в таблице
-            googleSheetsService.writeCell(sheetName, rowNumber, COLUMN_J_INDEX, statusText);
+            googleSheetsService.writeCell(sheetName, rowNumber, GoogleSheetsColumnIndex.COLUMN_J_INDEX, statusText);
             logger.info("Статус '{}' записан в колонку J для строки {}", statusText, rowNumber);
 
             // Теперь обновляем в AmoCRM
@@ -149,7 +145,7 @@ public class DeliveryProcessor {
             // Ищем строку с нужным трекером (начиная со второй строки, пропуская заголовок)
             for (int i = 1; i < allRows.size(); i++) {
                 List<Object> row = allRows.get(i);
-                String cellValue = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
+                String cellValue = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
                 
                 // Очищаем значения для сравнения (убираем пробелы и дефисы)
                 String cleanedSearchValue = trackerNumber.trim().replaceAll("[\\s-]", "");
@@ -158,7 +154,7 @@ public class DeliveryProcessor {
                 if (cleanedCellValue.equals(cleanedSearchValue)) {
                     // Нашли строку с трекером
                     // Получаем ссылку на сделку из столбца E
-                    String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+                    String dealLink = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_E_INDEX);
                     
                     if (dealLink == null || dealLink.trim().isEmpty()) {
                         logger.warn("Не найдена ссылка на сделку в столбце E для трекера {}, не удалось обновить статус доставки в amoCRM", trackerNumber);
@@ -216,7 +212,7 @@ public class DeliveryProcessor {
             List<Object> row = allRows.get(rowNumber - 1);
             
             // Получаем ссылку на сделку из столбца E
-            String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+            String dealLink = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_E_INDEX);
             
             if (dealLink == null || dealLink.trim().isEmpty()) {
                 logger.warn("Не найдена ссылка на сделку в столбце E для строки {}, не удалось обновить статус доставки в amoCRM", rowNumber);
@@ -440,7 +436,7 @@ public class DeliveryProcessor {
             // Ищем строку с нужным трекером (начиная со второй строки, пропуская заголовок)
             for (int i = 1; i < allRows.size(); i++) {
                 List<Object> row = allRows.get(i);
-                String cellValue = googleSheetsService.getCellValue(row, COLUMN_I_INDEX);
+                String cellValue = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
                 
                 // Очищаем значения для сравнения (убираем пробелы и дефисы)
                 String cleanedSearchValue = trackerNumber.trim().replaceAll("[\\s-]", "");
@@ -451,7 +447,7 @@ public class DeliveryProcessor {
                     logger.info("Найдена строка с трекером {} в таблице", trackerNumber);
                     
                     // Получаем ссылку на сделку из столбца E
-                    String dealLink = googleSheetsService.getCellValue(row, COLUMN_E_INDEX);
+                    String dealLink = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_E_INDEX);
                     
                     if (dealLink == null || dealLink.trim().isEmpty()) {
                         logger.warn("Не найдена ссылка на сделку в столбце E для трекера {}", trackerNumber);
