@@ -19,6 +19,9 @@ import ru.anyforms.model.OrderItem;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.util.GoogleSheetsColumnIndex;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -90,6 +93,19 @@ public class OrderService {
             String deliveryStatus = lead.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.DELIVERY_STATUS.getId());
             order.setDeliveryStatus(deliveryStatus);
 
+            // Получаем ПВЗ СДЭК из контакта
+            String pvzSdek = contact.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.CONTACT_PVZ.getId());
+            order.setPvzSdek(pvzSdek);
+
+            // Получаем дату покупки из сделки
+            String datePaymentValue = lead.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.DATE_PAYMENT.getId());
+            if (datePaymentValue != null && !datePaymentValue.trim().isEmpty()) {
+                LocalDateTime purchaseDate = parseDateFromAmoCrm(datePaymentValue);
+                order.setPurchaseDate(purchaseDate);
+            } else {
+                order.setPurchaseDate(null);
+            }
+
             // Обновляем товары
             order.getItems().clear();
             for (AmoProduct product : products) {
@@ -119,10 +135,16 @@ public class OrderService {
 
     /**
      * Получает все заказы без трекера в виде DTO
+     * Сортирует по дате создания: сверху самое старое, снизу самое новое
      */
     public List<OrderSummaryDTO> getOrdersWithoutTrackerDTOs() {
         List<Order> orders = orderRepository.findOrdersWithoutTracker();
         return orders.stream()
+                .sorted((o1, o2) -> {
+                    LocalDateTime date1 = o1.getCreatedAt() != null ? o1.getCreatedAt() : LocalDateTime.MIN;
+                    LocalDateTime date2 = o2.getCreatedAt() != null ? o2.getCreatedAt() : LocalDateTime.MIN;
+                    return date1.compareTo(date2);
+                })
                 .map(this::convertToOrderSummaryDTO)
                 .collect(Collectors.toList());
     }
@@ -136,10 +158,37 @@ public class OrderService {
         dto.setContactId(order.getContactId());
         dto.setContactName(order.getContactName());
         dto.setContactPhone(order.getContactPhone());
+        dto.setPvzSdek(order.getPvzSdek());
+        dto.setPurchaseDate(order.getPurchaseDate());
         dto.setItems(order.getItems().stream()
                 .map(this::convertToOrderItemDTO)
                 .collect(Collectors.toList()));
         return dto;
+    }
+    
+    /**
+     * Парсит дату из значения поля AmoCRM
+     * Поддерживает timestamp (Unix timestamp в секундах или миллисекундах)
+     */
+    private LocalDateTime parseDateFromAmoCrm(String dateValue) {
+        if (dateValue == null || dateValue.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // Пытаемся распарсить как timestamp (Unix timestamp в секундах или миллисекундах)
+            long timestamp;
+            if (dateValue.length() > 10) {
+                timestamp = Long.parseLong(dateValue) / 1000; // Предполагаем миллисекунды
+            } else {
+                timestamp = Long.parseLong(dateValue);
+            }
+            return Instant.ofEpochSecond(timestamp)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+        } catch (Exception e) {
+            logger.warn("Failed to parse date from AmoCRM value '{}': {}", dateValue, e.getMessage());
+            return null;
+        }
     }
 
     /**

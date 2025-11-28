@@ -80,7 +80,7 @@ public class DeliveryProcessor {
      * @param trackerNumber номер трекера для поиска строки в таблице
      * @param statusText текст статуса для записи
      */
-    public void updateStatusInTableAndAmoCrm(String trackerNumber, String statusText) {
+    public void updateStatus(String trackerNumber, String statusText) {
         try {
             // Сначала обновляем в таблице
             boolean found = googleSheetsService.findAndWriteCell(
@@ -112,14 +112,14 @@ public class DeliveryProcessor {
      * @param rowNumber номер строки в таблице (1-based)
      * @param statusText текст статуса для записи
      */
-    public void updateStatusInTableAndAmoCrm(int rowNumber, String statusText) {
+    public void updateStatus(int rowNumber, String statusText) {
         try {
             // Сначала обновляем в таблице
             googleSheetsService.writeCell(sheetName, rowNumber, GoogleSheetsColumnIndex.COLUMN_J_INDEX, statusText);
             logger.info("Статус '{}' записан в колонку J для строки {}", statusText, rowNumber);
 
             // Теперь обновляем в AmoCRM
-            updateDeliveryStatusInAmoCrmByRowNumber(rowNumber, statusText);
+            updateDeliveryStatusInAmoCrmAndBDByRowNumber(rowNumber, statusText);
 
         } catch (Exception e) {
             logger.error("Ошибка при обновлении статуса в таблице и AmoCRM для строки {}: {}", 
@@ -198,7 +198,7 @@ public class DeliveryProcessor {
      * @param rowNumber номер строки в таблице (1-based)
      * @param statusText текст статуса для записи в amoCRM
      */
-    private void updateDeliveryStatusInAmoCrmByRowNumber(int rowNumber, String statusText) {
+    private void updateDeliveryStatusInAmoCrmAndBDByRowNumber(int rowNumber, String statusText) {
         try {
             // Читаем все строки из таблицы
             List<List<Object>> allRows = googleSheetsService.readAllRows(sheetName);

@@ -35,6 +35,12 @@ public class Order {
     @Column(name = "delivery_status")
     private String deliveryStatus;
 
+    @Column(name = "pvz_sdek")
+    private String pvzSdek;
+
+    @Column(name = "purchase_date")
+    private LocalDateTime purchaseDate;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

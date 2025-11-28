@@ -69,7 +69,7 @@ public class CdekWebhookService {
             CdekOrderStatus orderStatus = CdekOrderStatus.fromCode(statusCode);
             
             // Обновляем статус в таблице и в AmoCRM одновременно
-            deliveryProcessor.updateStatusInTableAndAmoCrm(cdekNumber, statusText);
+            deliveryProcessor.updateStatus(cdekNumber, statusText);
 
             // Проверяем, является ли статус "принят на доставку" (после Created)
             // Это может быть ACCEPTED, RECEIVED_AT_SHIPMENT_WAREHOUSE и т.д.

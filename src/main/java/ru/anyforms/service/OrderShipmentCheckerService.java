@@ -50,9 +50,6 @@ public class OrderShipmentCheckerService {
                 return;
             }
             
-            int processedCount = 0;
-            int shippedCount = 0;
-            
             // Обрабатываем строки начиная со второй (пропускаем заголовок)
             for (int i = 1; i < allRows.size(); i++) {
                 List<Object> row = allRows.get(i);
@@ -60,19 +57,14 @@ public class OrderShipmentCheckerService {
                 
                 // Проверяем условия
                 if (shouldProcessRow(row, rowNumber)) {
-                    processedCount++;
                     String trackingNumber = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
                     
                     logger.info("Проверка заказа в строке {}: трекер {}", rowNumber, trackingNumber);
-                    
-                    // Проверяем статус заказа в СДЭК
-                    if (checkAndProcessShippedOrder(row, rowNumber, trackingNumber)) {
-                        shippedCount++;
-                    }
+                    checkAndProcessShippedOrder(row, rowNumber, trackingNumber);
                 }
             }
             
-            logger.info("Проверка завершена. Обработано заказов: {}, отправлено: {}", processedCount, shippedCount);
+            logger.info("Проверка завершена. ");
             
         } catch (Exception e) {
             logger.error("Ошибка при проверке заказов на отправку: {}", e.getMessage(), e);
@@ -131,7 +123,7 @@ public class OrderShipmentCheckerService {
             if (CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode().equals(newStatusCode)) {
                 logger.info("Заказ {} в строке {} не найден или доставлен, записываем статус в таблицу", 
                         trackingNumber, rowNumber);
-                deliveryProcessor.updateStatusInTableAndAmoCrm(rowNumber, newStatusCode);
+                deliveryProcessor.updateStatus(rowNumber, newStatusCode);
                 Long leadId = extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
@@ -143,7 +135,7 @@ public class OrderShipmentCheckerService {
             if (CdekOrderStatus.DELIVERED.getCode().equals(newStatusCode)) {
                 logger.info("Заказ {} в строке {} доставлен, записываем статус в таблицу", 
                         trackingNumber, rowNumber);
-                deliveryProcessor.updateStatusInTableAndAmoCrm(rowNumber, newStatusCode);
+                deliveryProcessor.updateStatus(rowNumber, newStatusCode);
                 Long leadId = extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
@@ -166,7 +158,7 @@ public class OrderShipmentCheckerService {
                         trackingNumber, rowNumber, currentStatus, newStatusCode);
                 
                 // Обновляем статус в таблице и в AmoCRM одновременно
-                deliveryProcessor.updateStatusInTableAndAmoCrm(rowNumber, newStatusCode);
+                deliveryProcessor.updateStatus(rowNumber, newStatusCode);
                 
                 // Обновляем статус в AmoCRM, если нужно
                 Long leadId = extractLeadIdFromRow(row);
