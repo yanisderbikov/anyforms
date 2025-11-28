@@ -1,6 +1,7 @@
 package ru.anyforms.service;
 
 import ru.anyforms.model.AmoContact;
+import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
 import ru.anyforms.model.AmoLeadStatus;
 import com.google.gson.Gson;
@@ -77,17 +78,32 @@ public class AmoCrmService {
 
             // amoCRM API returns single entity directly or in _embedded.contacts array
             JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
+            AmoContact contact = null;
             if (jsonObject.has("_embedded")) {
                 JsonObject embedded = jsonObject.getAsJsonObject("_embedded");
                 if (embedded.has("contacts")) {
                     var contacts = embedded.getAsJsonArray("contacts");
                     if (contacts != null && contacts.size() > 0) {
-                        return gson.fromJson(contacts.get(0), AmoContact.class);
+                        contact = gson.fromJson(contacts.get(0), AmoContact.class);
                     }
                 }
             }
             // Try to parse as direct object
-            return gson.fromJson(jsonObject, AmoContact.class);
+            if (contact == null) {
+                contact = gson.fromJson(jsonObject, AmoContact.class);
+            }
+            
+            // Устанавливаем телефон из кастомного поля
+            if (contact != null) {
+                String phoneValue = contact.getCustomFieldValue(AmoCrmFieldId.PHONE.getId());
+                if (phoneValue != null) {
+                    AmoContact.Phone phone = new AmoContact.Phone();
+                    phone.setValue(phoneValue);
+                    contact.setPhone(java.util.Collections.singletonList(phone));
+                }
+            }
+            
+            return contact;
         } catch (Exception e) {
             throw new RuntimeException("Failed to get contact from amoCRM", e);
         }
