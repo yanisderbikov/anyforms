@@ -112,5 +112,13 @@ public class OrderController {
                 : response.getSuccess() ? HttpStatus.OK : HttpStatus.NOT_FOUND;
         return ResponseEntity.status(status).body(response);
     }
+
+    @PostMapping("/sync/list")
+    public ResponseEntity<Void> syncOrder(@RequestBody List<SyncOrderRequestDTO> list) {
+        for (var request : list) {
+            orderService.syncOrder(request);
+        }
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
 }
 

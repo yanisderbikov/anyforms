@@ -1,11 +1,11 @@
 package ru.anyforms.controller;
 
-import ru.anyforms.service.WebhookProcessingService;
-import ru.anyforms.service.CdekWebhookService;
 import ru.anyforms.service.AmoCrmCalculateService;
-import ru.anyforms.service.WebhookParserService;
-import ru.anyforms.service.LeadIdExtractionService;
-import ru.anyforms.service.HorseDeliveryCalculationService;
+import ru.anyforms.service.AmoCrmWebhookService;
+import ru.anyforms.service.CdekWebhookService;
+import ru.anyforms.util.WebhookParserService;
+import ru.anyforms.util.amo.JsonLeadIdExtractionService;
+import ru.anyforms.service.impl.HorseDeliveryCalculationService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
@@ -17,24 +17,24 @@ import java.util.Map;
 @RestController
 @RequestMapping("/webhook")
 public class WebhookController {
-    private final WebhookProcessingService webhookProcessingService;
+    private final AmoCrmWebhookService webhookProcessingService;
     private final CdekWebhookService cdekWebhookService;
     private final AmoCrmCalculateService amoCrmCalculateService;
     private final WebhookParserService webhookParserService;
-    private final LeadIdExtractionService leadIdExtractionService;
+    private final JsonLeadIdExtractionService jsonLeadIdExtractionService;
     private final HorseDeliveryCalculationService horseDeliveryCalculationService;
 
-    public WebhookController(WebhookProcessingService webhookProcessingService,
+    public WebhookController(AmoCrmWebhookService webhookProcessingService,
                              CdekWebhookService cdekWebhookService,
                              AmoCrmCalculateService amoCrmCalculateService,
                              WebhookParserService webhookParserService,
-                             LeadIdExtractionService leadIdExtractionService,
+                             JsonLeadIdExtractionService jsonLeadIdExtractionService,
                              HorseDeliveryCalculationService horseDeliveryCalculationService) {
         this.webhookProcessingService = webhookProcessingService;
         this.cdekWebhookService = cdekWebhookService;
         this.amoCrmCalculateService = amoCrmCalculateService;
         this.webhookParserService = webhookParserService;
-        this.leadIdExtractionService = leadIdExtractionService;
+        this.jsonLeadIdExtractionService = jsonLeadIdExtractionService;
         this.horseDeliveryCalculationService = horseDeliveryCalculationService;
     }
 
@@ -129,8 +129,8 @@ public class WebhookController {
             }
             
             // Извлекаем lead IDs из всех типов событий (как в processFormDataWebhook)
-            List<Long> addLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataAdd(leads);
-            List<Long> eventLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataEvents(leads);
+            List<Long> addLeadIds = jsonLeadIdExtractionService.extractLeadIdsFromFormDataAdd(leads);
+            List<Long> eventLeadIds = jsonLeadIdExtractionService.extractLeadIdsFromFormDataEvents(leads);
             
             // Объединяем все lead IDs
             List<Long> allLeadIds = new java.util.ArrayList<>();
@@ -161,83 +161,6 @@ public class WebhookController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Error processing calculation: " + e.getMessage());
-        }
-    }
-
-    @PostMapping(value = "/delivery", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<String> handleHorseDeliveryCalculation(
-            @RequestParam(required = false) MultiValueMap<String, String> formData,
-            @RequestBody(required = false) String body) {
-        try {
-            String formDataString = null;
-            
-            if (formData != null && !formData.isEmpty()) {
-                // Handle form-urlencoded data
-                StringBuilder formDataBuilder = new StringBuilder();
-                formData.forEach((key, values) -> {
-                    values.forEach(value -> {
-                        if (formDataBuilder.length() > 0) {
-                            formDataBuilder.append("&");
-                        }
-                        formDataBuilder.append(key).append("=").append(value);
-                    });
-                });
-                formDataString = formDataBuilder.toString();
-            } else if (body != null && !body.isEmpty()) {
-                // Handle URL-encoded string (not JSON, as per user request - only formData processing)
-                if (!body.trim().startsWith("{")) {
-                    formDataString = body;
-                } else {
-                    return ResponseEntity.badRequest().body("Only form-data format is supported for horse-delivery endpoint");
-                }
-            } else {
-                return ResponseEntity.badRequest().body("No data received");
-            }
-            
-            // Используем ту же логику парсинга, что и в /amocrm
-            Map<String, Object> parsed = webhookParserService.parseFormDataWebhook(formDataString);
-            Map<String, Object> leads = webhookParserService.extractLeadsFromFormData(parsed);
-            
-            if (leads == null) {
-                return ResponseEntity.badRequest().body("No leads data found in webhook");
-            }
-            
-            // Извлекаем lead IDs из всех типов событий
-            List<Long> addLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataAdd(leads);
-            List<Long> eventLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataEvents(leads);
-            
-            // Объединяем все lead IDs
-            List<Long> allLeadIds = new java.util.ArrayList<>();
-            allLeadIds.addAll(addLeadIds);
-            allLeadIds.addAll(eventLeadIds);
-            
-            if (allLeadIds.isEmpty()) {
-                return ResponseEntity.badRequest().body("No lead IDs found in webhook");
-            }
-            
-            // Выполняем расчет доставки для каждого lead ID
-            int successCount = 0;
-            int failCount = 0;
-            int skippedCount = 0;
-            for (Long leadId : allLeadIds) {
-                boolean success = horseDeliveryCalculationService.calculateAndAddNote(leadId);
-                if (success) {
-                    successCount++;
-                } else {
-                    // Проверяем, была ли это ошибка или просто не подходит под условия (не лошадка)
-                    // В сервисе уже есть логика проверки, поэтому считаем как fail только реальные ошибки
-                    failCount++;
-                }
-            }
-            
-            if (failCount == 0) {
-                return ResponseEntity.ok("Delivery calculation completed successfully for " + successCount + " lead(s)");
-            } else {
-                return ResponseEntity.status(500).body("Delivery calculation completed for " + successCount + " lead(s), failed for " + failCount + " lead(s)");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Error processing horse delivery calculation: " + e.getMessage());
         }
     }
 }

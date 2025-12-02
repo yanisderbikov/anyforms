@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.service.impl;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import jakarta.annotation.PostConstruct;
+import ru.anyforms.integration.CdekTrackingGateway;
+
 import java.time.Duration;
 
 @Service
@@ -18,7 +20,7 @@ public class CdekWebhookSubscriptionService {
     
     private static final String CDEK_WEBHOOKS_URL = "https://api.cdek.ru/v2/webhooks";
     
-    private final CdekTrackingService cdekTrackingService;
+    private final CdekTrackingGateway cdekTrackingService;
     private final WebClient webClient;
     private final Gson gson;
     
@@ -31,7 +33,7 @@ public class CdekWebhookSubscriptionService {
     @Value("${sdek.auto.subscribe:true}")
     private boolean autoSubscribe;
 
-    public CdekWebhookSubscriptionService(CdekTrackingService cdekTrackingService) {
+    public CdekWebhookSubscriptionService(CdekTrackingGateway cdekTrackingService) {
         this.cdekTrackingService = cdekTrackingService;
         this.webClient = WebClient.builder()
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))

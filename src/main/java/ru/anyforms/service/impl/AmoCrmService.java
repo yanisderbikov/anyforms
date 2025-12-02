@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.service.impl;
 
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoCrmFieldId;
@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+@Deprecated
 @Service
 public class AmoCrmService {
     private WebClient webClient;

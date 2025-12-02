@@ -1,5 +1,7 @@
-package ru.anyforms.service;
+package ru.anyforms.integration.impl;
 
+import ru.anyforms.integration.GoogleSheetsGateway;
+import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -10,11 +12,9 @@ import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import ru.anyforms.util.GoogleSheetsColumnIndex;
+import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -22,8 +22,8 @@ import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.List;
 
-@Service
-public class GoogleSheetsService {
+@Component
+class GoogleSheetsApiGateway implements GoogleSheetsGateway {
     private static final String APPLICATION_NAME = "AmoCRM Webhook Service";
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final List<String> SCOPES = Collections.singletonList(SheetsScopes.SPREADSHEETS);
@@ -56,7 +56,7 @@ public class GoogleSheetsService {
         return credentials;
     }
 
-    public Sheets getSheetsService() throws GeneralSecurityException, IOException {
+    private Sheets getSheetsService() throws GeneralSecurityException, IOException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         GoogleCredentials credentials = getCredentials();
         return new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, new HttpCredentialsAdapter(credentials))
@@ -67,8 +67,6 @@ public class GoogleSheetsService {
     /**
      * Находит следующую свободную строку в таблице
      * Игнорирует столбец K при проверке - если заполнен только K, строка считается свободной
-     * @param sheetName имя листа для поиска
-     * @return номер следующей свободной строки (1-based)
      */
     private int findNextEmptyRow(Sheets service, String sheetName) throws IOException {
         // Читаем данные из таблицы (все столбцы до Z)
@@ -115,10 +113,12 @@ public class GoogleSheetsService {
         return values.size() + 1;
     }
 
+    @Override
     public void appendRow(List<Object> rowData) {
         appendRow(rowData, "Под заказ");
     }
 
+    @Override
     public void appendRow(List<Object> rowData, String sheetName) {
         try {
             Sheets service = getSheetsService();
@@ -142,11 +142,7 @@ public class GoogleSheetsService {
         }
     }
 
-    /**
-     * Читает все строки из указанного листа
-     * @param sheetName имя листа
-     * @return список строк, где каждая строка - это список значений ячеек
-     */
+    @Override
     public List<List<Object>> readAllRows(String sheetName) {
         try {
             Sheets service = getSheetsService();
@@ -161,20 +157,12 @@ public class GoogleSheetsService {
         }
     }
 
-    /**
-     * Читает все строки из листа по умолчанию
-     * @return список строк
-     */
+    @Override
     public List<List<Object>> readAllRows() {
         return readAllRows(sheetName);
     }
 
-    /**
-     * Получает значение ячейки из строки по индексу колонки
-     * @param row строка данных
-     * @param columnIndex индекс колонки (0-based: A=0, B=1, ..., I=8, J=9)
-     * @return значение ячейки или пустая строка
-     */
+    @Override
     public String getCellValue(List<Object> row, int columnIndex) {
         if (row == null || columnIndex < 0 || columnIndex >= row.size()) {
             return "";
@@ -183,11 +171,7 @@ public class GoogleSheetsService {
         return value != null ? value.toString().trim() : "";
     }
 
-    /**
-     * Проверяет, является ли строка заполненной (игнорируя колонку K)
-     * @param row строка данных
-     * @return true если строка заполнена (хотя бы одна ячейка кроме K)
-     */
+    @Override
     public boolean isRowFilled(List<Object> row) {
         if (row == null || row.isEmpty()) {
             return false;
@@ -209,12 +193,7 @@ public class GoogleSheetsService {
         return false;
     }
 
-    /**
-     * Читает последние N заполненных строк из указанного листа (игнорируя колонку K)
-     * @param sheetName имя листа
-     * @param count количество последних заполненных строк для возврата
-     * @return список последних N заполненных строк
-     */
+    @Override
     public List<List<Object>> readLastFilledRows(String sheetName, int count) {
         try {
             Sheets service = getSheetsService();
@@ -249,22 +228,12 @@ public class GoogleSheetsService {
         }
     }
 
-    /**
-     * Читает последние N заполненных строк из листа по умолчанию
-     * @param count количество последних заполненных строк для возврата
-     * @return список последних N заполненных строк
-     */
+    @Override
     public List<List<Object>> readLastFilledRows(int count) {
         return readLastFilledRows(sheetName, count);
     }
 
-    /**
-     * Записывает значение в конкретную ячейку таблицы
-     * @param sheetName имя листа
-     * @param rowNumber номер строки (1-based)
-     * @param columnIndex индекс колонки (0-based: A=0, B=1, ..., J=9)
-     * @param value значение для записи
-     */
+    @Override
     public void writeCell(String sheetName, int rowNumber, int columnIndex, String value) {
         try {
             Sheets service = getSheetsService();
@@ -286,25 +255,12 @@ public class GoogleSheetsService {
         }
     }
 
-    /**
-     * Записывает значение в конкретную ячейку листа по умолчанию
-     * @param rowNumber номер строки (1-based)
-     * @param columnIndex индекс колонки (0-based: A=0, B=1, ..., J=9)
-     * @param value значение для записи
-     */
+    @Override
     public void writeCell(int rowNumber, int columnIndex, String value) {
         writeCell(sheetName, rowNumber, columnIndex, value);
     }
 
-    /**
-     * Находит строку по значению в указанной колонке и записывает значение в другую колонку
-     * @param sheetName имя листа
-     * @param searchColumnIndex индекс колонки для поиска (0-based)
-     * @param searchValue значение для поиска
-     * @param writeColumnIndex индекс колонки для записи (0-based)
-     * @param writeValue значение для записи
-     * @return true если строка найдена и значение записано
-     */
+    @Override
     public boolean findAndWriteCell(String sheetName, int searchColumnIndex, String searchValue, 
                                      int writeColumnIndex, String writeValue) {
         try {
@@ -337,9 +293,7 @@ public class GoogleSheetsService {
         }
     }
 
-    /**
-     * Находит строку по значению в указанной колонке и записывает значение в другую колонку (лист по умолчанию)
-     */
+    @Override
     public boolean findAndWriteCell(int searchColumnIndex, String searchValue, 
                                      int writeColumnIndex, String writeValue) {
         return findAndWriteCell(sheetName, searchColumnIndex, searchValue, writeColumnIndex, writeValue);
@@ -347,8 +301,6 @@ public class GoogleSheetsService {
 
     /**
      * Преобразует индекс колонки в букву (A, B, C, ..., Z, AA, AB, ...)
-     * @param columnIndex индекс колонки (0-based: A=0, B=1, ..., J=9)
-     * @return буква колонки
      */
     private String getColumnLetter(int columnIndex) {
         StringBuilder result = new StringBuilder();

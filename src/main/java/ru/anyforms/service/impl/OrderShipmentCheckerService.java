@@ -1,34 +1,38 @@
-package ru.anyforms.service;
+package ru.anyforms.service.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.SetTrackerRequestDTO;
 import ru.anyforms.model.CdekOrderStatus;
-import ru.anyforms.util.GoogleSheetsColumnIndex;
+import ru.anyforms.service.DeliveryProcessor;
+import ru.anyforms.service.OrderService;
+import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
+import ru.anyforms.util.sheets.SheetRowExtractorUtil;
 
 import java.util.List;
 
+@Log4j2
 @Service
 public class OrderShipmentCheckerService {
-    private static final Logger logger = LoggerFactory.getLogger(OrderShipmentCheckerService.class);
-    
-    private final GoogleSheetsService googleSheetsService;
-    private final CdekTrackingService cdekTrackingService;
+
+    private final ru.anyforms.integration.GoogleSheetsGateway googleSheetsGateway;
+    private final ru.anyforms.integration.CdekTrackingGateway cdekTrackingGateway;
     private final DeliveryProcessor deliveryProcessor;
     private final OrderService orderService;
+    private final SheetRowExtractorUtil sheetRowExtractorUtil;
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
 
-    public OrderShipmentCheckerService(GoogleSheetsService googleSheetsService,
-                                       CdekTrackingService cdekTrackingService,
-                                       DeliveryProcessor deliveryProcessor, OrderService orderService) {
-        this.googleSheetsService = googleSheetsService;
-        this.cdekTrackingService = cdekTrackingService;
+    public OrderShipmentCheckerService(ru.anyforms.integration.GoogleSheetsGateway googleSheetsGateway,
+                                       ru.anyforms.integration.CdekTrackingGateway cdekTrackingGateway,
+                                       DeliveryProcessor deliveryProcessor, OrderService orderService, SheetRowExtractorUtil sheetRowExtractorUtil) {
+        this.googleSheetsGateway = googleSheetsGateway;
+        this.cdekTrackingGateway = cdekTrackingGateway;
         this.deliveryProcessor = deliveryProcessor;
         this.orderService = orderService;
+        this.sheetRowExtractorUtil = sheetRowExtractorUtil;
     }
 
     /**
@@ -40,13 +44,13 @@ public class OrderShipmentCheckerService {
      */
     public void checkAllOrdersForShipment() {
         try {
-            logger.info("Начало проверки всех заказов на отправку в таблице '{}'", sheetName);
+            log.info("Начало проверки всех заказов на отправку в таблице '{}'", sheetName);
             
             // Читаем все строки из таблицы
-            List<List<Object>> allRows = googleSheetsService.readAllRows(sheetName);
+            List<List<Object>> allRows = googleSheetsGateway.readAllRows(sheetName);
             
             if (allRows == null || allRows.isEmpty()) {
-                logger.info("В таблице '{}' нет строк", sheetName);
+                log.info("В таблице '{}' нет строк", sheetName);
                 return;
             }
             
@@ -57,17 +61,17 @@ public class OrderShipmentCheckerService {
                 
                 // Проверяем условия
                 if (shouldProcessRow(row, rowNumber)) {
-                    String trackingNumber = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
+                    String trackingNumber = googleSheetsGateway.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
                     
-                    logger.info("Проверка заказа в строке {}: трекер {}", rowNumber, trackingNumber);
+                    log.info("Проверка заказа в строке {}: трекер {}", rowNumber, trackingNumber);
                     checkAndProcessShippedOrder(row, rowNumber, trackingNumber);
                 }
             }
             
-            logger.info("Проверка завершена. ");
+            log.info("Проверка завершена. ");
             
         } catch (Exception e) {
-            logger.error("Ошибка при проверке заказов на отправку: {}", e.getMessage(), e);
+            log.error("Ошибка при проверке заказов на отправку: {}", e.getMessage(), e);
         }
     }
     
@@ -82,11 +86,11 @@ public class OrderShipmentCheckerService {
             return false;
         }
         
-        String columnI = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
-        String columnJ = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
+        String columnI = googleSheetsGateway.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_I_INDEX);
+        String columnJ = googleSheetsGateway.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
         
         // Проверка 1: Колонка I должна содержать валидный трекер
-        if (columnI.isEmpty() || !cdekTrackingService.isValidTrackingNumber(columnI)) {
+        if (columnI.isEmpty() || !cdekTrackingGateway.isValidTrackingNumber(columnI)) {
             return false;
         }
         
@@ -108,23 +112,23 @@ public class OrderShipmentCheckerService {
     private boolean checkAndProcessShippedOrder(List<Object> row, int rowNumber, String trackingNumber) {
         try {
             // Получаем текущий статус из колонки J
-            String currentStatus = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
+            String currentStatus = googleSheetsGateway.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_J_INDEX);
             String currentStatusUpper = currentStatus.toUpperCase().trim();
             
             // Получаем новый статус из СДЭК
-            String newStatusCode = cdekTrackingService.getOrderStatusCode(trackingNumber);
+            String newStatusCode = cdekTrackingGateway.getOrderStatusCode(trackingNumber);
             
             if (newStatusCode == null || newStatusCode.isEmpty()) {
-                logger.warn("Не удалось получить статус для трекера {} в строке {}", trackingNumber, rowNumber);
+                log.warn("Не удалось получить статус для трекера {} в строке {}", trackingNumber, rowNumber);
                 return false;
             }
             
             // Если заказ не найден или доставлен, записываем статус в таблицу и не обрабатываем дальше
             if (CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode().equals(newStatusCode)) {
-                logger.info("Заказ {} в строке {} не найден или доставлен, записываем статус в таблицу", 
+                log.info("Заказ {} в строке {} не найден или доставлен, записываем статус в таблицу",
                         trackingNumber, rowNumber);
                 deliveryProcessor.updateStatus(rowNumber, newStatusCode);
-                Long leadId = extractLeadIdFromRow(row);
+                Long leadId = sheetRowExtractorUtil.extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
                 }
@@ -133,10 +137,10 @@ public class OrderShipmentCheckerService {
             
             // Если статус DELIVERED, записываем и не обрабатываем дальше
             if (CdekOrderStatus.DELIVERED.getCode().equals(newStatusCode)) {
-                logger.info("Заказ {} в строке {} доставлен, записываем статус в таблицу", 
+                log.info("Заказ {} в строке {} доставлен, записываем статус в таблицу",
                         trackingNumber, rowNumber);
                 deliveryProcessor.updateStatus(rowNumber, newStatusCode);
-                Long leadId = extractLeadIdFromRow(row);
+                Long leadId = sheetRowExtractorUtil.extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
                 }
@@ -154,14 +158,14 @@ public class OrderShipmentCheckerService {
             boolean statusChanged = !normalizedCurrentStatus.equals(normalizedNewStatus);
             
             if (statusChanged) {
-                logger.info("Статус заказа {} в строке {} изменился: {} -> {}", 
+                log.info("Статус заказа {} в строке {} изменился: {} -> {}",
                         trackingNumber, rowNumber, currentStatus, newStatusCode);
                 
                 // Обновляем статус в таблице и в AmoCRM одновременно
                 deliveryProcessor.updateStatus(rowNumber, newStatusCode);
                 
                 // Обновляем статус в AmoCRM, если нужно
-                Long leadId = extractLeadIdFromRow(row);
+                Long leadId = sheetRowExtractorUtil.extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
                     orderService.setTracker(new SetTrackerRequestDTO(leadId, trackingNumber));
@@ -169,7 +173,7 @@ public class OrderShipmentCheckerService {
                 
                 // Если заказ отправлен (более чем RECEIVED_AT_SHIPMENT_WAREHOUSE), обрабатываем отправку
                 if (isShipped(orderStatus)) {
-                    logger.info("Заказ {} в строке {} отправлен (статус: {}), обрабатываем...", 
+                    log.info("Заказ {} в строке {} отправлен (статус: {}), обрабатываем...",
                             trackingNumber, rowNumber, newStatusCode);
                     
                     // Обрабатываем отправленный заказ (добавляем трекер, отправляем сообщение, обновляем статус на SENT)
@@ -181,12 +185,12 @@ public class OrderShipmentCheckerService {
                     return true;
                 }
             } else {
-                logger.debug("Статус заказа {} в строке {} не изменился: {}", 
+                log.debug("Статус заказа {} в строке {} не изменился: {}",
                         trackingNumber, rowNumber, newStatusCode);
             }
             
         } catch (Exception e) {
-            logger.error("Ошибка при проверке статуса заказа {} в строке {}: {}", 
+            log.error("Ошибка при проверке статуса заказа {} в строке {}: {}",
                     trackingNumber, rowNumber, e.getMessage(), e);
         }
         
@@ -231,22 +235,5 @@ public class OrderShipmentCheckerService {
                status == CdekOrderStatus.DELIVERED ||
                status == CdekOrderStatus.HANDED_TO;
     }
-    
-    /**
-     * Извлекает ID сделки из строки таблицы
-     * @param row строка таблицы
-     * @return ID сделки или null, если не удалось извлечь
-     */
-    private Long extractLeadIdFromRow(List<Object> row) {
-        // Получаем ссылку на сделку из столбца E
-        String dealLink = googleSheetsService.getCellValue(row, GoogleSheetsColumnIndex.COLUMN_E_INDEX);
-        
-        if (dealLink == null || dealLink.trim().isEmpty()) {
-            return null;
-        }
-        
-        return deliveryProcessor.extractLeadIdFromUrl(dealLink);
-    }
-    
 }
 

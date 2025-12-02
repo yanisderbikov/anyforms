@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.util;
 
 import ru.anyforms.model.AmoWebhook;
 import ru.anyforms.util.FormDataParser;

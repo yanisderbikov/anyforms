@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.util.amo;
 
 import org.springframework.stereotype.Service;
 

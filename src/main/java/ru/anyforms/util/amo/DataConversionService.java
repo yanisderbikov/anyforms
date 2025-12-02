@@ -1,6 +1,6 @@
-package ru.anyforms.service;
+package ru.anyforms.util.amo;
 
-import ru.anyforms.service.DataExtractionService.ExtractedData;
+import ru.anyforms.util.amo.DataExtractionService.ExtractedData;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

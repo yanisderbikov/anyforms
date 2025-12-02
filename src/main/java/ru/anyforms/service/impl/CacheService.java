@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.service.impl;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;

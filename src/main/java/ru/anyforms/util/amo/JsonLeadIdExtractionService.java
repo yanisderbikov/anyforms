@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.util.amo;
 
 import ru.anyforms.model.AmoWebhook;
 import org.springframework.stereotype.Service;
@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-public class LeadIdExtractionService {
+public class JsonLeadIdExtractionService {
 
     /**
      * Извлекает все ID лидов из AmoWebhook объекта

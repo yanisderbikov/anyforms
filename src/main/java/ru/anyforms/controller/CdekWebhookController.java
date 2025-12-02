@@ -2,7 +2,7 @@ package ru.anyforms.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.anyforms.service.CdekWebhookSubscriptionService;
+import ru.anyforms.service.impl.CdekWebhookSubscriptionService;
 
 @RestController
 @RequestMapping("/api/cdek")

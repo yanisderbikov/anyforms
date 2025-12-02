@@ -1,19 +1,21 @@
-package ru.anyforms.service;
+package ru.anyforms.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
 
 @Service
 @RequiredArgsConstructor
+@Deprecated
 public class HorseDeliveryCalculationService {
     private static final Logger logger = LoggerFactory.getLogger(HorseDeliveryCalculationService.class);
     
-    private final AmoCrmService amoCrmService;
+    private final AmoCrmGateway amoCrmService;
     private final CdekDeliveryCalculatorService cdekDeliveryCalculatorService;
     
     // Значение для "Лошадка"

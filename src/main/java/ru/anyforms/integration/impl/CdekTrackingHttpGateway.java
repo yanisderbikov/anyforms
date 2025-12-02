@@ -1,23 +1,22 @@
-package ru.anyforms.service;
+package ru.anyforms.integration.impl;
 
+import ru.anyforms.integration.CdekTrackingGateway;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-import ru.anyforms.model.CdekOrderStatus;
 
 import java.time.Duration;
 import java.time.Instant;
 
-@Service
-public class CdekTrackingService {
-    private static final Logger logger = LoggerFactory.getLogger(CdekTrackingService.class);
+@Component
+class CdekTrackingHttpGateway implements CdekTrackingGateway {
+    private static final Logger logger = LoggerFactory.getLogger(CdekTrackingHttpGateway.class);
     private static final String CDEK_ORDERS_URL = "https://api.cdek.ru/v2/orders";
     private static final String CDEK_AUTH_URL = "https://api.cdek.ru/v2/oauth/token";
     
@@ -34,18 +33,14 @@ public class CdekTrackingService {
     private String accessToken;
     private Instant tokenExpiresAt;
 
-    public CdekTrackingService() {
+    public CdekTrackingHttpGateway() {
         this.webClient = WebClient.builder()
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
                 .build();
         this.gson = new Gson();
     }
 
-    /**
-     * Проверяет статус трекера СДЭК через API /v2/orders
-     * @param trackingNumber номер трекера
-     * @return статус доставки или null в случае ошибки
-     */
+    @Override
     public String checkTrackingStatus(String trackingNumber) {
         try {
             logger.info("Проверка статуса трекера СДЭК: {}", trackingNumber);
@@ -78,10 +73,7 @@ public class CdekTrackingService {
         }
     }
     
-    /**
-     * Получает токен доступа через OAuth 2.0
-     * Используется для работы с вебхуками
-     */
+    @Override
     public String getAccessToken() {
         // Проверяем, есть ли валидный токен в кэше
         if (accessToken != null && tokenExpiresAt != null && Instant.now().isBefore(tokenExpiresAt)) {
@@ -200,7 +192,6 @@ public class CdekTrackingService {
     
     /**
      * Форматирует дату и время из ISO формата в читаемый вид
-     * Пример: "2025-11-25T09:31:23+0000" -> "25.11.2025 09:31"
      */
     private String formatDateTime(String dateTimeStr) {
         try {
@@ -231,11 +222,7 @@ public class CdekTrackingService {
         return dateTimeStr;
     }
 
-    /**
-     * Получает код статуса заказа из API СДЭК
-     * @param trackingNumber номер трекера
-     * @return код статуса или null в случае ошибки
-     */
+    @Override
     public String getOrderStatusCode(String trackingNumber) {
         try {
             logger.debug("Получение кода статуса для трекера СДЭК: {}", trackingNumber);
@@ -260,8 +247,9 @@ public class CdekTrackingService {
                     .header("Content-Type", "application/json")
                     .retrieve()
                     .onStatus(status -> status.value() == 400, clientResponse -> {
-                        logger.info("Заказ {} не найден (ошибка 400), возвращаем статус {}", CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode(), cleanTrackingNumber);
-                        return Mono.error(new RuntimeException(CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode()));
+                        logger.info("Заказ {} не найден (ошибка 400), возвращаем статус {}", 
+                                ru.anyforms.model.CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode(), cleanTrackingNumber);
+                        return Mono.error(new RuntimeException(ru.anyforms.model.CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode()));
                     })
                     .bodyToMono(String.class)
                     .timeout(Duration.ofSeconds(10))
@@ -275,8 +263,8 @@ public class CdekTrackingService {
             return null;
             
         } catch (RuntimeException e) {
-            if (CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode().equals(e.getMessage())) {
-                return CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode();
+            if (ru.anyforms.model.CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode().equals(e.getMessage())) {
+                return ru.anyforms.model.CdekOrderStatus.NOT_FOUND_OR_DELIVERED.getCode();
             }
             logger.error("Ошибка при получении кода статуса трекера СДЭК {}: {}", trackingNumber, e.getMessage(), e);
             return null;
@@ -322,11 +310,7 @@ public class CdekTrackingService {
         }
     }
 
-    /**
-     * Проверяет, является ли строка валидным трекером СДЭК (набор цифр)
-     * @param value значение для проверки
-     * @return true если это валидный трекер
-     */
+    @Override
     public boolean isValidTrackingNumber(String value) {
         if (value == null || value.trim().isEmpty()) {
             return false;

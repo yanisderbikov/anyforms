@@ -1,17 +1,22 @@
-package ru.anyforms.service;
+package ru.anyforms.service.impl;
 
 import ru.anyforms.model.AmoWebhook;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import ru.anyforms.service.AmoCrmWebhookService;
+import ru.anyforms.service.LeadProcessingService;
+import ru.anyforms.service.OrderService;
+import ru.anyforms.util.WebhookParserService;
+import ru.anyforms.util.amo.JsonLeadIdExtractionService;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class WebhookProcessingService {
+class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private final WebhookParserService webhookParserService;
-    private final LeadIdExtractionService leadIdExtractionService;
+    private final JsonLeadIdExtractionService jsonLeadIdExtraction;
     private final LeadProcessingService leadProcessingService;
     private final OrderService orderService;
 
@@ -22,19 +27,15 @@ public class WebhookProcessingService {
             
             if (leads != null) {
                 // Extract lead IDs from "add" events
-                List<Long> addLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataAdd(leads);
+                List<Long> addLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataAdd(leads);
                 for (Long leadId : addLeadIds) {
-                    leadProcessingService.processLead(leadId);
-                    // Синхронизируем заказ в БД
-                    orderService.syncOrderFromAmoCrm(leadId);
+                    leadProcessingService.addLeadToOrderAndGoogleSheet(leadId);
                 }
                 
                 // Extract lead IDs from other event types (status, mail_in, etc.)
-                List<Long> eventLeadIds = leadIdExtractionService.extractLeadIdsFromFormDataEvents(leads);
+                List<Long> eventLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataEvents(leads);
                 for (Long leadId : eventLeadIds) {
-                    leadProcessingService.processLead(leadId);
-                    // Синхронизируем заказ в БД
-                    orderService.syncOrderFromAmoCrm(leadId);
+                    leadProcessingService.addLeadToOrderAndGoogleSheet(leadId);
                 }
             }
         } catch (Exception e) {
@@ -55,9 +56,9 @@ public class WebhookProcessingService {
 
 
     public void processWebhook(AmoWebhook webhook) {
-        List<Long> leadIds = leadIdExtractionService.extractLeadIdsFromWebhook(webhook);
+        List<Long> leadIds = jsonLeadIdExtraction.extractLeadIdsFromWebhook(webhook);
         for (Long leadId : leadIds) {
-            leadProcessingService.processLead(leadId);
+            leadProcessingService.addLeadToOrderAndGoogleSheet(leadId);
             // Синхронизируем заказ в БД
             orderService.syncOrderFromAmoCrm(leadId);
         }
