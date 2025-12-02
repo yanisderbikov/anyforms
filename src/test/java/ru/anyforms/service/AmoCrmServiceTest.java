@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.service.impl.AmoCrmService;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AmoCrmServiceTest {
 
     @Autowired
-    private AmoCrmService amoCrmService;
+    private AmoCrmGateway amoCrmService;
 
     // ============================================
     // НАСТРОЙКИ ДЛЯ ТЕСТИРОВАНИЯ
