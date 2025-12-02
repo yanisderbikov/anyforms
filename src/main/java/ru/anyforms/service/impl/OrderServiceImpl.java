@@ -141,8 +141,8 @@ class OrderServiceImpl implements OrderService {
         List<Order> orders = orderRepository.findOrdersWithoutTracker();
         return orders.stream()
                 .sorted((o1, o2) -> {
-                    LocalDateTime date1 = o1.getCreatedAt() != null ? o1.getCreatedAt() : LocalDateTime.MIN;
-                    LocalDateTime date2 = o2.getCreatedAt() != null ? o2.getCreatedAt() : LocalDateTime.MIN;
+                    LocalDateTime date1 = o1.getPurchaseDate() != null ? o1.getPurchaseDate() : LocalDateTime.MIN;
+                    LocalDateTime date2 = o2.getPurchaseDate() != null ? o2.getPurchaseDate() : LocalDateTime.MIN;
                     return date1.compareTo(date2);
                 })
                 .map(this::convertToOrderSummaryDTO)
