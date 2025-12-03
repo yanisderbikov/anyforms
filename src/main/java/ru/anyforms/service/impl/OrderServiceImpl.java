@@ -72,6 +72,10 @@ class OrderServiceImpl implements OrderService {
 
             // Получаем товары из сделки
             List<AmoProduct> products = amoCrmGateway.getLeadProducts(leadId);
+            if (products == null || products.isEmpty()) {
+                log.warn("no products for lead {}", leadId);
+                return null;
+            }
 
             // Ищем существующий заказ или создаем новый
             Order order = orderRepository.findByLeadId(leadId)
@@ -271,6 +275,7 @@ class OrderServiceImpl implements OrderService {
      * Синхронизирует заказ из AmoCRM через DTO
      * Валидирует запрос и возвращает результат в виде DTO
      */
+    @Transactional
     public ApiResponseDTO syncOrder(SyncOrderRequestDTO request) {
         if (request.getLeadId() == null) {
             return new ApiResponseDTO(null, "LeadId is required", null, null, null);

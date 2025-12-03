@@ -9,7 +9,7 @@ import ru.anyforms.model.AmoLead;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.util.amo.DataConversionService;
 import ru.anyforms.util.amo.DataExtractionService;
-import ru.anyforms.service.LeadProcessingService;
+import ru.anyforms.service.LeadAmoCrmStatusUpdater;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +17,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-class LeadProcessingServiceImpl implements LeadProcessingService {
+class LeadAmoCrmStatusUpdaterImpl implements LeadAmoCrmStatusUpdater {
     private final CacheService cacheService;
     private final AmoCrmGateway amoCrmGateway;
     private final GoogleSheetsGateway googleSheetsGateway;
@@ -28,6 +28,7 @@ class LeadProcessingServiceImpl implements LeadProcessingService {
     /**
      * Обрабатывает лид: проверяет кэш, валидирует, извлекает данные и добавляет в Google Sheets
      */
+    @Deprecated
     @Override
     public void addLeadToOrderAndGoogleSheet(Long leadId) {
         // Check if already processed
@@ -77,7 +78,7 @@ class LeadProcessingServiceImpl implements LeadProcessingService {
             if (sheetNameFromLead != null) {
                 googleSheetsGateway.appendRow(rowData, sheetNameFromLead);
             } else {
-                googleSheetsGateway.appendRow(rowData); // Use default sheet name
+//                googleSheetsGateway.appendRow(rowData); // Use default sheet name
             }
 
             // После успешного добавления в Google Sheets проверяем и меняем статус
@@ -103,12 +104,18 @@ class LeadProcessingServiceImpl implements LeadProcessingService {
         }
     }
 
+    @Override
+    public void updateStatusIfNeeded(Long leadId) {
+        var lead = amoCrmGateway.getLead(leadId);
+        updateStatusIfNeeded(lead);
+    }
+
     /**
      * Обновляет статус сделки с "Оплачен" на "готов к отправке" если текущий статус соответствует
      * @param lead сделка для проверки и обновления статуса
      * @throws RuntimeException если в поле PRODUCT_TYPE выбрано 2 объекта
      */
-    private void updateStatusIfNeeded(AmoLead lead) {
+    public void updateStatusIfNeeded(AmoLead lead) {
 
         Long currentStatusId = lead.getStatusId();
         AmoLeadStatus currentStatus = AmoLeadStatus.fromStatusId(currentStatusId);

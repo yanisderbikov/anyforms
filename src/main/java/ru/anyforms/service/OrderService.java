@@ -15,4 +15,7 @@ public interface OrderService {
     boolean updateDeliveryStatus(Long leadId, String status);
     ApiResponseDTO setTracker(SetTrackerRequestDTO request);
     ApiResponseDTO syncOrder(SyncOrderRequestDTO request);
+    default ApiResponseDTO syncOrder(Long leadId) {
+        return syncOrder(new SyncOrderRequestDTO(leadId));
+    }
 }
