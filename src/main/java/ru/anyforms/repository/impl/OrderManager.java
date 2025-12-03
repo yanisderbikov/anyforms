@@ -47,4 +47,13 @@ class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder {
             throw new RuntimeException("Database exception", e);
         }
     }
+
+    @Override
+    public List<Order> getNonDeliveredOrders() {
+        try {
+            return orderRepository.getNonDeliveredOrders();
+        }catch (Exception e) {
+            throw new RuntimeException("Database exception", e);
+        }
+    }
 }

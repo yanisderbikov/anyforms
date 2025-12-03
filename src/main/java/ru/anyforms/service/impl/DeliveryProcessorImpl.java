@@ -1,5 +1,6 @@
 package ru.anyforms.service.impl;
 
+import jakarta.annotation.Nullable;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -45,12 +46,8 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
         this.saverOrder = saverOrder;
     }
 
-    /**
-     * Обновляет статус в таблице и в AmoCRM одновременно (по трекеру)
-     * @param trackerNumber номер трекера для поиска строки в таблице
-     * @param statusText текст статуса для записи
-     */
-    public void updateStatus(String trackerNumber, String statusText) {
+    @Override
+    public void updateStatus(String trackerNumber, @Nullable String webhookStatusCdek) {
         try {
             var optionalOrder = getterOrder.getOptionalOrderByTracker(trackerNumber);
             if (optionalOrder.isEmpty()) {
@@ -60,13 +57,15 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
             var order = optionalOrder.get();
             var leadId = order.getLeadId();
             var currentStatus = CdekOrderStatus.fromCode(order.getDeliveryStatus());
-            var orderStatus = CdekOrderStatus.fromCode(cdekTrackingGateway.getOrderStatusCode(trackerNumber));
+            var statusFromCdek = webhookStatusCdek != null ? webhookStatusCdek : cdekTrackingGateway.getOrderStatusCode(trackerNumber);
+
+            var orderStatus = CdekOrderStatus.fromCode(statusFromCdek);
             if (currentStatus == orderStatus) {
                 log.info("the same status");
                 return;
             }
 
-            amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), statusText);
+            amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getDescription());
             if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT);
             }

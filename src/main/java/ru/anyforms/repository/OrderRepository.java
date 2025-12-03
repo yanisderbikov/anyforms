@@ -24,6 +24,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
               AND (o.deliveryStatus IS NULL OR o.deliveryStatus = '')
             """)
     List<Order> getEmptyDeliveryAndNonEmptyTracker();
+
+    @Query("""
+                SELECT o FROM Order o
+                WHERE o.deliveryStatus <> 'DELIVERED'
+            """)
+    List<Order> getNonDeliveredOrders();
 }
 
 
