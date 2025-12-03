@@ -61,6 +61,7 @@ public class OrderShipmentScheduler {
         if (isReady(order.getTracker())) {
             amoCrmGateway.updateLeadStatus(lead.getId(), AmoLeadStatus.DELIVERED);
             order.setDeliveryStatus(CdekOrderStatus.ACCEPTED_AT_PICK_UP_POINT.getCode());
+            saverOrder.save(order);
             log.info("order could be pickuped");
         }
     }
