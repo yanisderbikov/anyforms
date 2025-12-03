@@ -1,0 +1,39 @@
+package ru.anyforms.repository.impl;
+
+import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import ru.anyforms.model.Order;
+import ru.anyforms.repository.GetterOrder;
+import ru.anyforms.repository.OrderRepository;
+import ru.anyforms.repository.SaverOrder;
+
+import java.util.Optional;
+
+@Log4j2
+@Component
+@AllArgsConstructor
+class OrderManager implements GetterOrder, SaverOrder {
+
+    private OrderRepository orderRepository;
+
+    @Transactional
+    @Override
+    public Optional<Order> getOptionalOrderByTracker(String tracker) {
+        try {
+            return orderRepository.findOrderByTracker(tracker);
+        }catch (Exception e) {
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public void save(Order order) {
+        try {
+            orderRepository.save(order);
+        }catch (Exception e) {
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+}

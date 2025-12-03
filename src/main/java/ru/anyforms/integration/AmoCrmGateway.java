@@ -27,6 +27,8 @@ public interface AmoCrmGateway {
      */
     Long getContactIdFromLead(Long leadId);
 
+    boolean updateLeadStatus(Long leadId, AmoLeadStatus status);
+
     /**
      * Обновляет статус сделки
      */

@@ -63,31 +63,8 @@ class CdekWebhookServiceImpl implements CdekWebhookService {
             String statusText = statusName != null && !statusName.isEmpty() 
                     ? statusName 
                     : (statusCode != null ? statusCode : "Неизвестный статус");
-            
-            log.info("Обработка вебхука для заказа СДЭК: {}, статус: {}", cdekNumber, statusText);
-            
-            // Определяем статус заказа
-            CdekOrderStatus orderStatus = CdekOrderStatus.fromCode(statusCode);
-            
-            // Обновляем статус в таблице и в AmoCRM одновременно
-            deliveryProcessor.updateStatus(cdekNumber, statusText);
 
-            // Проверяем, является ли статус "принят на доставку" (после Created)
-            // Это может быть ACCEPTED, RECEIVED_AT_SHIPMENT_WAREHOUSE и т.д.
-            if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
-                log.info("Заказ {} принят на доставку, обрабатываем...", cdekNumber);
-                deliveryProcessor.processAcceptedForDelivery(cdekNumber, null);
-            }
-            // Проверяем, является ли статус "доставлен" (можно забрать)
-            else if (CdekStatusHelper.isReadyToPickUp(orderStatus)) {
-                log.info("Заказ {} доставлен, обрабатываем...", cdekNumber);
-                deliveryProcessor.processDelivered(cdekNumber, null);
-            }
-            // Проверяем, является ли статус "вручен" (клиент забрал)
-            else if (CdekStatusHelper.isDelivered(orderStatus)) {
-                log.info("Заказ {} вручен клиенту, обрабатываем...", cdekNumber);
-                deliveryProcessor.processHandedTo(cdekNumber, null);
-            }
+            deliveryProcessor.updateStatus(cdekNumber, statusText);
             
         } catch (Exception e) {
             log.error("Ошибка при обработке вебхука СДЭК: {}", e.getMessage(), e);

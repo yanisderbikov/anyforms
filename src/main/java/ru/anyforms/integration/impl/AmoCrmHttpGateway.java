@@ -145,6 +145,14 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             throw new RuntimeException("Failed to get contact ID from lead", e);
         }
     }
+    @Override
+    public boolean updateLeadStatus(Long leadId, AmoLeadStatus status) {
+        if (status == null || status.getStatusId() == null) {
+            System.err.println("Status ID is not configured for status: " + (status != null ? status.getDescription() : "null"));
+            return false;
+        }
+        return updateLeadStatus(leadId, status.getStatusId(), null);
+    }
 
     @Override
     public boolean updateLeadStatus(Long leadId, AmoLeadStatus status, Long pipelineId) {

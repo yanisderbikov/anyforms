@@ -4,10 +4,13 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.integration.CdekTrackingGateway;
 import ru.anyforms.integration.GoogleSheetsGateway;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
+import ru.anyforms.repository.GetterOrder;
+import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.DeliveryProcessor;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.CdekStatusHelper;
@@ -26,14 +29,20 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     private final GoogleSheetsGateway googleSheetsService;
     private final AmoCrmGateway amoCrmService;
     private final OrderService orderService;
+    private final GetterOrder getterOrder;
+    private final CdekTrackingGateway cdekTrackingGateway;
+    private final SaverOrder saverOrder;
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
 
-    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService) {
+    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrder getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
         this.orderService = orderService;
+        this.getterOrder = getterOrder;
+        this.cdekTrackingGateway = cdekTrackingGateway;
+        this.saverOrder = saverOrder;
     }
 
     /**
@@ -43,25 +52,27 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
      */
     public void updateStatus(String trackerNumber, String statusText) {
         try {
-            // Сначала обновляем в таблице
-            boolean found = googleSheetsService.findAndWriteCell(
-                    sheetName,
-                    GoogleSheetsColumnIndex.COLUMN_I_INDEX,  // Ищем в колонке I (трекер)
-                    trackerNumber,   // По номеру трекера
-                    GoogleSheetsColumnIndex.COLUMN_J_INDEX,  // Записываем в колонку J
-                    statusText       // Статус
-            );
-
-            if (!found) {
-                log.warn("Не найдена строка с трекером {} в таблице '{}', не удалось обновить статус", trackerNumber, sheetName);
+            var order = getterOrder.getOrderByTracker(trackerNumber);
+            var leadId = order.getLeadId();
+            var currentStatus = CdekOrderStatus.fromCode(order.getDeliveryStatus());
+            var orderStatus = CdekOrderStatus.fromCode(cdekTrackingGateway.getOrderStatusCode(trackerNumber));
+            if (currentStatus == orderStatus) {
+                log.info("the same status");
                 return;
             }
 
-            log.info("Статус '{}' успешно записан в таблицу для трекера {}", statusText, trackerNumber);
-
-            // Теперь обновляем в AmoCRM
-            updateDeliveryStatusInAmoCrmByTracker(trackerNumber, statusText);
-
+            amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), statusText);
+            if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
+                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT);
+            }
+            else if (CdekStatusHelper.isReadyToPickUp(orderStatus)) {
+                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.DELIVERED);
+            }
+            else if (CdekStatusHelper.isDelivered(orderStatus)) {
+                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.REALIZED);
+            }
+            order.setDeliveryStatus(orderStatus.getCode());
+            saverOrder.save(order);
         } catch (Exception e) {
             log.error("Ошибка при обновлении статуса в таблице и AmoCRM для трекера {}: {}",
                     trackerNumber, e.getMessage(), e);
