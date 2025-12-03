@@ -23,7 +23,6 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private final OrderService orderService;
 
     public void processFormDataWebhook(String formData) {
-        log.info("AmoCrmWebhookServiceImpl first webhook - processFormDataWebhook");
         try {
             Map<String, Object> parsed = webhookParserService.parseFormDataWebhook(formData);
             Map<String, Object> leads = webhookParserService.extractLeadsFromFormData(parsed);
@@ -44,26 +43,6 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
         } catch (Exception e) {
             System.err.println("Error processing form-data webhook: " + e.getMessage());
             e.printStackTrace();
-        }
-    }
-
-    public void processJsonWebhook(String jsonBody) {
-        log.info("AmoCrmWebhookServiceImpl second webhook - processJsonWebhook");
-        try {
-            AmoWebhook webhook = webhookParserService.parseJsonWebhook(jsonBody);
-            processWebhook(webhook);
-        } catch (Exception e) {
-            System.err.println("Error processing JSON webhook: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-
-    public void processWebhook(AmoWebhook webhook) {
-        log.info("AmoCrmWebhookServiceImpl third webhook - processWebhook");
-        List<Long> leadIds = jsonLeadIdExtraction.extractLeadIdsFromWebhook(webhook);
-        for (Long leadId : leadIds) {
-            updateLead(leadId);
         }
     }
 

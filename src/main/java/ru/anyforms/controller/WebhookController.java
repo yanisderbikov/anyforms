@@ -55,16 +55,7 @@ public class WebhookController {
                     });
                 });
                 webhookProcessingService.processFormDataWebhook(formDataString.toString());
-            } else if (body != null && !body.isEmpty()) {
-                // Handle JSON or raw string data
-                if (body.trim().startsWith("{")) {
-                    // JSON format
-                    webhookProcessingService.processJsonWebhook(body);
-                } else {
-                    // URL-encoded string
-                    webhookProcessingService.processFormDataWebhook(body);
-                }
-            } else {
+            }  else {
                 return ResponseEntity.badRequest().body("No data received");
             }
             
