@@ -23,8 +23,8 @@ public class OrderShipmentScheduler {
     private final AmoCrmGateway amoCrmGateway;
     private final SaverOrder saverOrder;
 
-    private static final Set<String> READY_KEYWORDS = Set.of(
-            "готов", "отправ", "забрал", "личн"
+    public static final Set<String> READY_KEYWORDS = Set.of(
+            "готов", "отправ", "забрал", "лично"
     );
 
     /**

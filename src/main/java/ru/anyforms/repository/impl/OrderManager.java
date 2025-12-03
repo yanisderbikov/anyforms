@@ -13,6 +13,8 @@ import ru.anyforms.repository.SaverOrder;
 import java.util.List;
 import java.util.Optional;
 
+import static ru.anyforms.service.task.OrderShipmentScheduler.READY_KEYWORDS;
+
 @Log4j2
 @Component
 @AllArgsConstructor
@@ -24,6 +26,9 @@ class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder {
     @Override
     public Optional<Order> getOptionalOrderByTracker(String tracker) {
         try {
+            if (READY_KEYWORDS.contains(tracker)) {
+                return Optional.empty();
+            }
             return orderRepository.findOrderByTracker(tracker);
         } catch (Exception e) {
             throw new RuntimeException("Database exception", e);
