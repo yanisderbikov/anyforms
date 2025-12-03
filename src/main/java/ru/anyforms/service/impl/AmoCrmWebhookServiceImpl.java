@@ -68,7 +68,11 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     }
 
     private void updateLead(Long leadId) {
-        orderService.syncOrder(leadId);
-        leadAmoCrmStatusUpdater.updateStatusIfNeeded(leadId);
+        var result = orderService.syncOrder(leadId);
+        if (result.getSuccess()){
+            leadAmoCrmStatusUpdater.updateStatusIfNeeded(leadId);
+        } else {
+            log.warn("Lead not updated because unsuccess sync");
+        }
     }
 }
