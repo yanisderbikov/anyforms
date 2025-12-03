@@ -6,15 +6,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;
+import ru.anyforms.repository.GetterOrderByTracker;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverOrder;
 
+import java.util.List;
 import java.util.Optional;
 
 @Log4j2
 @Component
 @AllArgsConstructor
-class OrderManager implements GetterOrder, SaverOrder {
+class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder {
 
     private OrderRepository orderRepository;
 
@@ -23,7 +25,7 @@ class OrderManager implements GetterOrder, SaverOrder {
     public Optional<Order> getOptionalOrderByTracker(String tracker) {
         try {
             return orderRepository.findOrderByTracker(tracker);
-        }catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException("Database exception", e);
         }
     }
@@ -32,6 +34,15 @@ class OrderManager implements GetterOrder, SaverOrder {
     public void save(Order order) {
         try {
             orderRepository.save(order);
+        } catch (Exception e) {
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<Order> getEmptyDeliveryAndNonEmptyTracker() {
+        try {
+            return orderRepository.getEmptyDeliveryAndNonEmptyTracker();
         }catch (Exception e) {
             throw new RuntimeException("Database exception", e);
         }

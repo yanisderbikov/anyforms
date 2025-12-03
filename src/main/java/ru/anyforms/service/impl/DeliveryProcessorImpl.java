@@ -9,7 +9,7 @@ import ru.anyforms.integration.GoogleSheetsGateway;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
-import ru.anyforms.repository.GetterOrder;
+import ru.anyforms.repository.GetterOrderByTracker;
 import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.DeliveryProcessor;
 import ru.anyforms.service.OrderService;
@@ -29,14 +29,14 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     private final GoogleSheetsGateway googleSheetsService;
     private final AmoCrmGateway amoCrmService;
     private final OrderService orderService;
-    private final GetterOrder getterOrder;
+    private final GetterOrderByTracker getterOrder;
     private final CdekTrackingGateway cdekTrackingGateway;
     private final SaverOrder saverOrder;
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
 
-    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrder getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder) {
+    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
         this.orderService = orderService;

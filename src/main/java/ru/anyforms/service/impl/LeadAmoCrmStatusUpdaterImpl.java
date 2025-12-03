@@ -84,7 +84,7 @@ class LeadAmoCrmStatusUpdaterImpl implements LeadAmoCrmStatusUpdater {
             // После успешного добавления в Google Sheets проверяем и меняем статус
             // Обернуто в try-catch, чтобы ошибка обновления статуса не прерывала процесс
             try {
-                updateStatusIfNeeded(lead);
+                moveToReadyToDeliver(lead);
             } catch (Exception e) {
                 System.err.println("Error updating status for lead " + leadId + ": " + e.getMessage());
                 e.printStackTrace();
@@ -105,9 +105,9 @@ class LeadAmoCrmStatusUpdaterImpl implements LeadAmoCrmStatusUpdater {
     }
 
     @Override
-    public void updateStatusIfNeeded(Long leadId) {
+    public void moveToReadyToDeliver(Long leadId) {
         var lead = amoCrmGateway.getLead(leadId);
-        updateStatusIfNeeded(lead);
+        moveToReadyToDeliver(lead);
     }
 
     /**
@@ -115,7 +115,7 @@ class LeadAmoCrmStatusUpdaterImpl implements LeadAmoCrmStatusUpdater {
      * @param lead сделка для проверки и обновления статуса
      * @throws RuntimeException если в поле PRODUCT_TYPE выбрано 2 объекта
      */
-    public void updateStatusIfNeeded(AmoLead lead) {
+    public void moveToReadyToDeliver(AmoLead lead) {
 
         Long currentStatusId = lead.getStatusId();
         AmoLeadStatus currentStatus = AmoLeadStatus.fromStatusId(currentStatusId);

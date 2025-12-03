@@ -1,7 +1,6 @@
 package ru.anyforms.service.impl;
 
 import lombok.extern.log4j.Log4j2;
-import ru.anyforms.model.AmoWebhook;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.anyforms.service.AmoCrmWebhookService;
@@ -49,7 +48,7 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private void updateLead(Long leadId) {
         var result = orderService.syncOrder(leadId);
         if (result.getSuccess()){
-            leadAmoCrmStatusUpdater.updateStatusIfNeeded(leadId);
+            leadAmoCrmStatusUpdater.moveToReadyToDeliver(leadId);
         } else {
             log.warn("Lead not updated because unsuccess sync");
         }

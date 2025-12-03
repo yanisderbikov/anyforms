@@ -16,6 +16,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findOrdersWithoutTracker();
 
     Optional<Order> findOrderByTracker(String tracker);
+
+    @Query("""
+            SELECT o FROM Order o
+            WHERE o.tracker IS NOT NULL
+              AND o.tracker <> ''
+              AND (o.deliveryStatus IS NULL OR o.deliveryStatus = '')
+            """)
+    List<Order> getEmptyDeliveryAndNonEmptyTracker();
 }
 
 
