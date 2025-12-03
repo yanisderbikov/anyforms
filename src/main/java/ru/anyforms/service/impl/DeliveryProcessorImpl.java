@@ -52,7 +52,12 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
      */
     public void updateStatus(String trackerNumber, String statusText) {
         try {
-            var order = getterOrder.getOrderByTracker(trackerNumber);
+            var optionalOrder = getterOrder.getOptionalOrderByTracker(trackerNumber);
+            if (optionalOrder.isEmpty()) {
+                log.warn("Order not found with tracker: {}", trackerNumber);
+                return;
+            }
+            var order = optionalOrder.get();
             var leadId = order.getLeadId();
             var currentStatus = CdekOrderStatus.fromCode(order.getDeliveryStatus());
             var orderStatus = CdekOrderStatus.fromCode(cdekTrackingGateway.getOrderStatusCode(trackerNumber));
