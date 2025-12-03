@@ -125,12 +125,6 @@ class LeadAmoCrmStatusUpdaterImpl implements LeadAmoCrmStatusUpdater {
             return;
         }
 
-        // Проверяем количество выбранных товаров в поле PRODUCT_TYPE (2482683)
-        int productTypeCount = lead.getCustomFieldValuesCount(AmoCrmFieldId.PRODUCT_TYPE.getId());
-        if (productTypeCount == 2) {
-            throw new RuntimeException("Несколько товаров");
-        }
-
         boolean updated = amoCrmGateway.updateLeadStatus(lead.getId(), AmoLeadStatus.READY_TO_SHIP, lead.getPipelineId());
         if (updated) {
             System.out.println("Successfully changed status for lead " + lead.getId() + 
