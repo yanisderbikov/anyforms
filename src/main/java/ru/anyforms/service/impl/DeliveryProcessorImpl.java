@@ -65,7 +65,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
                 return;
             }
 
-            amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getDescription());
+            amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getCode());
             if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT);
             }
