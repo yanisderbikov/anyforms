@@ -23,10 +23,10 @@ public class OrderShipmentCheckerScheduler {
      * Выполняется каждый час (3600000 миллисекунд)
      * Первый запуск через 1 минуту (60000 мс) после старта
      */
-    @Scheduled(
-            fixedRate = 3_600_000,      // раз в час
-            initialDelay = 5_000       // первый запуск через 1 минуту
-    )
+//    @Scheduled(
+//            fixedRate = 3_600_000,      // раз в час
+//            initialDelay = 5_000       // первый запуск через 1 минуту
+//    )
     public void checkOrdersForShipment() {
         logger.info("Запуск периодической проверки заказов на отправку");
         orderShipmentCheckerService.checkAllOrdersForShipment();
