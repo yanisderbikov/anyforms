@@ -25,6 +25,9 @@ public class OrderSummaryDTO {
     
     @Schema(description = "Дата покупки", example = "2024-01-15T10:30:00")
     private LocalDateTime purchaseDate;
+
+    @Schema(description = "Комментарий", example = "Инфа о доставки например")
+    private String comment;
     
     @Schema(description = "Список товаров в заказе")
     private List<OrderItemDTO> items;

@@ -50,6 +50,9 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderItem> items = new ArrayList<>();
 
+    @Column(name = "comment")
+    private String comment;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

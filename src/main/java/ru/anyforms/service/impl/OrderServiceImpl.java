@@ -164,6 +164,7 @@ class OrderServiceImpl implements OrderService {
         dto.setContactPhone(order.getContactPhone());
         dto.setPvzSdek(order.getPvzSdek());
         dto.setPurchaseDate(order.getPurchaseDate());
+        dto.setComment(order.getComment());
         dto.setItems(order.getItems().stream()
                 .map(this::convertToOrderItemDTO)
                 .collect(Collectors.toList()));
