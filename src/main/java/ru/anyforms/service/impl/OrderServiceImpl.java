@@ -16,6 +16,7 @@ import ru.anyforms.model.AmoProduct;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.repository.OrderRepository;
+import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 @Log4j2
 @Service
 @RequiredArgsConstructor
-class OrderServiceImpl implements OrderService {
+class OrderServiceImpl implements OrderService  {
 
     // Паттерн для извлечения ID сделки из URL
     private static final Pattern LEAD_ID_PATTERN = Pattern.compile("leads/detail/(\\d+)");
@@ -128,47 +129,6 @@ class OrderServiceImpl implements OrderService {
             log.error("Error syncing order from AmoCRM for lead {}: {}", leadId, e.getMessage(), e);
             return null;
         }
-    }
-
-    /**
-     * Получает все заказы без трекера
-     */
-    public List<Order> getOrdersWithoutTracker() {
-        return orderRepository.findOrdersWithoutTracker();
-    }
-
-    /**
-     * Получает все заказы без трекера в виде DTO
-     * Сортирует по дате создания: сверху самое старое, снизу самое новое
-     */
-    public List<OrderSummaryDTO> getOrdersWithoutTrackerDTOs() {
-        List<Order> orders = orderRepository.findOrdersWithoutTracker();
-        return orders.stream()
-                .sorted((o1, o2) -> {
-                    LocalDateTime date1 = o1.getPurchaseDate() != null ? o1.getPurchaseDate() : LocalDateTime.MIN;
-                    LocalDateTime date2 = o2.getPurchaseDate() != null ? o2.getPurchaseDate() : LocalDateTime.MIN;
-                    return date1.compareTo(date2);
-                })
-                .map(this::convertToOrderSummaryDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Конвертирует Order в OrderSummaryDTO
-     */
-    private OrderSummaryDTO convertToOrderSummaryDTO(Order order) {
-        OrderSummaryDTO dto = new OrderSummaryDTO();
-        dto.setLeadId(order.getLeadId());
-        dto.setContactId(order.getContactId());
-        dto.setContactName(order.getContactName());
-        dto.setContactPhone(order.getContactPhone());
-        dto.setPvzSdek(order.getPvzSdek());
-        dto.setPurchaseDate(order.getPurchaseDate());
-        dto.setComment(order.getComment());
-        dto.setItems(order.getItems().stream()
-                .map(this::convertToOrderItemDTO)
-                .collect(Collectors.toList()));
-        return dto;
     }
     
     /**

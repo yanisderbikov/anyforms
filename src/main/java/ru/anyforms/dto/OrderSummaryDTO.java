@@ -28,6 +28,12 @@ public class OrderSummaryDTO {
 
     @Schema(description = "Комментарий", example = "Инфа о доставки например")
     private String comment;
+
+    @Schema(description = "Статус доставки", example = "Статус доставки")
+    private String deliveryStatus;
+
+    @Schema(description = "Трекер доставки", example = "121212")
+    private String tracker;
     
     @Schema(description = "Список товаров в заказе")
     private List<OrderItemDTO> items;

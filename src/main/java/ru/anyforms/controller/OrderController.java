@@ -14,6 +14,7 @@ import ru.anyforms.dto.ApiResponseDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
+import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
 
 import java.util.List;
@@ -24,11 +25,26 @@ import java.util.List;
 @Tag(name = "Orders", description = "API для управления заказами")
 public class OrderController {
     private final OrderService orderService;
+    private final GetterOrderDTOByType getterOrderDTOByType;
 
-    /**
-     * Получает все заказы без трекера, сгруппированные по заказчику
-     * Возвращает структуру: сколько товаров для какого заказчика нужно отправить относительно сделки
-     */
+    @Operation(
+            summary = "Получить заказы которые доставляются"
+    )
+    @GetMapping("/delivering")
+    public ResponseEntity<List<OrderSummaryDTO>> getDeliveringOrders() {
+        List<OrderSummaryDTO> summaries = getterOrderDTOByType.getDeliveringOrders();
+        return ResponseEntity.ok(summaries);
+    }
+
+    @Operation(
+            summary = "Получить заказы которые созданы / сделаны накладные но еще не отправлены"
+    )
+    @GetMapping("/created")
+    public ResponseEntity<List<OrderSummaryDTO>> getCreatedOrders() {
+        List<OrderSummaryDTO> summaries = getterOrderDTOByType.getCreatedOrders();
+        return ResponseEntity.ok(summaries);
+    }
+
     @Operation(
             summary = "Получить заказы без трекера",
             description = "Возвращает список всех заказов без трекера, сгруппированных по заказчику"
@@ -42,7 +58,7 @@ public class OrderController {
     })
     @GetMapping("/without-tracker")
     public ResponseEntity<List<OrderSummaryDTO>> getOrdersWithoutTracker() {
-        List<OrderSummaryDTO> summaries = orderService.getOrdersWithoutTrackerDTOs();
+        List<OrderSummaryDTO> summaries = getterOrderDTOByType.getOrdersWithoutTrackerDTOs();
         return ResponseEntity.ok(summaries);
     }
 

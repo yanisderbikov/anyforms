@@ -15,7 +15,33 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.tracker IS NULL OR o.tracker = ''")
     List<Order> findOrdersWithoutTracker();
 
+    List<Order> findOrdersByDeliveryStatus(String deliveryStatus);
+
+    @Query("""
+       SELECT o FROM Order o
+       WHERE o.tracker IS NOT NULL
+         AND o.tracker <> ''
+         AND o.deliveryStatus IS NOT NULL
+         AND o.deliveryStatus <> ''
+         AND o.deliveryStatus <> :notDeliveryStatus
+       """)
+    List<Order> findOrdersFilledTrackerExceptDeliveryStatus(String notDeliveryStatus);
+
+
     Optional<Order> findOrderByTracker(String tracker);
+
+    @Query("""
+       SELECT o FROM Order o
+       WHERE o.tracker IS NOT NULL
+         AND o.tracker <> ''
+         AND (
+              o.deliveryStatus IS NULL
+              OR o.deliveryStatus = ''
+              OR o.deliveryStatus = 'CREATED'
+         )
+       """)
+    List<Order> getEmptyOrCreatedDeliveryAndNonEmptyTracker();
+
 
     @Query("""
             SELECT o FROM Order o

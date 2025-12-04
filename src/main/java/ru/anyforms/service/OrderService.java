@@ -11,7 +11,6 @@ import java.util.List;
 public interface OrderService {
     Order syncOrderFromAmoCrm(Long leadId);
     boolean setTrackerForOrder(Long leadId, String tracker);
-    List<OrderSummaryDTO> getOrdersWithoutTrackerDTOs();
     boolean updateDeliveryStatus(Long leadId, String status);
     ApiResponseDTO setTracker(SetTrackerRequestDTO request);
     ApiResponseDTO syncOrder(SyncOrderRequestDTO request);
