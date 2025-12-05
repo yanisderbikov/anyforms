@@ -46,7 +46,7 @@ public class OrderShipmentSchedulerEmptyDeliveryAndNonEmptyTracker {
     private void processOrder(Order order) {
         // process if relised
         var lead = amoCrmGateway.getLead(order.getLeadId());
-        if (lead.getPipelineId() != null && lead.getPipelineId().equals(AmoLeadStatus.REALIZED.getStatusId())) {
+        if (lead.getStatusId() != null && lead.getStatusId().equals(AmoLeadStatus.REALIZED.getStatusId())) {
             order.setDeliveryStatus(CdekOrderStatus.DELIVERED.getCode());
             saverOrder.save(order);
             log.info("order is delivered");

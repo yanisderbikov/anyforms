@@ -93,11 +93,12 @@ class OrderServiceImpl implements OrderService  {
 
             String deliveryStatus;
             if (tracker != null && !tracker.isEmpty()) {
-                if (lead.getPipelineId().equals(AmoLeadStatus.REALIZED)) {
+                if (lead.getStatusId().equals(AmoLeadStatus.REALIZED.getStatusId())) {
                     deliveryStatus = CdekOrderStatus.DELIVERED.getCode();
                 } else {
                     deliveryStatus = cdekTrackingGateway.getOrderStatus(tracker);
                 }
+                amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_STATUS.getId(), deliveryStatus);
             } else {
                 deliveryStatus = lead.getCustomFieldValue(AmoCrmFieldId.DELIVERY_STATUS.getId());
             }
