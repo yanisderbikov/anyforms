@@ -51,7 +51,6 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     public void updateStatus(String trackerNumber, @Nullable String webhookStatusCdek) {
         try {
             if (TrackerCustomFields.READY_KEYWORDS.contains(trackerNumber)) {
-                log.info("impossible update this tracker : {}", trackerNumber);
                 return;
             }
             var optionalOrder = getterOrder.getOptionalOrderByTracker(trackerNumber);
