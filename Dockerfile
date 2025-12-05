@@ -1,4 +1,4 @@
-FROM maven:3.9.9-eclipse-temurin-17 AS build
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 
 WORKDIR /app
 
@@ -10,8 +10,8 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 
-# Стадия рантайма: JRE 17 (Eclipse Temurin)
-FROM eclipse-temurin:17-jre
+
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
@@ -19,8 +19,9 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8090
 
-# Ограничиваем JVM, чтобы комфортно жить в контейнере 512 МБ
-# -Xmx384m  — максимум heap
-# -Xms256m  — стартовый heap
-# -XX:MaxMetaspaceSize=128m — ограничение metaspace
-ENTRYPOINT ["java", "-Xms256m", "-Xmx384m", "-XX:MaxMetaspaceSize=128m", "-jar", "app.jar"]
+ENTRYPOINT ["java",
+  "-Xms128m",
+  "-Xmx256m",
+  "-XX:MaxMetaspaceSize=96m",
+  "-jar", "app.jar"
+]
