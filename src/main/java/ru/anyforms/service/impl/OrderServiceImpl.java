@@ -7,16 +7,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.ApiResponseDTO;
 import ru.anyforms.dto.OrderItemDTO;
-import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
-import ru.anyforms.model.AmoContact;
-import ru.anyforms.model.AmoLead;
-import ru.anyforms.model.AmoProduct;
-import ru.anyforms.model.Order;
-import ru.anyforms.model.OrderItem;
+import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.integration.CdekTrackingGateway;
+import ru.anyforms.integration.GoogleSheetsGateway;
+import ru.anyforms.model.*;
 import ru.anyforms.repository.OrderRepository;
-import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 
@@ -27,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Log4j2
 @Service
@@ -38,8 +34,9 @@ class OrderServiceImpl implements OrderService  {
     private static final Pattern LEAD_ID_PATTERN = Pattern.compile("leads/detail/(\\d+)");
     
     private final OrderRepository orderRepository;
-    private final ru.anyforms.integration.AmoCrmGateway amoCrmGateway;
-    private final ru.anyforms.integration.GoogleSheetsGateway googleSheetsGateway;
+    private final AmoCrmGateway amoCrmGateway;
+    private final GoogleSheetsGateway googleSheetsGateway;
+    private final CdekTrackingGateway cdekTrackingGateway;
     
     @Value("${google.sheets.sheet.name:Лошадка тест}")
     private String sheetName;
@@ -85,25 +82,30 @@ class OrderServiceImpl implements OrderService  {
             // Обновляем данные заказа
             order.setLeadId(leadId);
             order.setContactId(contactId);
-            order.setContactName(contact.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.FIO.getId()));
+            order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO.getId()));
             order.setContactPhone(contact.getPhone() != null && !contact.getPhone().isEmpty()
                     ? contact.getPhone().get(0).getValue()
                     : null);
 
             // Получаем трекер из кастомного поля
-            String tracker = lead.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.TRACKER.getId());
+            String tracker = lead.getCustomFieldValue(AmoCrmFieldId.TRACKER.getId());
             order.setTracker(tracker);
 
-            // Получаем статус доставки из кастомного поля
-            String deliveryStatus = lead.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.DELIVERY_STATUS.getId());
+            String deliveryStatus;
+            if (tracker != null && !tracker.isEmpty()) {
+                deliveryStatus = cdekTrackingGateway.getOrderStatus(tracker);
+            } else {
+                deliveryStatus = lead.getCustomFieldValue(AmoCrmFieldId.DELIVERY_STATUS.getId());
+            }
             order.setDeliveryStatus(deliveryStatus);
 
             // Получаем ПВЗ СДЭК из контакта
-            String pvzSdek = contact.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.CONTACT_PVZ.getId());
+            String pvzSdek = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ.getId());
             order.setPvzSdek(pvzSdek);
 
             // Получаем дату покупки из сделки
-            String datePaymentValue = lead.getCustomFieldValue(ru.anyforms.model.AmoCrmFieldId.DATE_PAYMENT.getId());
+            // todo 3 исправить дату
+            String datePaymentValue = lead.getCustomFieldValue(AmoCrmFieldId.DATE_PAYMENT.getId());
             if (datePaymentValue != null && !datePaymentValue.trim().isEmpty()) {
                 LocalDateTime purchaseDate = parseDateFromAmoCrm(datePaymentValue);
                 order.setPurchaseDate(purchaseDate);

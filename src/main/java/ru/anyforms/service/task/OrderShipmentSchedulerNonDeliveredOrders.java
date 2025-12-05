@@ -18,10 +18,6 @@ public class OrderShipmentSchedulerNonDeliveredOrders {
     private final GetterOrder getterOrder;
     private final DeliveryProcessor deliveryProcessor;
 
-    private static final Set<String> READY_KEYWORDS = Set.of(
-            "готов", "отправ", "забрал", "личн"
-    );
-
     /**
      * Периодическая проверка всех заказов на отправку
      * Выполняется каждый час (3600000 миллисекунд)

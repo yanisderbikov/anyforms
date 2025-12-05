@@ -116,7 +116,7 @@ public class OrderShipmentCheckerService {
             String currentStatusUpper = currentStatus.toUpperCase().trim();
             
             // Получаем новый статус из СДЭК
-            String newStatusCode = cdekTrackingGateway.getOrderStatusCode(trackingNumber);
+            String newStatusCode = cdekTrackingGateway.getOrderStatus(trackingNumber);
             
             if (newStatusCode == null || newStatusCode.isEmpty()) {
                 log.warn("Не удалось получить статус для трекера {} в строке {}", trackingNumber, rowNumber);

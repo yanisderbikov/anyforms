@@ -11,7 +11,8 @@ import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;
 import ru.anyforms.repository.SaverOrder;
 
-import java.util.Set;
+
+import static ru.anyforms.util.TrackerCustomFields.READY_KEYWORDS;
 
 @Log4j2
 @Component
@@ -21,10 +22,6 @@ public class OrderShipmentSchedulerEmptyDeliveryAndNonEmptyTracker {
     private final GetterOrder getterOrder;
     private final AmoCrmGateway amoCrmGateway;
     private final SaverOrder saverOrder;
-
-    public static final Set<String> READY_KEYWORDS = Set.of(
-            "готов", "отправ", "забрал", "лично"
-    );
 
     /**
      * Периодическая проверка всех заказов на отправку

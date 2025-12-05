@@ -17,7 +17,7 @@ public interface CdekTrackingGateway {
     /**
      * Получает код статуса заказа из API СДЭК
      */
-    String getOrderStatusCode(String trackingNumber);
+    String getOrderStatus(String trackingNumber);
 
     /**
      * Проверяет, является ли строка валидным трекером СДЭК

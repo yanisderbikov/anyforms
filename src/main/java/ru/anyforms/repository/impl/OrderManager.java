@@ -13,7 +13,8 @@ import ru.anyforms.repository.SaverOrder;
 import java.util.List;
 import java.util.Optional;
 
-import static ru.anyforms.service.task.OrderShipmentSchedulerEmptyDeliveryAndNonEmptyTracker.READY_KEYWORDS;
+import static ru.anyforms.util.TrackerCustomFields.READY_KEYWORDS;
+
 
 @Log4j2
 @Component

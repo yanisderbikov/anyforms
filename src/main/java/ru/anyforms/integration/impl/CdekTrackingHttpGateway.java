@@ -223,7 +223,7 @@ class CdekTrackingHttpGateway implements CdekTrackingGateway {
     }
 
     @Override
-    public String getOrderStatusCode(String trackingNumber) {
+    public String getOrderStatus(String trackingNumber) {
         try {
             logger.debug("Получение кода статуса для трекера СДЭК: {}", trackingNumber);
             

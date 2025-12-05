@@ -15,6 +15,7 @@ import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.DeliveryProcessor;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.CdekStatusHelper;
+import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 import ru.anyforms.util.LeadUrlExtractor;
 
@@ -49,6 +50,10 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     @Override
     public void updateStatus(String trackerNumber, @Nullable String webhookStatusCdek) {
         try {
+            if (TrackerCustomFields.READY_KEYWORDS.contains(trackerNumber)) {
+                log.info("impossible update this tracker : {}", trackerNumber);
+                return;
+            }
             var optionalOrder = getterOrder.getOptionalOrderByTracker(trackerNumber);
             if (optionalOrder.isEmpty()) {
                 log.warn("Order not found with tracker: {}", trackerNumber);
@@ -57,7 +62,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
             var order = optionalOrder.get();
             var leadId = order.getLeadId();
             var currentStatus = CdekOrderStatus.fromCode(order.getDeliveryStatus());
-            var statusFromCdek = webhookStatusCdek != null ? webhookStatusCdek : cdekTrackingGateway.getOrderStatusCode(trackerNumber);
+            var statusFromCdek = webhookStatusCdek != null ? webhookStatusCdek : cdekTrackingGateway.getOrderStatus(trackerNumber);
 
             var orderStatus = CdekOrderStatus.fromCode(statusFromCdek);
             if (currentStatus == orderStatus) {
