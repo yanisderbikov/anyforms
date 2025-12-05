@@ -311,7 +311,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
             }
             
             // Обновляем трекер в БД
-            orderService.setTrackerForOrder(leadId, trackerNumber);
+            orderService.setTrackerAndCommentForOrder(leadId, trackerNumber, null);
             
             // Отправляем сообщение в мессенджер
 //            String message = "Ваш заказ был отправлен:\n\nТрекер: " + trackerNumber;

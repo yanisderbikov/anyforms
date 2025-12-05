@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.anyforms.dto.ApiResponseDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
-import ru.anyforms.dto.SetTrackerRequestDTO;
+import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
@@ -87,9 +87,9 @@ public class OrderController {
                     content = @Content(schema = @Schema(implementation = ApiResponseDTO.class))
             )
     })
-    @PostMapping("/tracker")
-    public ResponseEntity<ApiResponseDTO> setTracker(@RequestBody SetTrackerRequestDTO request) {
-        ApiResponseDTO response = orderService.setTracker(request);
+    @PostMapping("/tracker-and-comment")
+    public ResponseEntity<ApiResponseDTO> setTrackerAndComment(@RequestBody SetTrackerAndCommentRequestDTO request) {
+        ApiResponseDTO response = orderService.setTrackerAndComment(request);
         HttpStatus status = response.getSuccess() == null 
                 ? HttpStatus.BAD_REQUEST 
                 : response.getSuccess() ? HttpStatus.OK : HttpStatus.INTERNAL_SERVER_ERROR;

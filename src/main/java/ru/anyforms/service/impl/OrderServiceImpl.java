@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.ApiResponseDTO;
 import ru.anyforms.dto.OrderItemDTO;
-import ru.anyforms.dto.SetTrackerRequestDTO;
+import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.integration.CdekTrackingGateway;
@@ -93,7 +93,11 @@ class OrderServiceImpl implements OrderService  {
 
             String deliveryStatus;
             if (tracker != null && !tracker.isEmpty()) {
-                deliveryStatus = cdekTrackingGateway.getOrderStatus(tracker);
+                if (lead.getPipelineId().equals(AmoLeadStatus.REALIZED)) {
+                    deliveryStatus = CdekOrderStatus.DELIVERED.getCode();
+                } else {
+                    deliveryStatus = cdekTrackingGateway.getOrderStatus(tracker);
+                }
             } else {
                 deliveryStatus = lead.getCustomFieldValue(AmoCrmFieldId.DELIVERY_STATUS.getId());
             }
@@ -173,7 +177,7 @@ class OrderServiceImpl implements OrderService  {
      * Устанавливает трекер для заказа и обновляет в AmoCRM и Google Sheets
      */
     @Transactional
-    public boolean setTrackerForOrder(Long leadId, String tracker) {
+    public boolean setTrackerAndCommentForOrder(Long leadId, String tracker, String comment) {
         try {
             Optional<Order> orderOpt = orderRepository.findByLeadId(leadId);
             if (orderOpt.isEmpty()) {
@@ -182,7 +186,12 @@ class OrderServiceImpl implements OrderService  {
             }
 
             Order order = orderOpt.get();
-            order.setTracker(tracker);
+            if (order.getTracker() == null) {
+                order.setTracker(tracker);
+            } else {
+                log.warn("cannot update tracker if it already set");
+            }
+            order.setComment(comment);
             orderRepository.save(order);
 
             // Обновляем трекер в AmoCRM
@@ -212,18 +221,15 @@ class OrderServiceImpl implements OrderService  {
      * Устанавливает трекер для заказа через DTO
      * Валидирует запрос и возвращает результат в виде DTO
      */
-    public ApiResponseDTO setTracker(SetTrackerRequestDTO request) {
+    public ApiResponseDTO setTrackerAndComment(SetTrackerAndCommentRequestDTO request) {
         if (request.getLeadId() == null) {
             return new ApiResponseDTO(null, "LeadId is required", null, null, null);
         }
 
         String tracker = request.getTracker();
-        if (tracker == null || tracker.trim().isEmpty()) {
-            return new ApiResponseDTO(null, "Tracker is required", null, null, null);
-        }
 
         try {
-            boolean success = setTrackerForOrder(request.getLeadId(), tracker.trim());
+            boolean success = setTrackerAndCommentForOrder(request.getLeadId(), tracker.trim(), request.getComment());
             if (!success) {
                 return new ApiResponseDTO(false, "Failed to set tracker", null, null, null);
             }

@@ -3,7 +3,7 @@ package ru.anyforms.service.impl;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import ru.anyforms.dto.SetTrackerRequestDTO;
+import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.service.DeliveryProcessor;
 import ru.anyforms.service.OrderService;
@@ -168,7 +168,7 @@ public class OrderShipmentCheckerService {
                 Long leadId = sheetRowExtractorUtil.extractLeadIdFromRow(row);
                 if (leadId != null) {
                     deliveryProcessor.updateAmoCrmStatusIfNeeded(leadId, trackingNumber, newStatusCode);
-                    orderService.setTracker(new SetTrackerRequestDTO(leadId, trackingNumber));
+                    orderService.setTrackerAndComment(new SetTrackerAndCommentRequestDTO(leadId, trackingNumber, null));
                 }
                 
                 // Если заказ отправлен (более чем RECEIVED_AT_SHIPMENT_WAREHOUSE), обрабатываем отправку

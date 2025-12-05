@@ -64,6 +64,14 @@ public class Order {
         updatedAt = LocalDateTime.now();
     }
 
+    public void setComment(String comment) {
+        if (comment == null || comment.isEmpty()) {
+            return;
+        }
+        var currentComment = this.comment == null ? "" : this.comment + " | ";
+        this.comment = currentComment + comment;
+    }
+
     public void addItem(OrderItem item) {
         items.add(item);
         item.setOrder(this);

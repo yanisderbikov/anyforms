@@ -1,18 +1,15 @@
 package ru.anyforms.service;
 
 import ru.anyforms.dto.ApiResponseDTO;
-import ru.anyforms.dto.OrderSummaryDTO;
-import ru.anyforms.dto.SetTrackerRequestDTO;
+import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.model.Order;
 
-import java.util.List;
-
 public interface OrderService {
     Order syncOrderFromAmoCrm(Long leadId);
-    boolean setTrackerForOrder(Long leadId, String tracker);
+    boolean setTrackerAndCommentForOrder(Long leadId, String tracker, String comment);
     boolean updateDeliveryStatus(Long leadId, String status);
-    ApiResponseDTO setTracker(SetTrackerRequestDTO request);
+    ApiResponseDTO setTrackerAndComment(SetTrackerAndCommentRequestDTO request);
     ApiResponseDTO syncOrder(SyncOrderRequestDTO request);
     default ApiResponseDTO syncOrder(Long leadId) {
         return syncOrder(new SyncOrderRequestDTO(leadId));
