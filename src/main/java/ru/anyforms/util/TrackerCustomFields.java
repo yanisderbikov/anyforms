@@ -4,6 +4,6 @@ import java.util.Set;
 
 public class TrackerCustomFields {
     public static final Set<String> READY_KEYWORDS = Set.of(
-            "готов", "отправ", "забрал", "лично"
+            "готов", "отправ", "забрал", "лично", "готово", "отправлен"
     );
 }

@@ -32,7 +32,7 @@ class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder {
             }
             return orderRepository.findOrderByTracker(tracker);
         } catch (Exception e) {
-            log.error("fail with tracker {}", tracker, e);
+            log.error("fail find order with tracker {}", tracker, e);
             throw new RuntimeException("Database exception", e);
         }
     }
