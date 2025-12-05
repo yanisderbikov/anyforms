@@ -95,7 +95,8 @@ public enum CdekOrderStatus {
      * Передан на доставку в городе отправителя
      */
     TRANSFERRED_TO_DELIVERY_IN_SENDER_CITY("TRANSFERRED_TO_DELIVERY_IN_SENDER_CITY", "Передан на доставку в городе отправителя"),
-    
+    ACCEPTED_AT_TRANSIT_WAREHOUSE("ACCEPTED_AT_TRANSIT_WAREHOUSE", "Принят в транзит"),
+
     /**
      * Прибыл в город получателя
      */
