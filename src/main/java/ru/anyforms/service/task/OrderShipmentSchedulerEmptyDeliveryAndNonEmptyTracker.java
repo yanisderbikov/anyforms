@@ -9,7 +9,6 @@ import ru.anyforms.model.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;
-import ru.anyforms.repository.GetterOrderByTracker;
 import ru.anyforms.repository.SaverOrder;
 
 import java.util.Set;
@@ -17,7 +16,7 @@ import java.util.Set;
 @Log4j2
 @Component
 @AllArgsConstructor
-public class OrderShipmentScheduler {
+public class OrderShipmentSchedulerEmptyDeliveryAndNonEmptyTracker {
 
     private final GetterOrder getterOrder;
     private final AmoCrmGateway amoCrmGateway;

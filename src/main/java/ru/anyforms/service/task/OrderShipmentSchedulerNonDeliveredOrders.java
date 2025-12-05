@@ -4,12 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import ru.anyforms.integration.AmoCrmGateway;
-import ru.anyforms.model.AmoLeadStatus;
-import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;
-import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.DeliveryProcessor;
 
 import java.util.Set;
@@ -17,7 +13,7 @@ import java.util.Set;
 @Log4j2
 @Component
 @AllArgsConstructor
-public class OrderShipmentSchedulerUpdaterStatus {
+public class OrderShipmentSchedulerNonDeliveredOrders {
 
     private final GetterOrder getterOrder;
     private final DeliveryProcessor deliveryProcessor;
