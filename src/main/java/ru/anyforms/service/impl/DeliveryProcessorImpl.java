@@ -66,7 +66,6 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
 
             var orderStatus = CdekOrderStatus.fromCode(statusFromCdek);
             if (currentStatus == orderStatus) {
-                log.info("the same status");
                 return;
             }
 

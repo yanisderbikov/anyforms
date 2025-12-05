@@ -26,8 +26,6 @@ class CdekWebhookServiceImpl implements CdekWebhookService {
      */
     public void processWebhook(String webhookJson) {
         try {
-            log.info("Получен вебхук от СДЭК: {}", webhookJson);
-            
             CdekWebhook webhook = gson.fromJson(webhookJson, CdekWebhook.class);
             
             if (webhook == null) {
