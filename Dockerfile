@@ -19,4 +19,4 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8090
 
-ENTRYPOINT ["java","-Xms128m","-Xmx256m","-XX:MaxMetaspaceSize=96m","-jar","app.jar"]
+ENTRYPOINT ["java", "-Xms256m", "-Xmx384m", "-XX:MaxMetaspaceSize=128m", "-jar", "app.jar"]
