@@ -29,5 +29,3 @@ public class OrderItem {
     @Column(name = "catalog_id")
     private Long catalogId; // ID каталога AmoCRM
 }
-
-

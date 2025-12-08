@@ -64,4 +64,3 @@ public interface AmoCrmGateway {
      */
     List<AmoProduct> getLeadProducts(Long leadId);
 }
-

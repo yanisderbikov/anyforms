@@ -50,7 +50,3 @@ public class CdekStatusHelper {
         return status == CdekOrderStatus.HANDED_TO || status == CdekOrderStatus.DELIVERED;
     }
 }
-
-
-
-

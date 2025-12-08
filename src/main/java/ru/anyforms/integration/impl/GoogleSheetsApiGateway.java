@@ -315,4 +315,3 @@ class GoogleSheetsApiGateway implements GoogleSheetsGateway {
         return result.toString();
     }
 }
-

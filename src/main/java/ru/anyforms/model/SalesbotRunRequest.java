@@ -21,8 +21,3 @@ public class SalesbotRunRequest {
     @SerializedName("entity_type")
     private Integer entityType;
 }
-
-
-
-
-

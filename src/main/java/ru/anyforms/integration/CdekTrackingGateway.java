@@ -24,4 +24,3 @@ public interface CdekTrackingGateway {
      */
     boolean isValidTrackingNumber(String value);
 }
-

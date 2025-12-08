@@ -320,4 +320,3 @@ class CdekTrackingHttpGateway implements CdekTrackingGateway {
         return cleaned.matches("\\d{8,14}"); // От 8 до 14 цифр
     }
 }
-

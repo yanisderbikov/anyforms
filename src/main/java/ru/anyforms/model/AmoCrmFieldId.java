@@ -42,7 +42,3 @@ public enum AmoCrmFieldId {
         return description;
     }
 }
-
-
-
-

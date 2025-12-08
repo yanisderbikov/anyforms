@@ -626,4 +626,3 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         }
     }
 }
-

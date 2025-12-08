@@ -68,4 +68,3 @@ public interface GoogleSheetsGateway {
     boolean findAndWriteCell(int searchColumnIndex, String searchValue, 
                              int writeColumnIndex, String writeValue);
 }
-

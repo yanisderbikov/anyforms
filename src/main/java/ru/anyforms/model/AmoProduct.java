@@ -16,5 +16,3 @@ public class AmoProduct {
     @SerializedName("request_id")
     private Long requestId;
 }
-
-
