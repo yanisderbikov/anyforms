@@ -112,6 +112,9 @@ class OrderServiceImpl implements OrderService  {
                     deliveryStatus = cdekTrackingGateway.getOrderStatus(tracker);
                 }
                 amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_STATUS.getId(), deliveryStatus);
+                if (deliveryStatus.equals(CdekOrderStatus.DELIVERED.getCode())) {
+                    amoCrmGateway.updateLeadStatus(leadId, AmoLeadStatus.REALIZED);
+                }
             } else {
                 deliveryStatus = lead.getCustomFieldValue(AmoCrmFieldId.DELIVERY_STATUS.getId());
             }
