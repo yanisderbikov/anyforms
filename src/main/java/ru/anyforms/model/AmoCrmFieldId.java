@@ -18,8 +18,11 @@ public enum AmoCrmFieldId {
     RETAIL(2454667L, "Розница"),
     DATE_PAYMENT(2364807L, "Дата оплаты"),
     QUANTITY(2351399L, "Количество"),
+    @Deprecated
     HORSE_COUNT(2351399L, "Количество лошадок"), // То же поле что и QUANTITY
     FORMS_COUNT(2351399L, "Количество форм"), // То же поле что и QUANTITY
+
+    COMMENT_TO_ORDER(2625137L, "Комментарий к заказу"), // То же поле что и QUANTITY
     
     // Поля для расчетов
     MIN_FORMS_COUNT(2337779L, "Мин-кол-во форм"),

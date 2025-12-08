@@ -1,5 +1,6 @@
 package ru.anyforms.service.impl;
 
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,6 +91,18 @@ class OrderServiceImpl implements OrderService  {
             // Получаем трекер из кастомного поля
             String tracker = lead.getCustomFieldValue(AmoCrmFieldId.TRACKER.getId());
             order.setTracker(tracker);
+
+            // комментарий
+            String commentFromCrm = lead.getCustomFieldValue(AmoCrmFieldId.COMMENT_TO_ORDER.getId());
+            String commentFromOrder = order.getComment();
+
+            String comment = buildComment(commentFromCrm, commentFromOrder);
+            if (comment != null && !comment.equals(commentFromCrm)) {
+                amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.COMMENT_TO_ORDER.getId(), comment);
+            }
+            if (comment != null && !comment.equals(commentFromOrder)) {
+                order.setComment(comment);
+            }
 
             String deliveryStatus;
             if (tracker != null && !tracker.isEmpty()) {
@@ -377,6 +390,65 @@ class OrderServiceImpl implements OrderService  {
 
         return null;
     }
+
+    private String buildComment(String commentFromCrm, String commentFromOrder) {
+        // Нормализуем: обрезаем пробелы и пустые строки превращаем в null
+        commentFromCrm = normalize(commentFromCrm);
+        commentFromOrder = normalize(commentFromOrder);
+
+        // Если обе пустые/нулевые – итог тоже null
+        if (commentFromCrm == null && commentFromOrder == null) {
+            return null;
+        }
+
+        // Если одна из строк пустая – берём вторую как есть
+        if (commentFromCrm == null) {
+            return commentFromOrder;
+        }
+        if (commentFromOrder == null) {
+            return commentFromCrm;
+        }
+
+        // Дальше обе строки не null
+
+        // 1. Полностью совпадают (без учёта регистра)
+        if (commentFromCrm.equalsIgnoreCase(commentFromOrder)) {
+            return commentFromCrm;
+        }
+
+        // Подготовим к частичным/полным вхождениям без учёта регистра
+        String crmLower = commentFromCrm.toLowerCase();
+        String orderLower = commentFromOrder.toLowerCase();
+
+        // 2. Одна строка целиком содержится в другой
+        if (crmLower.contains(orderLower)) {
+            return commentFromCrm; // комментарий заказа уже полностью есть в CRM
+        }
+        if (orderLower.contains(crmLower)) {
+            return commentFromOrder; // комментарий CRM уже полностью есть в заказе
+        }
+
+        // 3. Частичное совпадение (простая проверка по словам – опционально)
+        // Если нужно учитывать «частично другая», можно проверить пересечение по словам
+        String[] crmWords = crmLower.split("\\s+");
+        for (String word : crmWords) {
+            if (word.length() > 3 && orderLower.contains(word)) {
+                // Нашли хоть какое-то значимое общее слово,
+                // но строки всё равно разные – просто склеиваем через |
+                return commentFromCrm + " | " + commentFromOrder;
+            }
+        }
+
+        // 4. Совсем разные – объединяем через |
+        return commentFromCrm + " | " + commentFromOrder;
+    }
+
+    private String normalize(String s) {
+        if (s == null) return null;
+        s = s.trim();
+        return s.isEmpty() ? null : s;
+    }
+
 }
 
 
