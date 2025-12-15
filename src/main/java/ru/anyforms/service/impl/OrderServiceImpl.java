@@ -90,6 +90,10 @@ class OrderServiceImpl implements OrderService  {
 
             // Получаем трекер из кастомного поля
             String tracker = lead.getCustomFieldValue(AmoCrmFieldId.TRACKER.getId());
+            if (tracker == null || tracker.equals("...")) {
+                tracker = "";
+                amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.TRACKER.getId(), tracker);
+            }
             order.setTracker(tracker);
 
             // комментарий
@@ -105,7 +109,7 @@ class OrderServiceImpl implements OrderService  {
             }
 
             String deliveryStatus;
-            if (tracker != null && !tracker.isEmpty()) {
+            if (!tracker.isEmpty()) {
                 if (lead.getStatusId().equals(AmoLeadStatus.REALIZED.getStatusId())) {
                     deliveryStatus = CdekOrderStatus.DELIVERED.getCode();
                 } else {
@@ -116,7 +120,7 @@ class OrderServiceImpl implements OrderService  {
                     amoCrmGateway.updateLeadStatus(leadId, AmoLeadStatus.REALIZED);
                 }
             } else {
-                deliveryStatus = lead.getCustomFieldValue(AmoCrmFieldId.DELIVERY_STATUS.getId());
+                deliveryStatus = CdekOrderStatus.UNKNOWN.getCode();
             }
             order.setDeliveryStatus(deliveryStatus);
 
