@@ -38,7 +38,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
               o.deliveryStatus IS NULL
               OR o.deliveryStatus = ''
               OR o.deliveryStatus = 'CREATED'
-              OR o.deliveryStatus = 'UNKNOWN'
          )
        """)
     List<Order> getEmptyOrCreatedDeliveryAndNonEmptyTracker();
