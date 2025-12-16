@@ -16,11 +16,13 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
+
     private final WebhookParserService webhookParserService;
     private final JsonLeadIdExtractionService jsonLeadIdExtraction;
     private final LeadAmoCrmStatusUpdater leadAmoCrmStatusUpdater;
     private final OrderService orderService;
 
+    @Override
     public void processFormDataWebhook(String formData) {
         try {
             Map<String, Object> parsed = webhookParserService.parseFormDataWebhook(formData);
@@ -30,13 +32,42 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
                 // Extract lead IDs from "add" events
                 List<Long> addLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataAdd(leads);
                 for (Long leadId : addLeadIds) {
+                    log.info("extract from add event for lead {}", leadId);
                     updateLead(leadId);
                 }
                 
                 // Extract lead IDs from other event types (status, mail_in, etc.)
                 List<Long> eventLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataEvents(leads);
                 for (Long leadId : eventLeadIds) {
+                    log.info("IDs from other event types {}", leadId);
                     updateLead(leadId);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error processing form-data webhook: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void processFormDataSyncOrderWebhook(String formData) {
+        try {
+            Map<String, Object> parsed = webhookParserService.parseFormDataWebhook(formData);
+            Map<String, Object> leads = webhookParserService.extractLeadsFromFormData(parsed);
+
+            if (leads != null) {
+                // Extract lead IDs from "add" events
+                List<Long> addLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataAdd(leads);
+                for (Long leadId : addLeadIds) {
+                    log.info("sync orders extract from add event for lead {}", leadId);
+                    orderService.syncOrder(leadId);
+                }
+
+                // Extract lead IDs from other event types (status, mail_in, etc.)
+                List<Long> eventLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataEvents(leads);
+                for (Long leadId : eventLeadIds) {
+                    log.info("sync orders IDs from other event types {}", leadId);
+                    orderService.syncOrder(leadId);
                 }
             }
         } catch (Exception e) {

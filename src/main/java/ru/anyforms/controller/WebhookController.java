@@ -66,6 +66,34 @@ public class WebhookController {
         }
     }
 
+    @PostMapping(value = "/amocrm/sync-order", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<String> handleAmoCrmSyncOrderWebhook(
+            @RequestParam(required = false) MultiValueMap<String, String> formData,
+            @RequestBody(required = false) String body) {
+        try {
+            if (formData != null && !formData.isEmpty()) {
+                // Handle form-urlencoded data
+                StringBuilder formDataString = new StringBuilder();
+                formData.forEach((key, values) -> {
+                    values.forEach(value -> {
+                        if (formDataString.length() > 0) {
+                            formDataString.append("&");
+                        }
+                        formDataString.append(key).append("=").append(value);
+                    });
+                });
+                webhookProcessingService.processFormDataSyncOrderWebhook(formDataString.toString());
+            }  else {
+                return ResponseEntity.badRequest().body("No data received");
+            }
+
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error processing webhook: " + e.getMessage());
+        }
+    }
+
     @PostMapping(value = "/cdek", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> handleCdekWebhook(@RequestBody String body) {
         try {
