@@ -56,17 +56,8 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
             Map<String, Object> leads = webhookParserService.extractLeadsFromFormData(parsed);
 
             if (leads != null) {
-                // Extract lead IDs from "add" events
                 List<Long> addLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataAdd(leads);
                 for (Long leadId : addLeadIds) {
-                    log.info("sync orders extract from add event for lead {}", leadId);
-                    orderService.syncOrder(leadId);
-                }
-
-                // Extract lead IDs from other event types (status, mail_in, etc.)
-                List<Long> eventLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataEvents(leads);
-                for (Long leadId : eventLeadIds) {
-                    log.info("sync orders IDs from other event types {}", leadId);
                     orderService.syncOrder(leadId);
                 }
             }
