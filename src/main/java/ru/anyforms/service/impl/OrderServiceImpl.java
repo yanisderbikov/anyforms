@@ -207,10 +207,10 @@ class OrderServiceImpl implements OrderService  {
             }
 
             Order order = orderOpt.get();
-            if (order.getTracker() == null) {
+            if (order.getTracker() == null || order.getTracker().isEmpty()) {
                 order.setTracker(tracker);
             } else {
-                log.warn("cannot update tracker if it already set");
+                log.warn("cannot update tracker {} if it already set {} for lead id: {}", tracker, order.getTracker(), leadId);
             }
             order.setComment(comment);
             orderRepository.save(order);
@@ -229,7 +229,7 @@ class OrderServiceImpl implements OrderService  {
             }
 
             // Обновляем трекер в таблице "Лошадки"
-            writeTrackerToGoogleSheet(leadId, tracker);
+//            writeTrackerToGoogleSheet(leadId, tracker);
 
             return updated;
         } catch (Exception e) {
