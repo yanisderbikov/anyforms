@@ -23,6 +23,7 @@ import java.util.List;
 class S3Service implements GetterPhotosFromS3Folder {
 
     private static final Duration PRESIGN_DURATION = Duration.ofHours(1);
+    private static final String SHOP_PREFIX = "shop/";
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
@@ -31,7 +32,8 @@ class S3Service implements GetterPhotosFromS3Folder {
     @Override
     public List<String> getPhotos(String folder) {
         String bucketName = s3Static.getBucketName();
-        String prefix = folder == null ? "" : folder.endsWith("/") ? folder : folder + "/";
+        String normalizedFolder = folder == null || folder.isBlank() ? "" : folder.trim().replaceAll("/+$", "");
+        String prefix = SHOP_PREFIX + (normalizedFolder.isEmpty() ? "" : normalizedFolder + "/");
         List<String> urls = new ArrayList<>();
 
         String continuationToken = null;
