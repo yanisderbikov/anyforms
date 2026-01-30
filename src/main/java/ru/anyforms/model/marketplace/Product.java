@@ -19,7 +19,6 @@ public class Product {
     @GeneratedValue(generator = "UUID")
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     @Column(updatable = false, nullable = false)
-    @NonNull
     private UUID id;
     @Column(nullable = false)
     @NonNull
