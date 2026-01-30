@@ -2,7 +2,6 @@ package ru.anyforms.service.s3.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import ru.anyforms.config.s3.S3Static;
 import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -17,7 +16,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service
 @Slf4j
 @RequiredArgsConstructor
 class S3Service implements GetterPhotosFromS3Folder {

@@ -8,6 +8,7 @@ import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.repository.GetterProduct;
 import ru.anyforms.repository.SaverProduct;
 import ru.anyforms.service.product.ProductService;
+import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import ru.anyforms.util.converter.ConverterProducts;
 
 import java.util.List;
@@ -20,6 +21,7 @@ class ProductServiceImpl implements ProductService {
     private final GetterProduct getterProduct;
     private final SaverProduct saverProduct;
     private final ConverterProducts converterProducts;
+    private final GetterPhotosFromS3Folder getterPhotosFromS3Folder;
 
     @Override
     public List<ProductDTO> getAllProducts() {
@@ -29,16 +31,26 @@ class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductDTO saveOrUpdate(ProductCreateUpdateRequestDTO request) {
+        String oldFolder = null;
         Product product;
         if (request.getId() != null) {
             Optional<Product> existing = getterProduct.getById(request.getId());
-            product = existing
-                    .map(p -> mapRequestOntoProduct(request, p))
-                    .orElseThrow();
+            if (existing.isPresent()) {
+                oldFolder = existing.get().getS3PhotosFolderPath();
+                product = mapRequestOntoProduct(request, existing.get());
+            } else {
+                product = newProductFromRequest(request);
+            }
         } else {
             product = newProductFromRequest(request);
         }
         Product saved = saverProduct.save(product);
+        if (request.getFolder() != null) {
+            getterPhotosFromS3Folder.invalidateFolder(saved.getS3PhotosFolderPath());
+            if (oldFolder != null && !oldFolder.equals(saved.getS3PhotosFolderPath())) {
+                getterPhotosFromS3Folder.invalidateFolder(oldFolder);
+            }
+        }
         return converterProducts.convert(saved);
     }
 
