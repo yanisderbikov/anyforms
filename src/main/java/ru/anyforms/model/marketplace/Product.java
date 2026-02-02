@@ -23,8 +23,8 @@ public class Product {
     @Column(nullable = false)
     @NonNull
     private String name;
-    @Column(nullable = false)
     @NonNull
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
     @Column(nullable = false)
     @NonNull
