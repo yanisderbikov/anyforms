@@ -1,6 +1,7 @@
 package ru.anyforms.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,7 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @Operation(summary = "Получить все продукты")
+    @Operation(summary = "Получить все продукты",  security = @SecurityRequirement(name = "Bearer"))
     @GetMapping()
     public ResponseEntity<List<ProductDTO>> getAllProducts() {
         var products = productService.getAllProducts();
@@ -33,7 +34,9 @@ public class ProductController {
     }
 
     @Operation(summary = "Создать или обновить продукт",
-            description = "POST с телом продукта. Если передан id — обновляется продукт с этим id. Иначе создаётся новый. Поле folder — папка в S3 (под shop/) с фото.")
+            description = "POST с телом продукта. Если передан id — обновляется продукт с этим id. Иначе создаётся новый. Поле folder — папка в S3 (под shop/) с фото.",
+            security = @SecurityRequirement(name = "Bearer")
+    )
     @PostMapping()
     public ResponseEntity<ProductDTO> saveOrUpdateProduct(@RequestBody ProductCreateUpdateRequestDTO request) {
         ProductDTO result = productService.saveOrUpdate(request);

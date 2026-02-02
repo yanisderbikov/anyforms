@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,7 @@ public class OrderController {
     private final GetterOrderDTOByType getterOrderDTOByType;
 
     @Operation(
-            summary = "Получить заказы которые доставляются"
+            summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
     )
     @GetMapping("/delivering")
     public ResponseEntity<List<OrderSummaryDTO>> getDeliveringOrders() {
@@ -37,7 +38,7 @@ public class OrderController {
     }
 
     @Operation(
-            summary = "Получить заказы которые созданы / сделаны накладные но еще не отправлены"
+            summary = "Получить заказы которые созданы / сделаны накладные но еще не отправлены", security = @SecurityRequirement(name = "Bearer")
     )
     @GetMapping("/created")
     public ResponseEntity<List<OrderSummaryDTO>> getCreatedOrders() {
@@ -47,7 +48,8 @@ public class OrderController {
 
     @Operation(
             summary = "Получить заказы без трекера",
-            description = "Возвращает список всех заказов без трекера, сгруппированных по заказчику"
+            description = "Возвращает список всех заказов без трекера, сгруппированных по заказчику",
+            security = @SecurityRequirement(name = "Bearer")
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -68,7 +70,8 @@ public class OrderController {
      */
     @Operation(
             summary = "Установить трекер для заказа",
-            description = "Устанавливает трекер для заказа и обновляет данные в Google Sheets и AmoCRM"
+            description = "Устанавливает трекер для заказа и обновляет данные в Google Sheets и AmoCRM",
+            security = @SecurityRequirement(name = "Bearer")
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -101,7 +104,8 @@ public class OrderController {
      */
     @Operation(
             summary = "Синхронизировать заказ из AmoCRM",
-            description = "Синхронизирует заказ из AmoCRM в базу данных"
+            description = "Синхронизирует заказ из AmoCRM в базу данных",
+            security = @SecurityRequirement(name = "Bearer")
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -129,6 +133,11 @@ public class OrderController {
         return ResponseEntity.status(status).body(response);
     }
 
+    @Operation(
+            summary = "Синхронизировать заказ из AmoCRM",
+            description = "Синхронизирует заказ из AmoCRM в базу данных",
+            security = @SecurityRequirement(name = "Bearer")
+    )
     @PostMapping("/sync/list")
     public ResponseEntity<Void> syncOrder(@RequestBody List<SyncOrderRequestDTO> list) {
         for (var request : list) {
