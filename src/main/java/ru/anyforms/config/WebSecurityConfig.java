@@ -36,11 +36,12 @@ public class WebSecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/api/orders/**").hasRole("ADMIN")
                     .requestMatchers("/api/product/**").hasRole("ADMIN")
                     .requestMatchers("/webhook/**").permitAll()
                     .requestMatchers("/api/**").permitAll()
-                .anyRequest().permitAll()
+                    .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

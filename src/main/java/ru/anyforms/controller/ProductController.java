@@ -26,7 +26,7 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @Operation(summary = "Получить все продукты",  security = @SecurityRequirement(name = "Bearer"))
+    @Operation(summary = "Получить все продукты")
     @GetMapping()
     public ResponseEntity<List<ProductDTO>> getAllProducts() {
         var products = productService.getAllProducts();
