@@ -37,7 +37,7 @@ public class ProductController {
             description = "POST с телом продукта. Если передан id — обновляется продукт с этим id. Иначе создаётся новый. Поле folder — папка в S3 (под shop/) с фото.",
             security = @SecurityRequirement(name = "Bearer")
     )
-    @PostMapping()
+    @PostMapping("/create")
     public ResponseEntity<ProductDTO> saveOrUpdateProduct(@RequestBody ProductCreateUpdateRequestDTO request) {
         ProductDTO result = productService.saveOrUpdate(request);
         return ResponseEntity.ok(result);
