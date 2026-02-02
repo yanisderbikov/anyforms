@@ -35,6 +35,7 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/orders/**").hasRole("ADMIN")
                     .requestMatchers("/api/product/**").hasRole("ADMIN")
+                    .requestMatchers("/webhook/**").permitAll()
                     .requestMatchers("/api/**").permitAll()
                 .anyRequest().permitAll()
             )
