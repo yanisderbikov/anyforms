@@ -17,6 +17,7 @@ class ConverterProductsImpl implements ConverterProducts {
     public ProductDTO convert(Product product) {
         var photos = getterPhotosFromS3Folder.getPhotos(product.getS3PhotosFolderPath());
         return new ProductDTO(
+                product.getId(),
                 product.getName(),
                 product.getDescription(),
                 photos,
