@@ -1,5 +1,6 @@
 package ru.anyforms.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +22,8 @@ import java.util.List;
 public class WebSecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    @Value("${allowed.origins}")
+    private List<String> allowedOrigins;
 
     public WebSecurityConfig(JwtAuthFilter jwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
@@ -52,7 +55,7 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*")); // Разрешить все origin
+        configuration.setAllowedOrigins(allowedOrigins); // Разрешить все origin
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")); // Разрешить все методы
         configuration.setAllowedHeaders(List.of("*")); // Разрешить все заголовки
         configuration.setExposedHeaders(List.of("*")); // Разрешить все заголовки в ответе
