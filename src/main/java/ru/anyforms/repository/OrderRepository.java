@@ -24,8 +24,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
          AND o.deliveryStatus IS NOT NULL
          AND o.deliveryStatus <> ''
          AND o.deliveryStatus <> :notDeliveryStatus
+         AND o.deliveryStatus <> :notDeliveryStatus2
        """)
-    List<Order> findOrdersFilledTrackerExceptDeliveryStatus(String notDeliveryStatus);
+    List<Order> findOrdersFilledTrackerExceptDeliveryStatus(String notDeliveryStatus, String notDeliveryStatus2);
 
 
     Optional<Order> findOrderByTracker(String tracker);

@@ -30,8 +30,10 @@ public class GetterOrderDTOByTypeImpl implements GetterOrderDTOByType {
 
     @Override
     public List<OrderSummaryDTO> getDeliveringOrders() {
-        var statusOrder = CdekOrderStatus.DELIVERED.getCode();
-        List<Order> orders = orderRepository.findOrdersFilledTrackerExceptDeliveryStatus(statusOrder);
+        List<Order> orders = orderRepository.findOrdersFilledTrackerExceptDeliveryStatus(
+                CdekOrderStatus.DELIVERED.getCode(),
+                CdekOrderStatus.CREATED.getCode()
+        );
         return convertAndSort(orders);
     }
 
