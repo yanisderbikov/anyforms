@@ -16,8 +16,13 @@ import java.util.Map;
 class AmoCrmCalculateServiceImpl implements AmoCrmCalculateService {
     private final AmoCrmGateway amoCrmService;
     
-    @Value("${amocrm.calculate.base.amount}")
+    @Value("${amocrm.calculate.price.base.amount}")
     private Long baseAmount;
+    @Value("${amocrm.сalculate.price.margin.project}")
+    private Long marginProject;
+    @Value("${amocrm.сalculate.price.margin.form}")
+    private Long marginForm;
+
 
     /**
      * Выполняет расчеты для сделки и обновляет поля
@@ -62,9 +67,8 @@ class AmoCrmCalculateServiceImpl implements AmoCrmCalculateService {
                 return false;
             }
 
-            // Добавляем 20% к проекту и 10% к форме
-            long projectPriceWithMargin = Math.round(projectPrice * 1.2); // +20%
-            long formPriceWithMargin = Math.round(formPrice * 1.1); // +10%
+            long projectPriceWithMargin = Math.round(projectPrice * (1 + marginProject / 100.0));
+            long formPriceWithMargin = Math.round(formPrice * (1 + marginForm / 100.0));
 
             // Расчет 1: Минимальное кол-во форм = ceil((baseAmount - проект_с_наценкой) / Форма_с_наценкой)
             double minFormsCountDouble = (double)(baseAmount - projectPriceWithMargin) / formPriceWithMargin;
