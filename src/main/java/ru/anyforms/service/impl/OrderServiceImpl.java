@@ -1,6 +1,5 @@
 package ru.anyforms.service.impl;
 
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +19,7 @@ import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -125,8 +124,11 @@ class OrderServiceImpl implements OrderService  {
             order.setDeliveryStatus(deliveryStatus);
 
             // Получаем ПВЗ СДЭК из контакта
-            String pvzSdek = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ.getId());
-            order.setPvzSdek(pvzSdek);
+            String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_STREET.getId());
+            order.setPvzSdekStreet(pvzSdekStreet);
+
+            String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_CITY.getId());
+            order.setPvzSdekCity(pvzSdekCity);
 
             // Получаем дату покупки из сделки
             // todo 3 исправить дату
@@ -175,7 +177,7 @@ class OrderServiceImpl implements OrderService  {
                 timestamp = Long.parseLong(dateValue);
             }
             return Instant.ofEpochSecond(timestamp)
-                    .atZone(ZoneId.systemDefault())
+                    .atZone(ZoneOffset.UTC)
                     .toLocalDateTime();
         } catch (Exception e) {
             log.warn("Failed to parse date from AmoCRM value '{}': {}", dateValue, e.getMessage());

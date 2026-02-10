@@ -106,7 +106,7 @@ public class HorseDeliveryCalculationService {
             }
             
             // Получаем ПВЗ у контакта
-            String pvz = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ.getId());
+            String pvz = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_STREET.getId());
             if (pvz == null || pvz.trim().isEmpty()) {
                 logger.error("Не указан ПВЗ у контакта {} для сделки {}", contactId, leadId);
                 return false;

@@ -21,7 +21,7 @@ public class DataExtractionService {
         data.setFio(contact.getCustomFieldValue(AmoCrmFieldId.FIO.getId()));
         data.setQuantity(lead.getCustomFieldValue(AmoCrmFieldId.QUANTITY.getId()));
         data.setPhone(contact.getCustomFieldValue(AmoCrmFieldId.PHONE.getId()));
-        data.setPvzSdek(contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ.getId()));
+        data.setPvzSdek(contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_STREET.getId()));
         data.setDatePayment(lead.getCustomFieldValue(AmoCrmFieldId.DATE_PAYMENT.getId()));
         data.setCrmLink("https://" + subdomain + ".amocrm.ru/leads/detail/" + leadId);
         

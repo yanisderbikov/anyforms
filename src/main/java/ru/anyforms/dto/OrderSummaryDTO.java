@@ -20,9 +20,12 @@ public class OrderSummaryDTO {
     @Schema(description = "Телефон контакта", example = "+79991234567")
     private String contactPhone;
     
-    @Schema(description = "ПВЗ СДЭК", example = "Москва, ул. Ленина, 1")
-    private String pvzSdek;
-    
+    @Schema(description = "ПВЗ СДЭК улица", example = "ул. Ленина, 1")
+    private String pvzSdekStreet;
+
+    @Schema(description = "ПВЗ СДЭК город", example = "Москва")
+    private String pvzSdekCity;
+
     @Schema(description = "Дата покупки", example = "2024-01-15T10:30:00")
     private LocalDateTime purchaseDate;
 

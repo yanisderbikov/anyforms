@@ -23,7 +23,8 @@ class ConverterOrderImpl implements ConverterOrder {
         dto.setContactId(order.getContactId());
         dto.setContactName(order.getContactName());
         dto.setContactPhone(order.getContactPhone());
-        dto.setPvzSdek(order.getPvzSdek());
+        dto.setPvzSdekStreet(order.getPvzSdekStreet());
+        dto.setPvzSdekCity(order.getPvzSdekCity());
         dto.setPurchaseDate(order.getPurchaseDate());
         dto.setComment(order.getComment());
         dto.setTracker(order.getTracker());

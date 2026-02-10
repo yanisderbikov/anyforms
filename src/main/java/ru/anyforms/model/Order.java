@@ -36,7 +36,10 @@ public class Order {
     private String deliveryStatus;
 
     @Column(name = "pvz_sdek")
-    private String pvzSdek;
+    private String pvzSdekStreet;
+
+    @Column(name = "pvz_sdek_city")
+    private String pvzSdekCity;
 
     @Column(name = "purchase_date")
     private LocalDateTime purchaseDate;
