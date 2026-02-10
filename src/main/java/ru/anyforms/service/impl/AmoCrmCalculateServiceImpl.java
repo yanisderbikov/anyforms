@@ -18,9 +18,9 @@ class AmoCrmCalculateServiceImpl implements AmoCrmCalculateService {
     
     @Value("${amocrm.calculate.price.base.amount}")
     private Long baseAmount;
-    @Value("${amocrm.сalculate.price.margin.project}")
+    @Value("${amocrm.calculate.price.margin.project}")
     private Long marginProject;
-    @Value("${amocrm.сalculate.price.margin.form}")
+    @Value("${amocrm.calculate.price.margin.form}")
     private Long marginForm;
 
 
