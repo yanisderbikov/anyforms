@@ -12,7 +12,7 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByLeadId(Long leadId);
 
-    @Query("SELECT o FROM Order o WHERE o.tracker IS NULL OR o.tracker = ''")
+    @Query("SELECT o FROM Order o WHERE o.tracker IS NULL OR o.tracker = '' order by o.purchaseDate")
     List<Order> findOrdersWithoutTracker();
 
     List<Order> findOrdersByDeliveryStatus(String deliveryStatus);
@@ -25,6 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
          AND o.deliveryStatus <> ''
          AND o.deliveryStatus <> :notDeliveryStatus
          AND o.deliveryStatus <> :notDeliveryStatus2
+       order by o.purchaseDate
        """)
     List<Order> findOrdersFilledTrackerExceptDeliveryStatus(String notDeliveryStatus, String notDeliveryStatus2);
 
@@ -40,6 +41,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
               OR o.deliveryStatus = ''
               OR o.deliveryStatus = 'CREATED'
          )
+       order by o.purchaseDate
        """)
     List<Order> getEmptyOrCreatedDeliveryAndNonEmptyTracker();
 
