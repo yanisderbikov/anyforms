@@ -1,9 +1,6 @@
 package ru.anyforms.service.amo.impl;
 
-import ru.anyforms.model.AmoContact;
-import ru.anyforms.model.AmoCrmFieldId;
-import ru.anyforms.model.AmoLead;
-import ru.anyforms.model.AmoLeadStatus;
+import ru.anyforms.model.amo.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -531,7 +528,7 @@ public class AmoCrmService {
      * @param leadId ID сделки
      * @return список товаров или пустой список, если товаров нет
      */
-    public java.util.List<ru.anyforms.model.AmoProduct> getLeadProducts(Long leadId) {
+    public java.util.List<AmoProduct> getLeadProducts(Long leadId) {
         try {
             // Получаем сделку с товарами через параметр with=catalog_elements
             String leadUrl = "/api/v4/leads/" + leadId + "?with=catalog_elements";
@@ -547,7 +544,7 @@ public class AmoCrmService {
             }
 
             JsonObject leadJson = JsonParser.parseString(leadResponse).getAsJsonObject();
-            java.util.List<ru.anyforms.model.AmoProduct> products = new java.util.ArrayList<>();
+            java.util.List<AmoProduct> products = new java.util.ArrayList<>();
             java.util.Map<Long, JsonObject> productMetadataMap = new java.util.HashMap<>();
 
             // Извлекаем товары из _embedded.catalog_elements
@@ -615,7 +612,7 @@ public class AmoCrmService {
                                     Long elementId = element.has("id") ? element.get("id").getAsLong() : null;
                                     
                                     if (elementId != null && productMetadataMap.containsKey(elementId)) {
-                                        ru.anyforms.model.AmoProduct product = new ru.anyforms.model.AmoProduct();
+                                        AmoProduct product = new AmoProduct();
                                         product.setId(elementId);
                                         product.setName(element.has("name") ? element.get("name").getAsString() : null);
                                         

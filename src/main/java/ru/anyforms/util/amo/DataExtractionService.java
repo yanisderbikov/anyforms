@@ -1,8 +1,8 @@
 package ru.anyforms.util.amo;
 
-import ru.anyforms.model.AmoContact;
-import ru.anyforms.model.AmoCrmFieldId;
-import ru.anyforms.model.AmoLead;
+import ru.anyforms.model.amo.AmoContact;
+import ru.anyforms.model.amo.AmoCrmFieldId;
+import ru.anyforms.model.amo.AmoLead;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

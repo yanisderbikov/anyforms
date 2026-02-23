@@ -1,6 +1,6 @@
 package ru.anyforms.service.amo;
 
-import ru.anyforms.model.AmoLead;
+import ru.anyforms.model.amo.AmoLead;
 
 /**
  * Интерфейс для обработки лидов из AmoCRM

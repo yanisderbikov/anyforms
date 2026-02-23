@@ -1,4 +1,4 @@
-package ru.anyforms.model;
+package ru.anyforms.model.amo;
 
 /**
  * Enum для хранения ID кастомных полей amoCRM

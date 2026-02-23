@@ -1,9 +1,9 @@
 package ru.anyforms.integration;
 
-import ru.anyforms.model.AmoContact;
-import ru.anyforms.model.AmoLead;
-import ru.anyforms.model.AmoLeadStatus;
-import ru.anyforms.model.AmoProduct;
+import ru.anyforms.model.amo.AmoContact;
+import ru.anyforms.model.amo.AmoLead;
+import ru.anyforms.model.amo.AmoLeadStatus;
+import ru.anyforms.model.amo.AmoProduct;
 
 import java.util.List;
 import java.util.Map;

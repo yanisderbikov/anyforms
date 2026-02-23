@@ -1,4 +1,4 @@
-package ru.anyforms.model;
+package ru.anyforms.model.amo;
 
 import com.google.gson.annotations.SerializedName;
 import lombok.Data;

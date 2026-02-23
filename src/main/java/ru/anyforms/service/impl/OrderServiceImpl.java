@@ -13,6 +13,7 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.integration.CdekTrackingGateway;
 import ru.anyforms.integration.GoogleSheetsGateway;
 import ru.anyforms.model.*;
+import ru.anyforms.model.amo.*;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
@@ -220,7 +221,7 @@ class OrderServiceImpl implements OrderService  {
             // Обновляем трекер в AmoCRM
             boolean updated = amoCrmGateway.updateLeadCustomField(
                     leadId,
-                    ru.anyforms.model.AmoCrmFieldId.TRACKER.getId(),
+                    AmoCrmFieldId.TRACKER.getId(),
                     tracker
             );
 
@@ -304,7 +305,7 @@ class OrderServiceImpl implements OrderService  {
             // Обновляем статус в AmoCRM
             boolean updated = amoCrmGateway.updateLeadCustomField(
                     leadId,
-                    ru.anyforms.model.AmoCrmFieldId.DELIVERY_STATUS.getId(),
+                    AmoCrmFieldId.DELIVERY_STATUS.getId(),
                     status
             );
 
