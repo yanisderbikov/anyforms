@@ -1,7 +1,11 @@
 package ru.anyforms.controller;
 
-import ru.anyforms.service.AmoCrmCalculateService;
-import ru.anyforms.service.AmoCrmWebhookService;
+import ru.anyforms.service.amo.AmoCrmCalculateService;
+import ru.anyforms.service.amo.AmoCrmWebhookService;
+import ru.anyforms.service.amo.AmoNewMessageProcessor;
+import ru.anyforms.dto.amo.AmoNewMessageWebhookPayload;
+import ru.anyforms.util.FormDataParser;
+import ru.anyforms.util.AmoNewMessagePayloadParser;
 import ru.anyforms.service.CdekWebhookService;
 import ru.anyforms.util.WebhookParserService;
 import ru.anyforms.util.amo.JsonLeadIdExtractionService;
@@ -23,19 +27,22 @@ public class WebhookController {
     private final WebhookParserService webhookParserService;
     private final JsonLeadIdExtractionService jsonLeadIdExtractionService;
     private final HorseDeliveryCalculationService horseDeliveryCalculationService;
+    private final AmoNewMessageProcessor amoNewMessageProcessor;
 
     public WebhookController(AmoCrmWebhookService webhookProcessingService,
                              CdekWebhookService cdekWebhookService,
                              AmoCrmCalculateService amoCrmCalculateService,
                              WebhookParserService webhookParserService,
                              JsonLeadIdExtractionService jsonLeadIdExtractionService,
-                             HorseDeliveryCalculationService horseDeliveryCalculationService) {
+                             HorseDeliveryCalculationService horseDeliveryCalculationService,
+                             AmoNewMessageProcessor amoNewMessageProcessor) {
         this.webhookProcessingService = webhookProcessingService;
         this.cdekWebhookService = cdekWebhookService;
         this.amoCrmCalculateService = amoCrmCalculateService;
         this.webhookParserService = webhookParserService;
         this.jsonLeadIdExtractionService = jsonLeadIdExtractionService;
         this.horseDeliveryCalculationService = horseDeliveryCalculationService;
+        this.amoNewMessageProcessor = amoNewMessageProcessor;
     }
 
     @PostMapping(value = "/amocrm", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
@@ -59,6 +66,40 @@ public class WebhookController {
                 return ResponseEntity.badRequest().body("No data received");
             }
             
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error processing webhook: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/amocrm/new-message", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<String> handleAmoCrmNewMessage(
+            @RequestParam(required = false) MultiValueMap<String, String> formData,
+            @RequestBody(required = false) String body) {
+        try {
+            String formDataString = null;
+            if (formData != null && !formData.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                formData.forEach((key, values) -> {
+                    values.forEach(value -> {
+                        if (sb.length() > 0) sb.append("&");
+                        sb.append(key).append("=").append(value);
+                    });
+                });
+                formDataString = sb.toString();
+            } else if (body != null && !body.trim().isEmpty() && !body.trim().startsWith("{")) {
+                formDataString = body;
+            }
+            if (formDataString == null) {
+                return ResponseEntity.badRequest().body("No data received");
+            }
+            Map<String, Object> parsed = FormDataParser.parse(formDataString);
+            AmoNewMessageWebhookPayload payload = AmoNewMessagePayloadParser.parse(parsed);
+            if (payload == null || payload.getMessage() == null) {
+                return ResponseEntity.badRequest().body("Failed to parse webhook payload");
+            }
+            amoNewMessageProcessor.process(payload);
             return ResponseEntity.ok("Webhook processed successfully");
         } catch (Exception e) {
             e.printStackTrace();

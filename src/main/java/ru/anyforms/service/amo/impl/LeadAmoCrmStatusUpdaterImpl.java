@@ -1,4 +1,4 @@
-package ru.anyforms.service.impl;
+package ru.anyforms.service.amo.impl;
 
 import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.integration.AmoCrmGateway;
@@ -7,9 +7,11 @@ import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
 import ru.anyforms.model.AmoLeadStatus;
+import ru.anyforms.service.OrderService;
+import ru.anyforms.service.impl.CacheService;
 import ru.anyforms.util.amo.DataConversionService;
 import ru.anyforms.util.amo.DataExtractionService;
-import ru.anyforms.service.LeadAmoCrmStatusUpdater;
+import ru.anyforms.service.amo.LeadAmoCrmStatusUpdater;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +25,7 @@ class LeadAmoCrmStatusUpdaterImpl implements LeadAmoCrmStatusUpdater {
     private final GoogleSheetsGateway googleSheetsGateway;
     private final DataExtractionService dataExtractionService;
     private final DataConversionService dataConversionService;
-    private final OrderServiceImpl orderService;
+    private final OrderService orderService;
 
     /**
      * Обрабатывает лид: проверяет кэш, валидирует, извлекает данные и добавляет в Google Sheets

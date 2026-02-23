@@ -1,4 +1,4 @@
-package ru.anyforms.service.impl;
+package ru.anyforms.service.amo.impl;
 
 import ru.anyforms.model.AmoContact;
 import ru.anyforms.model.AmoCrmFieldId;

@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.service.amo;
 
 import ru.anyforms.model.AmoLead;
 

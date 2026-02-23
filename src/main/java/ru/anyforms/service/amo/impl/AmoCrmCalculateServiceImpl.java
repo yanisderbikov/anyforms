@@ -1,4 +1,4 @@
-package ru.anyforms.service.impl;
+package ru.anyforms.service.amo.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.AmoCrmFieldId;
 import ru.anyforms.model.AmoLead;
-import ru.anyforms.service.AmoCrmCalculateService;
+import ru.anyforms.service.amo.AmoCrmCalculateService;
 
 import java.util.HashMap;
 import java.util.Map;

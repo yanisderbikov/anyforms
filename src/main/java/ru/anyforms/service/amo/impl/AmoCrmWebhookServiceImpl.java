@@ -1,10 +1,10 @@
-package ru.anyforms.service.impl;
+package ru.anyforms.service.amo.impl;
 
 import lombok.extern.log4j.Log4j2;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ru.anyforms.service.AmoCrmWebhookService;
-import ru.anyforms.service.LeadAmoCrmStatusUpdater;
+import ru.anyforms.service.amo.AmoCrmWebhookService;
+import ru.anyforms.service.amo.LeadAmoCrmStatusUpdater;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.WebhookParserService;
 import ru.anyforms.util.amo.JsonLeadIdExtractionService;
