@@ -11,9 +11,6 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
 
     @Override
     public void process(AmoNewMessageWebhookPayload payload) {
-        // TODO: реализовать обработку новых сообщений
-        log.debug("Amo new-message webhook received: account={}, message={}",
-                payload.getAccount() != null ? payload.getAccount().getSubdomain() : null,
-                payload.getMessage() != null ? payload.getMessage().getId() : null);
+
     }
 }
