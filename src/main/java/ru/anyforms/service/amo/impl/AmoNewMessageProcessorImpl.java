@@ -1,5 +1,6 @@
 package ru.anyforms.service.amo.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.amo.AmoNewMessageWebhookPayload;
@@ -11,9 +12,10 @@ import java.util.Set;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
 
-    private AmoCrmGateway amoCrmGateway;
+    private final AmoCrmGateway amoCrmGateway;
     private static Set<Long> skippingContactIds = Set.of(
             68033269L, // молька
             69185457L, // чел бразилия
