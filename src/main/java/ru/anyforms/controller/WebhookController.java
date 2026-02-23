@@ -1,5 +1,6 @@
 package ru.anyforms.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import ru.anyforms.service.amo.AmoCrmCalculateService;
 import ru.anyforms.service.amo.AmoCrmWebhookService;
 import ru.anyforms.service.amo.AmoNewMessageProcessor;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/webhook")
+@Slf4j
 public class WebhookController {
     private final AmoCrmWebhookService webhookProcessingService;
     private final CdekWebhookService cdekWebhookService;
@@ -94,7 +96,7 @@ public class WebhookController {
             amoNewMessageProcessor.process(payload);
             return ResponseEntity.ok("Webhook processed successfully");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("ошибка обработки контроллера", e);
             return ResponseEntity.status(500).body("Error processing webhook: " + e.getMessage());
         }
     }
