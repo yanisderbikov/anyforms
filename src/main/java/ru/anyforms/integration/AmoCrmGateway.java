@@ -20,9 +20,9 @@ public interface AmoCrmGateway {
      * @param taskType        тип задачи: 1 — Звонок, 2 — Встреча (можно null)
      * @param taskMessage     текст задачи
      * @param leadId          ID сделки, к которой привязать задачу (можно null)
-     * @param hoursToComplete срок в часах: 0 — выполнить сейчас, N — в течение N часов
+     * @param minutesToComplete срок в минутах: 0 — выполнить сейчас, N — в течение N часов
      */
-    void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int hoursToComplete);
+    void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int minutesToComplete);
 
     /**
      * Получает сделку по ID

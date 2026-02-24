@@ -1,5 +1,6 @@
 package ru.anyforms.integration.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.*;
 import com.google.gson.Gson;
@@ -12,10 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
 class AmoCrmHttpGateway implements AmoCrmGateway {
     private WebClient webClient;
@@ -40,18 +43,16 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
-    public void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int hoursToComplete) {
+    public void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int minutesToComplete) {
         try {
             // complete_till: 0 часов = сейчас, иначе текущее время + hoursToComplete часов
             long nowSec = System.currentTimeMillis() / 1000;
-            long completeTill = hoursToComplete <= 0 ? nowSec : nowSec + (long) hoursToComplete * 3600;
+            long completeTill = minutesToComplete <= 0 ? nowSec : nowSec + (long) minutesToComplete * 60;
 
             JsonObject task = new JsonObject();
             task.addProperty("text", taskMessage != null ? taskMessage : "");
             task.addProperty("complete_till", completeTill);
-            if (taskType != null) {
-                task.addProperty("task_type_id", taskType);
-            }
+            task.addProperty("task_type_id", taskType);
             if (responsibleUser != null) {
                 task.addProperty("responsible_user_id", responsibleUser);
             }
@@ -69,13 +70,14 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .header("Authorization", "Bearer " + accessToken)
                     .bodyValue(tasksArray.toString())
                     .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            response -> response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new RuntimeException("AmoCRM tasks API " + response.statusCode() + ": " + body))))
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully created task in amoCRM: " + taskMessage + (leadId != null ? " (lead " + leadId + ")" : ""));
         } catch (Exception e) {
-            System.err.println("Failed to create task in amoCRM: " + e.getMessage());
-            e.printStackTrace();
+            log.error("setNewTask failed: {}", e.getMessage());
             throw new RuntimeException("Failed to create task in amoCRM", e);
         }
     }

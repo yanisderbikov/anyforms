@@ -8,7 +8,7 @@ public enum AmoTaskId {
 
     REACH_OUT(1L, "Связаться"),
     MEETING(2L, "Встреча"),
-    LOST_MESSAGE(7L, "Пропущенное"),
+    LOST_MESSAGE(3986070L, "Пропущенное"),
     UNKNOWN(null, "Неизвестный статус");
 
     private final Long taskId;
