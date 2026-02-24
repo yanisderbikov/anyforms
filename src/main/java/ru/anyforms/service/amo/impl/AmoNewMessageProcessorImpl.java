@@ -7,6 +7,8 @@ import ru.anyforms.dto.amo.AmoNewMessageWebhookPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoPipeline;
+import ru.anyforms.model.amo.AmoTaskId;
+import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.service.amo.AmoNewMessageProcessor;
 import ru.anyforms.util.pattern.MessagePatternOrder;
 
@@ -33,12 +35,29 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
         }
         var lead  = amoCrmGateway.getLead(payload.getMessage().getEntity().getId());
         var pipelineId = lead.getPipelineId();
+        if (pipelineId.equals(AmoPipeline.MAIN.getPipelineId()) || pipelineId.equals(AmoPipeline.RETAIL.getPipelineId())
+            && lead.getResponsibleUserId().equals(AmoTaskResponsibleUser.IAN.getResponsibleUserId())) {
+            amoCrmGateway.setNewTask(
+                    AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
+                    AmoTaskId.LOST_MESSAGE.getTaskId(),
+                    "Похоже что нужно ответить",
+                    lead.getId(),
+                    0
+            );
+        }
         if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId())) {
             return;
         }
         var message = payload.getMessage().getText();
         if (MessagePatternOrder.isNeedToMove(message)) {
             amoCrmGateway.updateLeadStatus(lead.getId(), AmoLeadStatus.FIST_TOUCH);
+            amoCrmGateway.setNewTask(
+                    AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
+                    AmoTaskId.LOST_MESSAGE.getTaskId(),
+                    "Проверка",
+                    lead.getId(),
+                    0
+            );
         }
     }
 }

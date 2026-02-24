@@ -12,6 +12,18 @@ import java.util.Map;
  * Интерфейс для работы с amoCRM API
  */
 public interface AmoCrmGateway {
+
+    /**
+     * Создаёт задачу в amoCRM.
+     *
+     * @param responsibleUser ID ответственного (можно null — будет текущий пользователь)
+     * @param taskType        тип задачи: 1 — Звонок, 2 — Встреча (можно null)
+     * @param taskMessage     текст задачи
+     * @param leadId          ID сделки, к которой привязать задачу (можно null)
+     * @param hoursToComplete срок в часах: 0 — выполнить сейчас, N — в течение N часов
+     */
+    void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int hoursToComplete);
+
     /**
      * Получает сделку по ID
      */

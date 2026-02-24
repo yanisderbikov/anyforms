@@ -40,6 +40,47 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
+    public void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int hoursToComplete) {
+        try {
+            // complete_till: 0 часов = сейчас, иначе текущее время + hoursToComplete часов
+            long nowSec = System.currentTimeMillis() / 1000;
+            long completeTill = hoursToComplete <= 0 ? nowSec : nowSec + (long) hoursToComplete * 3600;
+
+            JsonObject task = new JsonObject();
+            task.addProperty("text", taskMessage != null ? taskMessage : "");
+            task.addProperty("complete_till", completeTill);
+            if (taskType != null) {
+                task.addProperty("task_type_id", taskType);
+            }
+            if (responsibleUser != null) {
+                task.addProperty("responsible_user_id", responsibleUser);
+            }
+            if (leadId != null) {
+                task.addProperty("entity_id", leadId);
+                task.addProperty("entity_type", "leads");
+            }
+
+            JsonArray tasksArray = new JsonArray();
+            tasksArray.add(task);
+
+            String url = "/api/v4/tasks";
+            webClient.post()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(tasksArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Successfully created task in amoCRM: " + taskMessage + (leadId != null ? " (lead " + leadId + ")" : ""));
+        } catch (Exception e) {
+            System.err.println("Failed to create task in amoCRM: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to create task in amoCRM", e);
+        }
+    }
+
+    @Override
     public AmoLead getLead(Long leadId) {
         try {
             String url = "/api/v4/leads/" + leadId;
