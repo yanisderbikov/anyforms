@@ -39,6 +39,14 @@ public interface AmoCrmGateway {
      */
     Long getContactIdFromLead(Long leadId);
 
+    /**
+     * Получает полный контакт по ID сделки (сначала извлекает contactId из сделки, затем загружает контакт).
+     *
+     * @param leadId ID сделки
+     * @return контакт или null, если у сделки нет контакта
+     */
+    AmoContact getContactFromLead(Long leadId);
+
     boolean updateLeadStatus(Long leadId, AmoLeadStatus status);
 
     /**
@@ -57,6 +65,16 @@ public interface AmoCrmGateway {
     boolean updateLeadCustomField(Long leadId, Long fieldId, String value);
 
     /**
+     * Обновляет кастомное поле контакта
+     *
+     * @param contactId ID контакта
+     * @param fieldId   ID кастомного поля
+     * @param value     новое значение
+     * @return true при успехе
+     */
+    boolean updateContactCustomField(Long contactId, Long fieldId, String value);
+
+    /**
      * Отправляет сообщение в последний мессенджер сделки
      */
     boolean sendMessageToContact(Long leadId, String message);
@@ -65,6 +83,10 @@ public interface AmoCrmGateway {
      * Обновляет несколько полей сделки одновременно
      */
     boolean updateLeadFields(Long leadId, Long price, Map<Long, String> customFields);
+
+    default boolean updateLeadFields(Long leadId, Map<Long, String> customFields) {
+        return updateLeadFields(leadId, null, customFields);
+    }
 
     /**
      * Добавляет примечание к сделке

@@ -7,7 +7,10 @@ public enum AmoCrmFieldId {
     // Поля для трекинга и доставки
     TRACKER(2348069L, "Трекер"),
     DELIVERY_STATUS(2601105L, "Статус доставки"),
-    
+
+    RELEASED_AT(2757837L, "Завершен заказ"),
+    COUNT_RELEASED_ORDERS(2438411L, "Кол-во покупок"),
+
     // Поля для контактов
     FIO(2449809L, "ФИО"),
     PHONE(2265635L, "Телефон"),

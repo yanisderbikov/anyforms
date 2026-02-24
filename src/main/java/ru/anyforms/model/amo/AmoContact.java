@@ -69,6 +69,10 @@ public class AmoContact {
                 .orElse(null);
     }
 
+    public String getCustomFieldValue(AmoCrmFieldId customFiled) {
+        return getCustomFieldValue(customFiled.getId());
+    }
+
     public String getDefaultPhone() {
         if (phone == null || phone.isEmpty()) return null;
         return phone.get(0).value;
