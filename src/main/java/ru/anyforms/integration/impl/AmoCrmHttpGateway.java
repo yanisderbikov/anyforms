@@ -24,7 +24,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     private WebClient webClient;
     private final Gson gson;
     
-    @Value("${amocrm.subdomain:hairdoskeels38}")
+    @Value("${amocrm.subdomain}")
     private String subdomain;
     
     @Value("${amocrm.access.token:}")
@@ -308,43 +308,72 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         }
     }
 
+
+
     @Override
-    public boolean updateContactCustomField(Long contactId, Long fieldId, String value) {
+    public boolean updateContactCustomField(Long contactId, Map<Long, String> customFields) {
+        if (customFields == null || customFields.isEmpty()) {
+            return true;
+        }
         try {
-            JsonObject contactUpdate = new JsonObject();
-            contactUpdate.addProperty("id", contactId);
-
             JsonArray customFieldsArray = new JsonArray();
-            JsonObject customField = new JsonObject();
-            customField.addProperty("field_id", fieldId);
+            for (Map.Entry<Long, String> entry : customFields.entrySet()) {
+                JsonObject customField = new JsonObject();
+                customField.addProperty("field_id", entry.getKey());
+                JsonArray valuesArray = new JsonArray();
+                JsonObject fieldValue = new JsonObject();
+                addValueToJson(fieldValue, entry.getValue());
+                valuesArray.add(fieldValue);
+                customField.add("values", valuesArray);
+                customFieldsArray.add(customField);
+            }
 
-            JsonArray valuesArray = new JsonArray();
-            JsonObject fieldValue = new JsonObject();
-            fieldValue.addProperty("value", value);
-            valuesArray.add(fieldValue);
+            JsonObject body = new JsonObject();
+            body.add("custom_fields_values", customFieldsArray);
 
-            customField.add("values", valuesArray);
-            customFieldsArray.add(customField);
+            String url = "/api/v4/contacts/" + contactId;
+            String bodyStr = body.toString();
+            log.debug("PATCH contact custom fields: {} body: {}", url, bodyStr);
 
-            contactUpdate.add("custom_fields_values", customFieldsArray);
-
-            JsonArray contactsArray = new JsonArray();
-            contactsArray.add(contactUpdate);
-
-            String url = "/api/v4/contacts";
             webClient.patch()
                     .uri(url)
                     .header("Authorization", "Bearer " + accessToken)
-                    .bodyValue(contactsArray.toString())
+                    .bodyValue(bodyStr)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
-            log.info("Successfully updated custom field {} for contact {} with value: {}", fieldId, contactId, value);
+            log.info("Successfully updated {} custom field(s) for contact {}", customFields.size(), contactId);
             return true;
-        } catch (Exception e) {
-            log.error("Failed to update contact custom field in amoCRM for contact {}, field {}", contactId, fieldId, e);
+        } catch (WebClientResponseException e) {
+            String responseBody = e.getResponseBodyAsString();
+            log.error("amoCRM PATCH contact (multiple fields) failed: contactId={}, status={}, response={}", contactId, e.getStatusCode(), responseBody, e);
             return false;
+        } catch (Exception e) {
+            log.error("Failed to update contact custom fields in amoCRM for contact {}", contactId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Добавляет в JSON объект поле "value" как число или строку в зависимости от содержимого.
+     * amoCRM для числовых полей ожидает number (например 10), не строку "10".
+     */
+    private void addValueToJson(JsonObject fieldValue, String value) {
+        if (value == null) {
+            fieldValue.addProperty("value", (String) null);
+            return;
+        }
+        try {
+            long l = Long.parseLong(value.trim());
+            fieldValue.addProperty("value", l);
+        } catch (NumberFormatException e1) {
+            try {
+                double d = Double.parseDouble(value.trim().replace(',', '.'));
+                fieldValue.addProperty("value", d);
+            } catch (NumberFormatException e2) {
+                fieldValue.addProperty("value", value);
+            }
         }
     }
 

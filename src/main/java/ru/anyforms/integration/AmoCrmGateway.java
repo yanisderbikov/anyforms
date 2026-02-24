@@ -72,7 +72,18 @@ public interface AmoCrmGateway {
      * @param value     новое значение
      * @return true при успехе
      */
-    boolean updateContactCustomField(Long contactId, Long fieldId, String value);
+    default boolean updateContactCustomField(Long contactId, Long fieldId, String value) {
+        return updateContactCustomField(contactId, Map.of(fieldId, value));
+    }
+
+    /**
+     * Обновляет несколько кастомных полей контакта одним запросом.
+     *
+     * @param contactId    ID контакта
+     * @param customFields мапа fieldId -> значение
+     * @return true при успехе
+     */
+    boolean updateContactCustomField(Long contactId, Map<Long, String> customFields);
 
     /**
      * Отправляет сообщение в последний мессенджер сделки

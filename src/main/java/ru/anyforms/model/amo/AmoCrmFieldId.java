@@ -10,6 +10,7 @@ public enum AmoCrmFieldId {
 
     RELEASED_AT(2757837L, "Завершен заказ"),
     COUNT_RELEASED_ORDERS(2438411L, "Кол-во покупок"),
+    RELEASED_LEADS_LIST(2775267L, "Список сделок реализованных"),
 
     // Поля для контактов
     FIO(2449809L, "ФИО"),
@@ -26,7 +27,7 @@ public enum AmoCrmFieldId {
     HORSE_COUNT(2351399L, "Количество лошадок"), // То же поле что и QUANTITY
     FORMS_COUNT(2351399L, "Количество форм"), // То же поле что и QUANTITY
 
-    COMMENT_TO_ORDER(2625137L, "Комментарий к заказу"), // То же поле что и QUANTITY
+    COMMENT_TO_ORDER(2775317L, "Комментарий к заказу"), // То же поле что и QUANTITY
     
     // Поля для расчетов
     MIN_FORMS_COUNT(2337779L, "Мин-кол-во форм"),

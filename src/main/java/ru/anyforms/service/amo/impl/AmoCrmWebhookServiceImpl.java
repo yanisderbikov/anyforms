@@ -2,6 +2,7 @@ package ru.anyforms.service.amo.impl;
 
 import lombok.extern.log4j.Log4j2;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoCrmFieldId;
@@ -24,6 +25,8 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private final LeadAmoCrmStatusUpdater leadAmoCrmStatusUpdater;
     private final OrderService orderService;
     private final AmoCrmGateway amoCrmGateway;
+    @Value("${amocrm.subdomain}")
+    private String subdomain;
 
     @Override
     public void processFormDataWebhook(String formData) {
@@ -75,7 +78,14 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
         var contact = amoCrmGateway.getContactFromLead(leadId);
         var countReleasedOrders = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.COUNT_RELEASED_ORDERS));
         countReleasedOrders++;
-        amoCrmGateway.updateContactCustomField(leadId, AmoCrmFieldId.COUNT_RELEASED_ORDERS.getId(), String.valueOf(countReleasedOrders));
+        var listReleasedLeads = contact.getCustomFieldValue(AmoCrmFieldId.RELEASED_LEADS_LIST);
+        String newLeadUrl = String.format("https://%s.amocrm.ru/leads/detail/%s", subdomain, leadId);
+        listReleasedLeads = listReleasedLeads == null ? newLeadUrl : listReleasedLeads + "\n" + newLeadUrl;
+        var customFields = Map.of(
+                AmoCrmFieldId.COUNT_RELEASED_ORDERS.getId(), String.valueOf(countReleasedOrders),
+                AmoCrmFieldId.RELEASED_LEADS_LIST.getId(), String.valueOf(listReleasedLeads)
+        );
+        amoCrmGateway.updateContactCustomField(contact.getId(), customFields);
         if (result.getSuccess()){
             leadAmoCrmStatusUpdater.moveToReadyToDeliver(leadId);
         } else {
