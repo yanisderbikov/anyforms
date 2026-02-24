@@ -39,7 +39,6 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
 
     @Override
     public void process(AmoNewMessageWebhookPayload payload) {
-        log.info("\nСообщение: {}\nканал: {}",payload.getMessage().getText(), payload.getMessage().getOrigin());
         var contactId = payload.getMessage().getContactId();
         if (skippingContactIds.contains(contactId)) {
             return;
