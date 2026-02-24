@@ -45,7 +45,7 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
         }
         var lead  = amoCrmGateway.getLead(payload.getMessage().getEntity().getId());
         var pipelineId = lead.getPipelineId();
-        if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId())) {
+        if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId()) && !lead.getStatusId().equals(AmoLeadStatus.FIST_TOUCH.getStatusId())) {
             if (lead.getResponsibleUserId().equals(AmoTaskResponsibleUser.IAN.getResponsibleUserId())) {
                 if (leadIdTaskCache.getIfPresent(lead.getId()) == null) {
                     amoCrmGateway.setNewTask(
