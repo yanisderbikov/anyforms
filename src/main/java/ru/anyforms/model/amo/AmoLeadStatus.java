@@ -6,6 +6,8 @@ package ru.anyforms.model.amo;
  */
 public enum AmoLeadStatus {
 
+    FIST_TOUCH(77900786L, "Первичный контакт"),
+
     /**
      * Оплачен - заказ оплачен клиентом
      * Значение может быть переопределено через amocrm.status.paid.id в application.properties
