@@ -1,4 +1,4 @@
-package ru.anyforms.model;
+package ru.anyforms.model.amo;
 
 import com.google.gson.annotations.SerializedName;
 import lombok.Data;
@@ -67,6 +67,10 @@ public class AmoContact {
                         ? f.values.get(0).value 
                         : null)
                 .orElse(null);
+    }
+
+    public String getCustomFieldValue(AmoCrmFieldId customFiled) {
+        return getCustomFieldValue(customFiled.getId());
     }
 
     public String getDefaultPhone() {

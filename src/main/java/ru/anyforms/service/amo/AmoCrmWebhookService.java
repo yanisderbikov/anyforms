@@ -1,4 +1,4 @@
-package ru.anyforms.service;
+package ru.anyforms.service.amo;
 
 public interface AmoCrmWebhookService {
     void processFormDataWebhook(String formData);

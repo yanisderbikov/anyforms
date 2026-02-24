@@ -5,9 +5,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
-import ru.anyforms.model.AmoContact;
-import ru.anyforms.model.AmoCrmFieldId;
-import ru.anyforms.model.AmoLead;
+import ru.anyforms.model.amo.AmoContact;
+import ru.anyforms.model.amo.AmoCrmFieldId;
+import ru.anyforms.model.amo.AmoLead;
 
 @Service
 @RequiredArgsConstructor

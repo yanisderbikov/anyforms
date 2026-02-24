@@ -1,7 +1,10 @@
 package ru.anyforms.controller;
 
-import ru.anyforms.service.AmoCrmCalculateService;
-import ru.anyforms.service.AmoCrmWebhookService;
+import lombok.extern.slf4j.Slf4j;
+import ru.anyforms.service.amo.AmoCrmCalculateService;
+import ru.anyforms.service.amo.AmoCrmWebhookService;
+import ru.anyforms.service.amo.AmoNewMessageProcessor;
+import ru.anyforms.service.amo.AmoNewMessageWebhookParser;
 import ru.anyforms.service.CdekWebhookService;
 import ru.anyforms.util.WebhookParserService;
 import ru.anyforms.util.amo.JsonLeadIdExtractionService;
@@ -11,11 +14,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/webhook")
+@Slf4j
 public class WebhookController {
     private final AmoCrmWebhookService webhookProcessingService;
     private final CdekWebhookService cdekWebhookService;
@@ -23,19 +30,25 @@ public class WebhookController {
     private final WebhookParserService webhookParserService;
     private final JsonLeadIdExtractionService jsonLeadIdExtractionService;
     private final HorseDeliveryCalculationService horseDeliveryCalculationService;
+    private final AmoNewMessageProcessor amoNewMessageProcessor;
+    private final AmoNewMessageWebhookParser amoNewMessageWebhookParser;
 
     public WebhookController(AmoCrmWebhookService webhookProcessingService,
                              CdekWebhookService cdekWebhookService,
                              AmoCrmCalculateService amoCrmCalculateService,
                              WebhookParserService webhookParserService,
                              JsonLeadIdExtractionService jsonLeadIdExtractionService,
-                             HorseDeliveryCalculationService horseDeliveryCalculationService) {
+                             HorseDeliveryCalculationService horseDeliveryCalculationService,
+                             AmoNewMessageProcessor amoNewMessageProcessor,
+                             AmoNewMessageWebhookParser amoNewMessageWebhookParser) {
         this.webhookProcessingService = webhookProcessingService;
         this.cdekWebhookService = cdekWebhookService;
         this.amoCrmCalculateService = amoCrmCalculateService;
         this.webhookParserService = webhookParserService;
         this.jsonLeadIdExtractionService = jsonLeadIdExtractionService;
         this.horseDeliveryCalculationService = horseDeliveryCalculationService;
+        this.amoNewMessageProcessor = amoNewMessageProcessor;
+        this.amoNewMessageWebhookParser = amoNewMessageWebhookParser;
     }
 
     @PostMapping(value = "/amocrm", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
@@ -64,6 +77,39 @@ public class WebhookController {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Error processing webhook: " + e.getMessage());
         }
+    }
+
+    @PostMapping(value = "/amocrm/new-message", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<String> handleAmoCrmNewMessage(
+            @RequestParam(required = false) MultiValueMap<String, String> formData,
+            @RequestBody(required = false) String body,
+            @RequestHeader(value = "Content-Type", required = false) String contentType) {
+        try {
+            String rawBody = toRawBody(formData, body);
+            if (rawBody == null || rawBody.isBlank()) {
+                return ResponseEntity.badRequest().body("No data received");
+            }
+            var payload = amoNewMessageWebhookParser.parse(contentType, rawBody);
+            if (payload == null || payload.getMessage() == null) {
+                return ResponseEntity.badRequest().body("Failed to parse webhook payload");
+            }
+            amoNewMessageProcessor.process(payload);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("ошибка обработки контроллера", e);
+            return ResponseEntity.status(500).body("Error processing webhook: " + e.getMessage());
+        }
+    }
+
+    private static String toRawBody(MultiValueMap<String, String> formData, String body) {
+        if (formData != null && !formData.isEmpty()) {
+            return formData.entrySet().stream()
+                    .flatMap(e -> e.getValue().stream()
+                            .map(v -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
+                                    + URLEncoder.encode(v, StandardCharsets.UTF_8)))
+                    .collect(Collectors.joining("&"));
+        }
+        return body;
     }
 
     @PostMapping(value = "/amocrm/sync-order", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})

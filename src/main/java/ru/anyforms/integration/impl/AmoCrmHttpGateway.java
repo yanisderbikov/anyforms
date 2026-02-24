@@ -1,10 +1,8 @@
 package ru.anyforms.integration.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import ru.anyforms.integration.AmoCrmGateway;
-import ru.anyforms.model.AmoContact;
-import ru.anyforms.model.AmoCrmFieldId;
-import ru.anyforms.model.AmoLead;
-import ru.anyforms.model.AmoLeadStatus;
+import ru.anyforms.model.amo.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -15,16 +13,18 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
 class AmoCrmHttpGateway implements AmoCrmGateway {
     private WebClient webClient;
     private final Gson gson;
     
-    @Value("${amocrm.subdomain:hairdoskeels38}")
+    @Value("${amocrm.subdomain}")
     private String subdomain;
     
     @Value("${amocrm.access.token:}")
@@ -40,6 +40,46 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                 .baseUrl("https://" + subdomain + ".amocrm.ru")
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
+    }
+
+    @Override
+    public void setNewTask(Long responsibleUser, Long taskType, String taskMessage, Long leadId, int minutesToComplete) {
+        try {
+            // complete_till: 0 часов = сейчас, иначе текущее время + hoursToComplete часов
+            long nowSec = System.currentTimeMillis() / 1000;
+            long completeTill = minutesToComplete <= 0 ? nowSec : nowSec + (long) minutesToComplete * 60;
+
+            JsonObject task = new JsonObject();
+            task.addProperty("text", taskMessage != null ? taskMessage : "");
+            task.addProperty("complete_till", completeTill);
+            task.addProperty("task_type_id", taskType);
+            if (responsibleUser != null) {
+                task.addProperty("responsible_user_id", responsibleUser);
+            }
+            if (leadId != null) {
+                task.addProperty("entity_id", leadId);
+                task.addProperty("entity_type", "leads");
+            }
+
+            JsonArray tasksArray = new JsonArray();
+            tasksArray.add(task);
+
+            String url = "/api/v4/tasks";
+            webClient.post()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(tasksArray.toString())
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            response -> response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new RuntimeException("AmoCRM tasks API " + response.statusCode() + ": " + body))))
+                    .bodyToMono(String.class)
+                    .block();
+
+        } catch (Exception e) {
+            log.error("setNewTask failed: {}", e.getMessage());
+            throw new RuntimeException("Failed to create task in amoCRM", e);
+        }
     }
 
     @Override
@@ -145,10 +185,20 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             throw new RuntimeException("Failed to get contact ID from lead", e);
         }
     }
+
+    @Override
+    public AmoContact getContactFromLead(Long leadId) {
+        Long contactId = getContactIdFromLead(leadId);
+        if (contactId == null) {
+            return null;
+        }
+        return getContact(contactId);
+    }
+
     @Override
     public boolean updateLeadStatus(Long leadId, AmoLeadStatus status) {
         if (status == null || status.getStatusId() == null) {
-            System.err.println("Status ID is not configured for status: " + (status != null ? status.getDescription() : "null"));
+            log.error("Status ID is not configured for status: {}", status != null ? status.getDescription() : "null");
             return false;
         }
         return updateLeadStatus(leadId, status.getStatusId(), null);
@@ -157,7 +207,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     @Override
     public boolean updateLeadStatus(Long leadId, AmoLeadStatus status, Long pipelineId) {
         if (status == null || status.getStatusId() == null) {
-            System.err.println("Status ID is not configured for status: " + (status != null ? status.getDescription() : "null"));
+            log.error("Status ID is not configured for status: {}", status != null ? status.getDescription() : "null");
             return false;
         }
         return updateLeadStatus(leadId, status.getStatusId(), pipelineId);
@@ -170,7 +220,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             if (pipelineId == null) {
                 AmoLead lead = getLead(leadId);
                 if (lead == null || lead.getPipelineId() == null) {
-                    System.err.println("Failed to get pipeline ID for lead " + leadId);
+                    log.error("Failed to get pipeline ID for lead {}", leadId);
                     return false;
                 }
                 pipelineId = lead.getPipelineId();
@@ -201,11 +251,10 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             String statusDescription = status != AmoLeadStatus.UNKNOWN 
                     ? status.getDescription() + " (" + statusId + ")"
                     : String.valueOf(statusId);
-            System.out.println("Successfully updated status for lead " + leadId + " to " + statusDescription);
+            log.info("Successfully updated status for lead {} to {}", leadId, statusDescription);
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to update lead status in amoCRM: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to update lead status in amoCRM for lead {}", leadId, e);
             return false;
         }
     }
@@ -216,7 +265,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             // Получаем текущую сделку для сохранения других полей
             AmoLead lead = getLead(leadId);
             if (lead == null) {
-                System.err.println("Failed to get lead " + leadId);
+                log.error("Failed to get lead {}", leadId);
                 return false;
             }
 
@@ -251,12 +300,80 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully updated custom field " + fieldId + " for lead " + leadId + " with value: " + value);
+            log.info("Successfully updated custom field {} for lead {} with value: {}", fieldId, leadId, value);
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to update custom field in amoCRM: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to update custom field in amoCRM for lead {}, field {}", leadId, fieldId, e);
             return false;
+        }
+    }
+
+
+
+    @Override
+    public boolean updateContactCustomField(Long contactId, Map<Long, String> customFields) {
+        if (customFields == null || customFields.isEmpty()) {
+            return true;
+        }
+        try {
+            JsonArray customFieldsArray = new JsonArray();
+            for (Map.Entry<Long, String> entry : customFields.entrySet()) {
+                JsonObject customField = new JsonObject();
+                customField.addProperty("field_id", entry.getKey());
+                JsonArray valuesArray = new JsonArray();
+                JsonObject fieldValue = new JsonObject();
+                addValueToJson(fieldValue, entry.getValue());
+                valuesArray.add(fieldValue);
+                customField.add("values", valuesArray);
+                customFieldsArray.add(customField);
+            }
+
+            JsonObject body = new JsonObject();
+            body.add("custom_fields_values", customFieldsArray);
+
+            String url = "/api/v4/contacts/" + contactId;
+            String bodyStr = body.toString();
+            log.debug("PATCH contact custom fields: {} body: {}", url, bodyStr);
+
+            webClient.patch()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(bodyStr)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully updated {} custom field(s) for contact {}", customFields.size(), contactId);
+            return true;
+        } catch (WebClientResponseException e) {
+            String responseBody = e.getResponseBodyAsString();
+            log.error("amoCRM PATCH contact (multiple fields) failed: contactId={}, status={}, response={}", contactId, e.getStatusCode(), responseBody, e);
+            return false;
+        } catch (Exception e) {
+            log.error("Failed to update contact custom fields in amoCRM for contact {}", contactId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Добавляет в JSON объект поле "value" как число или строку в зависимости от содержимого.
+     * amoCRM для числовых полей ожидает number (например 10), не строку "10".
+     */
+    private void addValueToJson(JsonObject fieldValue, String value) {
+        if (value == null) {
+            fieldValue.addProperty("value", (String) null);
+            return;
+        }
+        try {
+            long l = Long.parseLong(value.trim());
+            fieldValue.addProperty("value", l);
+        } catch (NumberFormatException e1) {
+            try {
+                double d = Double.parseDouble(value.trim().replace(',', '.'));
+                fieldValue.addProperty("value", d);
+            } catch (NumberFormatException e2) {
+                fieldValue.addProperty("value", value);
+            }
         }
     }
 
@@ -275,7 +392,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                         .block();
             } catch (WebClientResponseException.NotFound e) {
                 // Если чаты не найдены (404), пробуем альтернативный вариант или fallback
-                System.err.println("Chats endpoint returned 404 for lead " + leadId + ", trying alternative method");
+                log.warn("Chats endpoint returned 404 for lead {}, trying alternative method", leadId);
                 // Пробуем получить чаты через контакт как fallback
                 Long contactId = getContactIdFromLead(leadId);
                 if (contactId != null) {
@@ -285,7 +402,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             }
 
             if (chatsResponse == null || chatsResponse.trim().isEmpty()) {
-                System.err.println("Failed to get chats for lead " + leadId + ", trying fallback method");
+                log.warn("Failed to get chats for lead {}, trying fallback method", leadId);
                 // Пробуем получить чаты через контакт как fallback
                 Long contactId = getContactIdFromLead(leadId);
                 if (contactId != null) {
@@ -305,7 +422,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             }
 
             if (chatsArray == null || chatsArray.size() == 0) {
-                System.err.println("No chats found for lead " + leadId);
+                log.warn("No chats found for lead {}", leadId);
                 // Пробуем отправить через unsorted API как fallback
                 Long contactId = getContactIdFromLead(leadId);
                 if (contactId != null) {
@@ -322,7 +439,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             }
 
             if (chatId == null) {
-                System.err.println("Failed to get chat ID for lead " + leadId);
+                log.warn("Failed to get chat ID for lead {}", leadId);
                 // Пробуем отправить через unsorted API как fallback
                 Long contactId = getContactIdFromLead(leadId);
                 if (contactId != null) {
@@ -347,11 +464,10 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully sent message to chat " + chatId + " for lead " + leadId);
+            log.info("Successfully sent message to chat {} for lead {}", chatId, leadId);
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to send message in amoCRM: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to send message in amoCRM for lead {}", leadId, e);
             // Пробуем fallback метод
             try {
                 Long contactId = getContactIdFromLead(leadId);
@@ -359,7 +475,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     return sendMessageViaUnsorted(contactId, message);
                 }
             } catch (Exception ex) {
-                // Игнорируем ошибку fallback
+                log.debug("Fallback send message failed for lead {}", leadId, ex);
             }
             return false;
         }
@@ -407,11 +523,10 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully updated fields for lead " + leadId);
+            log.info("Successfully updated fields for lead {}", leadId);
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to update lead fields in amoCRM: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to update lead fields in amoCRM for lead {}", leadId, e);
             return false;
         }
     }
@@ -469,10 +584,10 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully sent message via unsorted API for contact " + contactId);
+            log.info("Successfully sent message via unsorted API for contact {}", contactId);
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to send message via unsorted API: " + e.getMessage());
+            log.error("Failed to send message via unsorted API for contact {}", contactId, e);
             return false;
         }
     }
@@ -497,17 +612,16 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .bodyToMono(String.class)
                     .block();
 
-            System.out.println("Successfully added note to lead " + leadId);
+            log.info("Successfully added note to lead {}", leadId);
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to add note to lead in amoCRM: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to add note to lead in amoCRM for lead {}", leadId, e);
             return false;
         }
     }
 
     @Override
-    public List<ru.anyforms.model.AmoProduct> getLeadProducts(Long leadId) {
+    public List<AmoProduct> getLeadProducts(Long leadId) {
         try {
             // Получаем сделку с товарами через параметр with=catalog_elements
             String leadUrl = "/api/v4/leads/" + leadId + "?with=catalog_elements";
@@ -523,7 +637,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             }
 
             JsonObject leadJson = JsonParser.parseString(leadResponse).getAsJsonObject();
-            List<ru.anyforms.model.AmoProduct> products = new java.util.ArrayList<>();
+            List<AmoProduct> products = new java.util.ArrayList<>();
             java.util.Map<Long, JsonObject> productMetadataMap = new java.util.HashMap<>();
 
             // Извлекаем товары из _embedded.catalog_elements
@@ -591,7 +705,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                                     Long elementId = element.has("id") ? element.get("id").getAsLong() : null;
                                     
                                     if (elementId != null && productMetadataMap.containsKey(elementId)) {
-                                        ru.anyforms.model.AmoProduct product = new ru.anyforms.model.AmoProduct();
+                                        AmoProduct product = new AmoProduct();
                                         product.setId(elementId);
                                         product.setName(element.has("name") ? element.get("name").getAsString() : null);
                                         
@@ -620,8 +734,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
             return products;
         } catch (Exception e) {
-            System.err.println("Failed to get products from lead " + leadId + ": " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to get products from lead {}", leadId, e);
             return new java.util.ArrayList<>();
         }
     }

@@ -5,7 +5,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import ru.anyforms.integration.AmoCrmGateway;
-import ru.anyforms.model.AmoLeadStatus;
+import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;

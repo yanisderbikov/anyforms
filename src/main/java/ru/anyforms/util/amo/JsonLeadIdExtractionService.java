@@ -1,6 +1,6 @@
 package ru.anyforms.util.amo;
 
-import ru.anyforms.model.AmoWebhook;
+import ru.anyforms.model.amo.AmoWebhook;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

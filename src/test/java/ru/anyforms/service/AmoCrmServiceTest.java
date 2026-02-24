@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 import ru.anyforms.integration.AmoCrmGateway;
-import ru.anyforms.service.impl.AmoCrmService;
 
 import static org.junit.jupiter.api.Assertions.*;
 

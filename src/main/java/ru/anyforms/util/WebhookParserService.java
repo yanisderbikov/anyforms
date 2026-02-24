@@ -1,7 +1,6 @@
 package ru.anyforms.util;
 
-import ru.anyforms.model.AmoWebhook;
-import ru.anyforms.util.FormDataParser;
+import ru.anyforms.model.amo.AmoWebhook;
 import com.google.gson.Gson;
 import org.springframework.stereotype.Service;
 
