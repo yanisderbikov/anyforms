@@ -73,6 +73,8 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
                 );
                 leadIdTaskCache.put(lead.getId(), Boolean.TRUE);
             }
+        } else {
+            log.info("не передвинули сообщение сделки {} {}", lead.getId(), message);
         }
     }
 }
