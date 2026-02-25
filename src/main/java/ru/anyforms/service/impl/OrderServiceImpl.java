@@ -16,6 +16,7 @@ import ru.anyforms.model.*;
 import ru.anyforms.model.amo.*;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 
 import java.time.Instant;
@@ -83,7 +84,7 @@ class OrderServiceImpl implements OrderService  {
             // Обновляем данные заказа
             order.setLeadId(leadId);
             order.setContactId(contactId);
-            order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO.getId()));
+            order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO_CONTACT.getId()));
             order.setContactPhone(contact.getPhone() != null && !contact.getPhone().isEmpty()
                     ? contact.getPhone().get(0).getValue()
                     : null);
@@ -125,10 +126,10 @@ class OrderServiceImpl implements OrderService  {
             order.setDeliveryStatus(deliveryStatus);
 
             // Получаем ПВЗ СДЭК из контакта
-            String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_STREET.getId());
+            String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_STREET_CONTACT.getId());
             order.setPvzSdekStreet(pvzSdekStreet);
 
-            String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_CITY.getId());
+            String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_CITY_CONTACT.getId());
             order.setPvzSdekCity(pvzSdekCity);
 
             // Получаем дату покупки из сделки
@@ -212,6 +213,9 @@ class OrderServiceImpl implements OrderService  {
             Order order = orderOpt.get();
             if (order.getTracker() == null || order.getTracker().isEmpty()) {
                 order.setTracker(tracker);
+                if (TrackerCustomFields.READY_KEYWORDS.contains(tracker)) {
+                    amoCrmGateway.updateLeadStatus(leadId, AmoLeadStatus.SENT);
+                }
             } else {
                 log.warn("cannot update tracker {} if it already set {} for lead id: {}", tracker, order.getTracker(), leadId);
             }

@@ -141,7 +141,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             
             // Устанавливаем телефон из кастомного поля
             if (contact != null) {
-                String phoneValue = contact.getCustomFieldValue(AmoCrmFieldId.PHONE.getId());
+                String phoneValue = contact.getCustomFieldValue(AmoCrmFieldId.PHONE_CONTACT.getId());
                 if (phoneValue != null) {
                     AmoContact.Phone phone = new AmoContact.Phone();
                     phone.setValue(phoneValue);

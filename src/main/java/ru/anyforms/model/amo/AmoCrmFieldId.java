@@ -9,14 +9,16 @@ public enum AmoCrmFieldId {
     DELIVERY_STATUS(2601105L, "Статус доставки"),
 
     RELEASED_AT(2757837L, "Завершен заказ"),
-    COUNT_RELEASED_ORDERS(2438411L, "Кол-во покупок"),
-    RELEASED_LEADS_LIST(2775267L, "Список сделок реализованных"),
 
     // Поля для контактов
-    FIO(2449809L, "ФИО"),
-    PHONE(2265635L, "Телефон"),
-    CONTACT_PVZ_STREET(2370939L, "ПВЗ СДЭК улица"),
-    CONTACT_PVZ_CITY(2331841L, "ПВЗ СДЭК город"),
+    COUNT_RELEASED_ORDERS_CONTACT(2438411L, "Кол-во покупок"),
+    RELEASED_LEADS_LIST_CONTACT(2775267L, "Список сделок реализованных"),
+    BUDGET_FOR_ALL_TIME_CONTACT(2779261L, "Общий бюджет сделок"),
+
+    FIO_CONTACT(2449809L, "ФИО"),
+    PHONE_CONTACT(2265635L, "Телефон"),
+    PVZ_STREET_CONTACT(2370939L, "ПВЗ СДЭК улица"),
+    PVZ_CITY_CONTACT(2331841L, "ПВЗ СДЭК город"),
 
     // Поля для сделок
     PRODUCT_TYPE(2482683L, "Тип продукта (мультисписок)"),
