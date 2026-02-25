@@ -84,7 +84,7 @@ class OrderServiceImpl implements OrderService  {
             // Обновляем данные заказа
             order.setLeadId(leadId);
             order.setContactId(contactId);
-            order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO.getId()));
+            order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO_CONTACT.getId()));
             order.setContactPhone(contact.getPhone() != null && !contact.getPhone().isEmpty()
                     ? contact.getPhone().get(0).getValue()
                     : null);
@@ -126,10 +126,10 @@ class OrderServiceImpl implements OrderService  {
             order.setDeliveryStatus(deliveryStatus);
 
             // Получаем ПВЗ СДЭК из контакта
-            String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_STREET.getId());
+            String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_STREET_CONTACT.getId());
             order.setPvzSdekStreet(pvzSdekStreet);
 
-            String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_CITY.getId());
+            String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_CITY_CONTACT.getId());
             order.setPvzSdekCity(pvzSdekCity);
 
             // Получаем дату покупки из сделки

@@ -50,8 +50,7 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error processing form-data webhook: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error processing form-data webhook: " + e);
         }
     }
 
@@ -68,24 +67,31 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error processing form-data webhook: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error processing form-data webhook: " + e);
         }
     }
 
     private void handlePerchance(Long leadId) {
         var result = orderService.syncOrder(leadId);
         var contact = amoCrmGateway.getContactFromLead(leadId);
-        var countReleasedOrders = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.COUNT_RELEASED_ORDERS));
+        var countReleasedOrders = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.COUNT_RELEASED_ORDERS_CONTACT));
         countReleasedOrders++;
-        var listReleasedLeads = contact.getCustomFieldValue(AmoCrmFieldId.RELEASED_LEADS_LIST);
+        var listReleasedLeads = contact.getCustomFieldValue(AmoCrmFieldId.RELEASED_LEADS_LIST_CONTACT);
         String newLeadUrl = String.format("https://%s.amocrm.ru/leads/detail/%s", subdomain, leadId);
         listReleasedLeads = listReleasedLeads == null ? newLeadUrl : listReleasedLeads + "\n" + newLeadUrl;
+
+        var lead = amoCrmGateway.getLead(leadId);
+        var price = lead.getPrice();
+        var priceForAllTime = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.BUDGET_FOR_ALL_TIME_CONTACT));
+        var wholeBudget = price + priceForAllTime;
+
         var customFields = Map.of(
-                AmoCrmFieldId.COUNT_RELEASED_ORDERS.getId(), String.valueOf(countReleasedOrders),
-                AmoCrmFieldId.RELEASED_LEADS_LIST.getId(), String.valueOf(listReleasedLeads)
+                AmoCrmFieldId.COUNT_RELEASED_ORDERS_CONTACT.getId(), String.valueOf(countReleasedOrders),
+                AmoCrmFieldId.RELEASED_LEADS_LIST_CONTACT.getId(), String.valueOf(listReleasedLeads),
+                AmoCrmFieldId.BUDGET_FOR_ALL_TIME_CONTACT.getId(), String.valueOf(wholeBudget)
         );
         amoCrmGateway.updateContactCustomField(contact.getId(), customFields);
+
         if (result.getSuccess()){
             leadAmoCrmStatusUpdater.moveToReadyToDeliver(leadId);
         } else {
@@ -94,6 +100,7 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     }
 
     private Long parseLong(String str) {
+        if (str == null) return 0L;
         try {
             return Long.parseLong(str);
         } catch (NumberFormatException e) {

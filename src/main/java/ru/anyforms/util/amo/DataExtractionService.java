@@ -18,10 +18,10 @@ public class DataExtractionService {
     public ExtractedData extractData(AmoLead lead, AmoContact contact, Long leadId) {
         ExtractedData data = new ExtractedData();
         
-        data.setFio(contact.getCustomFieldValue(AmoCrmFieldId.FIO.getId()));
+        data.setFio(contact.getCustomFieldValue(AmoCrmFieldId.FIO_CONTACT.getId()));
         data.setQuantity(lead.getCustomFieldValue(AmoCrmFieldId.QUANTITY.getId()));
-        data.setPhone(contact.getCustomFieldValue(AmoCrmFieldId.PHONE.getId()));
-        data.setPvzSdek(contact.getCustomFieldValue(AmoCrmFieldId.CONTACT_PVZ_STREET.getId()));
+        data.setPhone(contact.getCustomFieldValue(AmoCrmFieldId.PHONE_CONTACT.getId()));
+        data.setPvzSdek(contact.getCustomFieldValue(AmoCrmFieldId.PVZ_STREET_CONTACT.getId()));
         data.setDatePayment(lead.getCustomFieldValue(AmoCrmFieldId.DATE_PAYMENT.getId()));
         data.setCrmLink("https://" + subdomain + ".amocrm.ru/leads/detail/" + leadId);
         
