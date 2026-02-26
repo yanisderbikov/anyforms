@@ -28,7 +28,7 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
      * Кеш leadId, для которых уже вызывался setNewTask. TTL 1 час — повторно задачу не ставим.
      */
     private final Cache<Long, Boolean> leadIdTaskCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(1, TimeUnit.HOURS)
+            .expireAfterWrite(15, TimeUnit.MINUTES)
             .build();
 
     private static Set<Long> skippingContactIds = Set.of(
