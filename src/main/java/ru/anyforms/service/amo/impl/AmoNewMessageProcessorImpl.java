@@ -45,9 +45,13 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
         }
         var lead  = amoCrmGateway.getLead(payload.getMessage().getEntity().getId());
         var pipelineId = lead.getPipelineId();
+        var message = payload.getMessage().getText();
         if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId())) {
             if (!lead.getStatusId().equals(AmoLeadStatus.FIST_TOUCH.getStatusId()) && lead.getResponsibleUserId().equals(AmoTaskResponsibleUser.IAN.getResponsibleUserId())) {
                 if (leadIdTaskCache.getIfPresent(lead.getId()) == null) {
+                    if (message != null && message.contains("=== SYSTEM WZ ===")) {
+                        return;
+                    }
                     amoCrmGateway.setNewTask(
                             AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
                             AmoTaskId.LOST_MESSAGE.getTaskId(),
@@ -60,7 +64,6 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
             }
             return;
         }
-        var message = payload.getMessage().getText();
         if (MessagePatternOrder.isNeedToMove(message)) {
             amoCrmGateway.updateLeadStatus(lead.getId(), AmoLeadStatus.FIST_TOUCH);
             if (leadIdTaskCache.getIfPresent(lead.getId()) == null) {
