@@ -53,6 +53,9 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderItem> items = new ArrayList<>();
 
+    @Column(name = "retail")
+    private boolean isRetail;
+
     @Column(name = "comment")
     private String comment;
 

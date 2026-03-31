@@ -27,7 +27,7 @@ class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder {
     @Override
     public Optional<Order> getOptionalOrderByTracker(String tracker) {
         try {
-            if (READY_KEYWORDS.contains(tracker)) {
+            if (tracker != null || !tracker.matches(".*\\d.*") || READY_KEYWORDS.contains(tracker)) {
                 log.info("impossible update this tracker, returning Optional Empty : {}", tracker);
                 return Optional.empty();
             }

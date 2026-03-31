@@ -72,14 +72,13 @@ class OrderServiceImpl implements OrderService  {
 
             // Получаем товары из сделки
             List<AmoProduct> products = amoCrmGateway.getLeadProducts(leadId);
-            if (products == null || products.isEmpty()) {
-                log.warn("no products for lead {}", leadId);
-                return null;
-            }
 
             // Ищем существующий заказ или создаем новый
             Order order = orderRepository.findByLeadId(leadId)
                     .orElse(new Order());
+
+            var isRetail = products != null && !products.isEmpty();
+            order.setRetail(isRetail);
 
             // Обновляем данные заказа
             order.setLeadId(leadId);

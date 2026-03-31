@@ -12,7 +12,7 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByLeadId(Long leadId);
 
-    @Query("SELECT o FROM Order o WHERE o.tracker IS NULL OR o.tracker = '' order by o.purchaseDate")
+    @Query("SELECT o FROM Order o WHERE o.isRetail = TRUE AND (o.tracker IS NULL OR o.tracker = '') order by o.purchaseDate")
     List<Order> findOrdersWithoutTracker();
 
     List<Order> findOrdersByDeliveryStatus(String deliveryStatus);
@@ -20,6 +20,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("""
        SELECT o FROM Order o
        WHERE o.tracker IS NOT NULL
+         AND o.isRetail = TRUE
          AND o.tracker <> ''
          AND o.deliveryStatus IS NOT NULL
          AND o.deliveryStatus <> ''
@@ -36,6 +37,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
        SELECT o FROM Order o
        WHERE o.tracker IS NOT NULL
          AND o.tracker <> ''
+         AND o.isRetail = TRUE
          AND (
               o.deliveryStatus IS NULL
               OR o.deliveryStatus = ''
