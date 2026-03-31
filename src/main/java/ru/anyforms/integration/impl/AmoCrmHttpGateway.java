@@ -260,6 +260,65 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean updateLeadStatus(List<Long> leadIds, Long statusId, Long pipelineId) {
+        if (leadIds == null || leadIds.isEmpty()) {
+            log.error("Lead IDs list is empty");
+            return false;
+        }
+
+        if (statusId == null) {
+            log.error("Status ID is null");
+            return false;
+        }
+
+        try {
+            JsonArray leadsArray = new JsonArray();
+
+            for (Long leadId : leadIds) {
+                if (leadId == null) {
+                    continue;
+                }
+
+                JsonObject leadUpdate = new JsonObject();
+                leadUpdate.addProperty("id", leadId);
+                leadUpdate.addProperty("status_id", statusId);
+
+                if (pipelineId != null) {
+                    leadUpdate.addProperty("pipeline_id", pipelineId);
+                }
+
+                leadsArray.add(leadUpdate);
+            }
+
+            if (leadsArray.size() == 0) {
+                log.error("No valid lead IDs to update");
+                return false;
+            }
+
+            String url = "/api/v4/leads";
+            webClient.patch()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(leadsArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            AmoLeadStatus status = AmoLeadStatus.fromStatusId(statusId);
+            String statusDescription = status != AmoLeadStatus.UNKNOWN
+                    ? status.getDescription() + " (" + statusId + ")"
+                    : String.valueOf(statusId);
+
+            log.info("Successfully updated {} leads to status {}", leadsArray.size(), statusDescription);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Failed to bulk update lead statuses", e);
+            return false;
+        }
+    }
+
+    @Override
     public boolean updateLeadCustomField(Long leadId, Long fieldId, String value) {
         try {
             // Получаем текущую сделку для сохранения других полей
@@ -736,6 +795,54 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         } catch (Exception e) {
             log.error("Failed to get products from lead {}", leadId, e);
             return new java.util.ArrayList<>();
+        }
+    }
+
+    @Override
+    public List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId,
+                                                  Long statusId,
+                                                  Long closedTo) {
+        try {
+
+            String url = "/api/v4/leads"
+                    + "?filter[pipeline_id]=" + pipelineId
+                    + "&filter[status_id]=" + statusId
+                    + "&filter[closed_at][to]=" + closedTo
+                    + "&limit=" + 50;
+
+            String response = webClient.get()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            List<Long> result = new java.util.ArrayList<>();
+
+            if (response == null || response.isEmpty()) {
+                return result;
+            }
+
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+
+            if (json.has("_embedded")) {
+                JsonObject embedded = json.getAsJsonObject("_embedded");
+                if (embedded.has("leads")) {
+                    JsonArray leads = embedded.getAsJsonArray("leads");
+
+                    for (int i = 0; i < leads.size(); i++) {
+                        JsonObject lead = leads.get(i).getAsJsonObject();
+                        if (lead.has("id") && !lead.get("id").isJsonNull()) {
+                            result.add(lead.get("id").getAsLong());
+                        }
+                    }
+                }
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get lead IDs", e);
         }
     }
 }

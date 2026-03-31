@@ -59,6 +59,8 @@ public interface AmoCrmGateway {
      */
     boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId);
 
+    boolean updateLeadStatus(List<Long> leadIds, Long statusId, Long pipelineId);
+
     /**
      * Обновляет кастомное поле сделки
      */
@@ -108,4 +110,7 @@ public interface AmoCrmGateway {
      * Получает товары из сделки
      */
     List<AmoProduct> getLeadProducts(Long leadId);
+
+
+    List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId, Long statusId, Long closedTo);
 }
