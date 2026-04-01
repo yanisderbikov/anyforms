@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;
+import ru.anyforms.repository.OrderDeleter;
 import ru.anyforms.service.DeliveryProcessor;
 
 @Slf4j
@@ -16,6 +17,7 @@ import ru.anyforms.service.DeliveryProcessor;
 public class OrderMoveToSecond {
 
     private final AmoCrmGateway amoCrmGateway;
+    private final OrderDeleter deleter;
 
     /**
      * Периодическая проверка всех заказов на отправку
@@ -33,6 +35,8 @@ public class OrderMoveToSecond {
 
             var leads = amoCrmGateway.getLeadIdsOlderThanTwoWeeks(9846162L, 142L, twoWeeksAgo);
             amoCrmGateway.updateLeadStatus(leads, 82053234L, 9939750L);
+
+            deleter.deleteByLeadId(leads);
         } catch (Exception e) {
             log.error("Шедулер переноса не сработал", e);
         }
