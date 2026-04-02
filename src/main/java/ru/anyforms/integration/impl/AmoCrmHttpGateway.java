@@ -309,7 +309,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     ? status.getDescription() + " (" + statusId + ")"
                     : String.valueOf(statusId);
 
-            log.info("Successfully updated {} leads to status {}", leadsArray.size(), statusDescription);
+            log.info("Successfully updated {} leads to status {}", leadsArray, statusDescription);
             return true;
 
         } catch (Exception e) {
