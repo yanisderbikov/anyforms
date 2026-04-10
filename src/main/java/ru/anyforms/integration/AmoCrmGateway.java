@@ -113,4 +113,14 @@ public interface AmoCrmGateway {
 
 
     List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId, Long statusId, Long closedTo);
+
+    /**
+     * Создаёт новую заявку из лендинга с вложенным контактом.
+     *
+     * @param leadName название сделки
+     * @param contactName имя контакта
+     * @param phone номер телефона контакта
+     * @return ID созданной сделки
+     */
+    Long createLandingLead(String leadName, String contactName, String phone);
 }
