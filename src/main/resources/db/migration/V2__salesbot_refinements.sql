@@ -11,10 +11,10 @@ ALTER TABLE schedule
     USING ((DATE '1970-01-01' + time_utc) AT TIME ZONE 'UTC');
 
 -- (2) Сид расписания. Ориентир (МСК) -> UTC = МСК-3:
---     Пн ~10:38 МСК -> 07:38 UTC; Ср ~17:06 -> 14:06; Чт ~15:23 -> 12:23;
+--     Пн 12:10 МСК -> 09:10 UTC; Ср ~17:06 -> 14:06; Чт ~15:23 -> 12:23;
 --     Пт ~19:47 -> 16:47; Вс ~12:14 -> 09:14. Менять можно прямо в таблице без передеплоя.
 INSERT INTO schedule (weekday, time_utc, enabled) VALUES
-    (1, TIMESTAMPTZ '1970-01-01 07:38:00+00', TRUE),
+    (1, TIMESTAMPTZ '1970-01-01 09:10:00+00', TRUE),
     (3, TIMESTAMPTZ '1970-01-01 14:06:00+00', TRUE),
     (4, TIMESTAMPTZ '1970-01-01 12:23:00+00', TRUE),
     (5, TIMESTAMPTZ '1970-01-01 16:47:00+00', TRUE),
