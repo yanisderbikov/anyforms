@@ -12,6 +12,7 @@ import ru.anyforms.service.salesbot.BotExecutionRecorder;
 import ru.anyforms.service.salesbot.BotStep;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 
 /**
@@ -29,6 +30,13 @@ class BotExecutionLogStore implements BotExecutionReader, BotExecutionRecorder {
     @Override
     public Set<Integer> successPositions(Long leadId, OrderType type) {
         return Set.copyOf(repository.findSuccessPositions(leadId, type));
+    }
+
+    @Override
+    public boolean alreadySentToday(Long leadId, Instant now) {
+        Instant dayStart = now.truncatedTo(ChronoUnit.DAYS); // UTC-полночь текущих суток
+        return repository.existsByLeadIdAndStatusAndDateExecutedGreaterThanEqual(
+                leadId, BotExecutionStatus.SUCCESS, dayStart);
     }
 
     @Override

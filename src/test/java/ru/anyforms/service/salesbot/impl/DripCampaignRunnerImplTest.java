@@ -22,9 +22,10 @@ class DripCampaignRunnerImplTest {
     private final LeadStatusVerifier statusVerifier = mock(LeadStatusVerifier.class);
     private final SalesbotTrigger trigger = mock(SalesbotTrigger.class);
     private final BotExecutionRecorder recorder = mock(BotExecutionRecorder.class);
+    private final BotExecutionReader reader = mock(BotExecutionReader.class);
 
     private final DripCampaignRunner runner = new DripCampaignRunnerImpl(
-            funnelDirectory, leadProvider, nextBotResolver, statusVerifier, trigger, recorder);
+            funnelDirectory, leadProvider, nextBotResolver, statusVerifier, trigger, recorder, reader);
 
     private static final FunnelTarget TARGET = new FunnelTarget(900L, 142L);
     private static final BotStep STEP = new BotStep(101L, 1);
@@ -75,7 +76,21 @@ class DripCampaignRunnerImplTest {
 
         runner.runOnce();
 
-        verifyNoInteractions(leadProvider, nextBotResolver, statusVerifier, trigger, recorder);
+        verifyNoInteractions(leadProvider, nextBotResolver, statusVerifier, trigger, recorder, reader);
+    }
+
+    @Test
+    void skipsLead_whenAlreadySentToday() {
+        when(funnelDirectory.configuredTypes()).thenReturn(List.of(OrderType.RETAIL));
+        when(funnelDirectory.targetFor(OrderType.RETAIL)).thenReturn(Optional.of(TARGET));
+        when(leadProvider.leadsInStatus(TARGET)).thenReturn(List.of(1L));
+        when(reader.alreadySentToday(eq(1L), any())).thenReturn(true); // лиду уже слали сегодня
+
+        runner.runOnce();
+
+        // ничего больше не делаем: ни выбора бота, ни проверки статуса, ни отправки/записи
+        verify(nextBotResolver, never()).nextBot(any(), anyLong());
+        verifyNoInteractions(statusVerifier, trigger, recorder);
     }
 
     @Test

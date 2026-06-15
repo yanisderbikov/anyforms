@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.anyforms.model.salesbot.BotExecutionLog;
+import ru.anyforms.model.salesbot.BotExecutionStatus;
 import ru.anyforms.model.salesbot.OrderType;
 
 import java.time.Instant;
@@ -24,6 +25,14 @@ public interface BotExecutionLogRepository extends JpaRepository<BotExecutionLog
               AND l.status = ru.anyforms.model.salesbot.BotExecutionStatus.SUCCESS
             """)
     List<Integer> findSuccessPositions(@Param("leadId") Long leadId, @Param("type") OrderType type);
+
+    /**
+     * Был ли у лида хоть один успешно запущенный бот начиная с {@code dayStart}
+     * (UTC-полночь текущих суток). Будущих записей не бывает, поэтому это эквивалентно
+     * «успешно отправляли сегодня». Используется как дневной guard от повторной отправки.
+     */
+    boolean existsByLeadIdAndStatusAndDateExecutedGreaterThanEqual(
+            Long leadId, BotExecutionStatus status, Instant dayStart);
 
     /**
      * Идемпотентная запись результата (жёсткий бэкстоп против двойной отправки).

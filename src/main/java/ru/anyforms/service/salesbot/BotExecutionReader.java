@@ -2,6 +2,7 @@ package ru.anyforms.service.salesbot;
 
 import ru.anyforms.model.salesbot.OrderType;
 
+import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -19,4 +20,11 @@ public interface BotExecutionReader {
      * @return множество успешно отработавших позиций (может быть пустым)
      */
     Set<Integer> successPositions(Long leadId, OrderType type);
+
+    /**
+     * Был ли лиду СЕГОДНЯ (в UTC-сутки, которым принадлежит {@code now}) уже успешно
+     * отправлен бот. Дневной guard: гарантирует, что лид не «исполнится» дважды за сутки
+     * (например, при рестарте/catch-up прогоне). Проверяется только по нашей БД, без amo.
+     */
+    boolean alreadySentToday(Long leadId, Instant now);
 }
