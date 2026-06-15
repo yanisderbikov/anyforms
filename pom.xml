@@ -106,6 +106,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Flyway (миграции БД); версия управляется spring-boot-dependencies (9.22.3),
+             поддержка PostgreSQL встроена в flyway-core. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
         <!-- SpringDoc OpenAPI (Swagger) -->
         <dependency>
             <groupId>org.springdoc</groupId>

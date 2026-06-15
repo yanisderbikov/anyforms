@@ -2,6 +2,7 @@ package ru.anyforms.integration.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.model.SalesbotRunRequest;
 import ru.anyforms.model.amo.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -853,6 +854,79 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to get lead IDs", e);
+        }
+    }
+
+    @Override
+    public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId) {
+        try {
+            // TODO(пагинация): сейчас одна страница (limit=250). При росте объёма обходить page=1..N.
+            // amoCRM фильтрует по статусу ТОЛЬКО через массив filter[statuses][N][...].
+            // Плоский filter[status_id] здесь не работает (возвращает пусто).
+            String url = "/api/v4/leads"
+                    + "?filter[statuses][0][pipeline_id]=" + pipelineId
+                    + "&filter[statuses][0][status_id]=" + statusId
+                    + "&limit=250";
+
+            String response = webClient.get()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            List<Long> result = new java.util.ArrayList<>();
+            if (response == null || response.isEmpty()) {
+                return result;
+            }
+
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+            if (json.has("_embedded")) {
+                JsonObject embedded = json.getAsJsonObject("_embedded");
+                if (embedded.has("leads")) {
+                    JsonArray leads = embedded.getAsJsonArray("leads");
+                    for (int i = 0; i < leads.size(); i++) {
+                        JsonObject lead = leads.get(i).getAsJsonObject();
+                        if (lead.has("id") && !lead.get("id").isJsonNull()) {
+                            result.add(lead.get("id").getAsLong());
+                        }
+                    }
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("Failed to get leads by status: pipeline={}, status={}", pipelineId, statusId, e);
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    @Override
+    public boolean runSalesbot(Long leadId, Long botId) {
+        try {
+            // TODO: уточнить точный endpoint/тело запуска SalesBot в amoCRM.
+            // Здесь использован предполагаемый формат: POST /api/v4/salesbot/run
+            // с массивом [{ bot_id, entity_id, entity_type=2 }] (2 = leads).
+            SalesbotRunRequest request = new SalesbotRunRequest(botId, leadId, 2);
+            JsonArray body = new JsonArray();
+            body.add(JsonParser.parseString(gson.toJson(request)));
+
+            webClient.post()
+                    .uri("/api/v2/salesbot/run")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(body.toString())
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .flatMap(b -> Mono.error(new RuntimeException(
+                                            "AmoCRM salesbot/run " + clientResponse.statusCode() + ": " + b))))
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully triggered salesbot {} for lead {}", botId, leadId);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to run salesbot {} for lead {}", botId, leadId, e);
+            return false;
         }
     }
 

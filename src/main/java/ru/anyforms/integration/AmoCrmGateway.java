@@ -115,6 +115,29 @@ public interface AmoCrmGateway {
     List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId, Long statusId, Long closedTo);
 
     /**
+     * Запрос №1 дрип-кампании: получить ID всех лидов в заданной воронке/статусе.
+     * <p>
+     * TODO(пагинация): сейчас один запрос без постраничной выборки (лидов десятки).
+     * При росте объёма добавить обход страниц amoCRM ({@code page}/{@code limit}).
+     *
+     * @param pipelineId ID воронки
+     * @param statusId   ID статуса
+     * @return список lead_id (может быть пустым)
+     */
+    List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId);
+
+    /**
+     * Запрос №2 дрип-кампании: запустить SalesBot для сделки (fire-and-forget).
+     * <p>
+     * TODO: уточнить точный формат запроса запуска SalesBot в amoCRM (endpoint и тело).
+     * Предполагается {@code POST /api/v4/salesbot/run} с телом
+     * {@code [{"bot_id":<botId>, "entity_id":<leadId>, "entity_type":2}]} (2 = leads).
+     *
+     * @return {@code true}, если запрос ушёл успешно.
+     */
+    boolean runSalesbot(Long leadId, Long botId);
+
+    /**
      * Создаёт новую заявку из лендинга с вложенным контактом.
      *
      * @param leadName название сделки
