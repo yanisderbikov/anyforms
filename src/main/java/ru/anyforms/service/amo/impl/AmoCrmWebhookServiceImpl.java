@@ -9,6 +9,7 @@ import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.service.amo.AmoCrmWebhookService;
 import ru.anyforms.service.amo.LeadAmoCrmStatusUpdater;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.service.impl.CacheService;
 import ru.anyforms.util.WebhookParserService;
 import ru.anyforms.util.amo.JsonLeadIdExtractionService;
 
@@ -25,6 +26,7 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private final LeadAmoCrmStatusUpdater leadAmoCrmStatusUpdater;
     private final OrderService orderService;
     private final AmoCrmGateway amoCrmGateway;
+    private final CacheService cacheService;
     @Value("${amocrm.subdomain}")
     private String subdomain;
 
@@ -63,6 +65,11 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
             if (leads != null) {
                 List<Long> addLeadIds = jsonLeadIdExtraction.extractLeadIdsFromFormDataAdd(leads);
                 for (Long leadId : addLeadIds) {
+                    if (cacheService.containsSyncOrderLead(leadId)) {
+                        log.info("Skip duplicate sync-order webhook for lead {}", leadId);
+                        continue;
+                    }
+                    cacheService.addSyncOrderLead(leadId);
                     orderService.syncOrder(leadId);
                 }
             }
