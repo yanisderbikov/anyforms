@@ -13,6 +13,7 @@ import ru.anyforms.service.impl.CacheService;
 import ru.anyforms.util.WebhookParserService;
 import ru.anyforms.util.amo.JsonLeadIdExtractionService;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -81,28 +82,47 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private void handlePerchance(Long leadId) {
         var result = orderService.syncOrder(leadId);
         var contact = amoCrmGateway.getContactFromLead(leadId);
-        var countReleasedOrders = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.COUNT_RELEASED_ORDERS_CONTACT));
-        countReleasedOrders++;
-        var listReleasedLeads = contact.getCustomFieldValue(AmoCrmFieldId.RELEASED_LEADS_LIST_CONTACT);
+
         String newLeadUrl = String.format("https://%s.amocrm.ru/leads/detail/%s", subdomain, leadId);
-        listReleasedLeads = listReleasedLeads == null ? newLeadUrl : listReleasedLeads + "\n" + newLeadUrl;
+        String listReleasedLeads = contact.getCustomFieldValue(AmoCrmFieldId.RELEASED_LEADS_LIST_CONTACT);
 
-        var lead = amoCrmGateway.getLead(leadId);
-        var price = lead.getPrice();
-        var priceForAllTime = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.BUDGET_FOR_ALL_TIME_CONTACT));
-        var wholeBudget = price + priceForAllTime;
+        // Идемпотентность: если сделка уже учтена в контакте (ссылка есть в списке),
+        // не накручиваем повторно кол-во покупок, бюджет и список при повторном вебхуке.
+        boolean alreadyCounted = listReleasedLeads != null
+                && Arrays.asList(listReleasedLeads.split("\\R")).contains(newLeadUrl);
 
-        var customFields = Map.of(
-                AmoCrmFieldId.COUNT_RELEASED_ORDERS_CONTACT.getId(), String.valueOf(countReleasedOrders),
-                AmoCrmFieldId.RELEASED_LEADS_LIST_CONTACT.getId(), String.valueOf(listReleasedLeads),
-                AmoCrmFieldId.BUDGET_FOR_ALL_TIME_CONTACT.getId(), String.valueOf(wholeBudget)
-        );
-        amoCrmGateway.updateContactCustomField(contact.getId(), customFields);
+        if (alreadyCounted) {
+            log.info("Lead {} already counted for contact {}, skip count/budget/list update", leadId, contact.getId());
+        } else {
+            var countReleasedOrders = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.COUNT_RELEASED_ORDERS_CONTACT)) + 1;
+            String updatedListReleasedLeads = listReleasedLeads == null
+                    ? newLeadUrl
+                    : listReleasedLeads + "\n" + newLeadUrl;
 
-        if (result.getSuccess()){
+            var lead = amoCrmGateway.getLead(leadId);
+            var price = lead.getPrice();
+            var priceForAllTime = parseLong(contact.getCustomFieldValue(AmoCrmFieldId.BUDGET_FOR_ALL_TIME_CONTACT));
+            var wholeBudget = price + priceForAllTime;
+
+            var customFields = Map.of(
+                    AmoCrmFieldId.COUNT_RELEASED_ORDERS_CONTACT.getId(), String.valueOf(countReleasedOrders),
+                    AmoCrmFieldId.RELEASED_LEADS_LIST_CONTACT.getId(), updatedListReleasedLeads,
+                    AmoCrmFieldId.BUDGET_FOR_ALL_TIME_CONTACT.getId(), String.valueOf(wholeBudget)
+            );
+            amoCrmGateway.updateContactCustomField(contact.getId(), customFields);
+        }
+
+        if (!result.getSuccess()) {
+            log.warn("Lead not updated because unsuccess sync");
+            return;
+        }
+
+        // Двигаем статус только для розницы (когда в сделке есть товары).
+        boolean isRetail = result.getItemsCount() != null && result.getItemsCount() > 0;
+        if (isRetail) {
             leadAmoCrmStatusUpdater.moveToReadyToDeliver(leadId);
         } else {
-            log.warn("Lead not updated because unsuccess sync");
+            log.info("Lead {} has no products (not retail), skip moveToReadyToDeliver", leadId);
         }
     }
 
