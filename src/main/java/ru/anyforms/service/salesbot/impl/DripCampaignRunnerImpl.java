@@ -13,6 +13,9 @@ import java.util.Optional;
 /**
  * Реализация одного прогона дрип-кампании. Зависит только от портов (DIP):
  * ничего не знает про amoCRM/БД напрямую.
+ * <p>
+ * Троттлинг под лимит amoCRM здесь НЕ делается — он живёт в самом {@link ru.anyforms.integration.AmoCrmGateway}
+ * (rate-limited декоратор), поэтому бизнес-логика просто зовёт порты последовательно.
  */
 @Slf4j
 @Component
@@ -51,7 +54,7 @@ class DripCampaignRunnerImpl implements DripCampaignRunner {
         }
         FunnelTarget funnel = target.get();
 
-        // Запрос №1: лиды в целевом статусе.
+        // Запрос №1: лиды в целевом статусе (с пагинацией — все, не только первые 250).
         List<Long> leads = leadProvider.leadsInStatus(funnel);
         log.info("Type {}: {} lead(s) in target status", type, leads.size());
 
@@ -61,8 +64,6 @@ class DripCampaignRunnerImpl implements DripCampaignRunner {
             } catch (Exception e) {
                 log.error("Failed to process lead {} (type {})", leadId, type, e);
             }
-            // TODO(лимиты amoCRM ~7 req/sec): добавить троттлинг/паузу между лидами,
-            // т.к. на каждого лида приходится ≥2 запроса (перечитать статус + запустить бота).
         }
     }
 

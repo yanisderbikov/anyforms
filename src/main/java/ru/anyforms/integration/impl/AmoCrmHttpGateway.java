@@ -45,11 +45,15 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         this.gson = new Gson();
     }
 
+    /** Лимит буфера ответа WebClient: ответы amo (списки лидов) превышают дефолтные 256 КБ. */
+    private static final int MAX_IN_MEMORY_SIZE = 16 * 1024 * 1024; // 16 МБ
+
     @jakarta.annotation.PostConstruct
     private void init() {
         this.webClient = WebClient.builder()
                 .baseUrl("https://" + subdomain + ".amocrm.ru")
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_SIZE))
                 .build();
     }
 
@@ -857,47 +861,65 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         }
     }
 
+    /** amoCRM не отдаёт больше 250 сущностей на страницу — обходим страницы. */
+    private static final int AMO_PAGE_LIMIT = 250;
+    /** Предохранитель от бесконечного цикла: 200 страниц = до 50 000 лидов. */
+    private static final int MAX_PAGES = 200;
+
     @Override
     public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId) {
-        try {
-            // TODO(пагинация): сейчас одна страница (limit=250). При росте объёма обходить page=1..N.
-            // amoCRM фильтрует по статусу ТОЛЬКО через массив filter[statuses][N][...].
-            // Плоский filter[status_id] здесь не работает (возвращает пусто).
-            String url = "/api/v4/leads"
-                    + "?filter[statuses][0][pipeline_id]=" + pipelineId
-                    + "&filter[statuses][0][status_id]=" + statusId
-                    + "&limit=250";
+        // amoCRM фильтрует по статусу ТОЛЬКО через массив filter[statuses][N][...].
+        // Плоский filter[status_id] не работает (возвращает пусто).
+        // Пагинация: limit=250 (максимум amo), идём по page=1..N, пока страницы заполнены.
+        List<Long> result = new java.util.ArrayList<>();
+        for (int page = 1; page <= MAX_PAGES; page++) {
+            try {
+                String url = "/api/v4/leads"
+                        + "?filter[statuses][0][pipeline_id]=" + pipelineId
+                        + "&filter[statuses][0][status_id]=" + statusId
+                        + "&page=" + page
+                        + "&limit=" + AMO_PAGE_LIMIT;
 
-            String response = webClient.get()
-                    .uri(url)
-                    .header("Authorization", "Bearer " + accessToken)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
+                String response = webClient.get()
+                        .uri(url)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
 
-            List<Long> result = new java.util.ArrayList<>();
-            if (response == null || response.isEmpty()) {
-                return result;
-            }
+                // amo отдаёт 204/пустое тело, когда страниц больше нет.
+                if (response == null || response.isEmpty()) {
+                    break;
+                }
 
-            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
-            if (json.has("_embedded")) {
-                JsonObject embedded = json.getAsJsonObject("_embedded");
-                if (embedded.has("leads")) {
-                    JsonArray leads = embedded.getAsJsonArray("leads");
-                    for (int i = 0; i < leads.size(); i++) {
-                        JsonObject lead = leads.get(i).getAsJsonObject();
-                        if (lead.has("id") && !lead.get("id").isJsonNull()) {
-                            result.add(lead.get("id").getAsLong());
-                        }
+                JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+                if (!json.has("_embedded")) {
+                    break;
+                }
+                JsonArray leads = json.getAsJsonObject("_embedded").getAsJsonArray("leads");
+                if (leads == null || leads.isEmpty()) {
+                    break;
+                }
+
+                for (int i = 0; i < leads.size(); i++) {
+                    JsonObject lead = leads.get(i).getAsJsonObject();
+                    if (lead.has("id") && !lead.get("id").isJsonNull()) {
+                        result.add(lead.get("id").getAsLong());
                     }
                 }
+
+                // Неполная страница — значит последняя.
+                if (leads.size() < AMO_PAGE_LIMIT) {
+                    break;
+                }
+            } catch (Exception e) {
+                log.error("Failed to get leads by status: pipeline={}, status={}, page={}",
+                        pipelineId, statusId, page, e);
+                break;
             }
-            return result;
-        } catch (Exception e) {
-            log.error("Failed to get leads by status: pipeline={}, status={}", pipelineId, statusId, e);
-            return java.util.Collections.emptyList();
         }
+        log.info("getLeadIdsByStatus: pipeline={}, status={} -> {} lead(s)", pipelineId, statusId, result.size());
+        return result;
     }
 
     @Override
