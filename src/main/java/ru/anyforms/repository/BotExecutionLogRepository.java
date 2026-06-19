@@ -60,4 +60,24 @@ public interface BotExecutionLogRepository extends JpaRepository<BotExecutionLog
                 @Param("type") String type,
                 @Param("status") String status,
                 @Param("dateExecuted") Instant dateExecuted);
+
+    /**
+     * Проставляет {@code status} на последнюю по {@code date_executed} запись лида —
+     * бот, который только что пытался отправить сообщение. Используется при обработке
+     * вебхука {@code fail-send-message}.
+     *
+     * @return число обновлённых строк (0, если у лида ещё нет ни одной записи)
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE bot_execution_log
+            SET status = :status
+            WHERE id = (
+                SELECT id FROM bot_execution_log
+                WHERE lead_id = :leadId
+                ORDER BY date_executed DESC
+                LIMIT 1
+            )
+            """, nativeQuery = true)
+    int markLatestStatus(@Param("leadId") Long leadId, @Param("status") String status);
 }

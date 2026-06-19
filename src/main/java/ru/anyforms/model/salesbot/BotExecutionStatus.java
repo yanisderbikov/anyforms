@@ -11,5 +11,11 @@ public enum BotExecutionStatus {
     /** Запрос на запуск бота ушёл в amoCRM успешно (fire-and-forget). */
     SUCCESS,
     /** Бот не запущен: лид уже не в целевом статусе на момент запуска, либо ошибка запроса. */
-    FAILED
+    FAILED,
+    /**
+     * Бот был запущен (запрос ушёл в amoCRM), но amoCRM прислал вебхук о том, что
+     * сообщение лиду доставить не удалось. Проставляется на последнюю по {@code date_executed}
+     * запись лида при обработке вебхука {@code fail-send-message}.
+     */
+    MESSAGE_SEND_FAILED
 }
