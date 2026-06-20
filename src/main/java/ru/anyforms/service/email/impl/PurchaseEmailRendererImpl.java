@@ -11,7 +11,7 @@ import ru.anyforms.service.email.PurchaseEmailRenderer;
 @Component
 class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {
 
-    private static final String GUIDE_SUBJECT = "Ваш гайд anyforms";
+    private static final String GUIDE_SUBJECT = "Гайд - Как продавать сложный продукт через короткие видео";
     private static final String COURSE_SUBJECT = "Ваш курс anyforms";
 
     @Value("${product.guide.url}")
