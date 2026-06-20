@@ -53,14 +53,25 @@ class NotiSendEmailService implements EmailService {
 
     private void send(NotisendEmailRequest request) {
         String json = gson.toJson(request);
-        webClient.post()
+
+        SendResult result = webClient.post()
                 .uri("/email/messages")
                 .header("Authorization", "Bearer " + apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(json)
-                .exchangeToMono(response -> response.bodyToMono(String.class))
-                .doOnError(error -> log.error("Ошибка при отправке письма через NotiSend: {}", error.getMessage(), error))
-                .subscribe();
+                .exchangeToMono(response -> response.bodyToMono(String.class)
+                        .defaultIfEmpty("")
+                        .map(body -> new SendResult(response.statusCode().value(), body)))
+                .block();
+
+        if (result == null) {
+            throw new RuntimeException("NotiSend: пустой ответ при отправке письма на " + request.to());
+        }
+        if (result.status() < 200 || result.status() >= 300) {
+            log.error("NotiSend отклонил письмо на {}: HTTP {} body: {}", request.to(), result.status(), result.body());
+            throw new RuntimeException("NotiSend вернул HTTP " + result.status() + ": " + result.body());
+        }
+        log.info("NotiSend принял письмо на {}: HTTP {}", request.to(), result.status());
     }
 
     private record NotisendEmailRequest(
@@ -71,4 +82,6 @@ class NotiSendEmailService implements EmailService {
             String html,
             Map<String, String> smtp_headers
     ) {}
+
+    private record SendResult(int status, String body) {}
 }
