@@ -22,7 +22,24 @@ public class PurchaseRequest {
     @JsonProperty("email")
     private String email;
 
-    /** ФИО для чека (необязательно). */
+    /** ФИО покупателя (используется в чеке). */
     @JsonProperty("fullName")
     private String fullName;
+
+    /** Телефон покупателя. */
+    @JsonProperty("phone")
+    private String phone;
+
+    /** Согласие на маркетинговую рассылку (необязательно). */
+    @JsonProperty("marketingConsent")
+    private Boolean marketingConsent;
+
+    /**
+     * Необязательный источник домена для страницы успеха: берётся только его {@code scheme://host}
+     * (если хост в белом списке {@code payment.allowed-return-hosts}). Если не передан — домен
+     * берётся из заголовка {@code Origin}, иначе из {@code payment.default-domain}. Путь страницы
+     * успеха задаётся per-product в {@code payment_product.success_url_path}.
+     */
+    @JsonProperty("returnUrl")
+    private String returnUrl;
 }

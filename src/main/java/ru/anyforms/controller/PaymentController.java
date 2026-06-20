@@ -15,11 +15,10 @@ import ru.anyforms.dto.payment.PaymentProductDTO;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
 import ru.anyforms.dto.payment.PurchaseRequest;
 import ru.anyforms.dto.payment.YooKassaWebhookBody;
-import ru.anyforms.model.payment.PaymentProduct;
+import ru.anyforms.repository.GetterPaymentProduct;
 import ru.anyforms.service.payment.PaymentConfirmService;
 import ru.anyforms.service.payment.PurchaseService;
 
-import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -30,11 +29,12 @@ public class PaymentController {
 
     private final PurchaseService purchaseService;
     private final PaymentConfirmService paymentConfirmService;
+    private final GetterPaymentProduct getterPaymentProduct;
 
     @Operation(summary = "Доступные продукты для покупки")
     @GetMapping("/products")
     public ResponseEntity<List<PaymentProductDTO>> products() {
-        List<PaymentProductDTO> products = Arrays.stream(PaymentProduct.values())
+        List<PaymentProductDTO> products = getterPaymentProduct.getAllActive().stream()
                 .map(PaymentProductDTO::from)
                 .toList();
         return ResponseEntity.ok(products);
@@ -43,6 +43,9 @@ public class PaymentController {
     @Operation(summary = "Купить продукт", description = "Создаёт платёж в Юкассе и возвращает ссылку на оплату")
     @PostMapping("/purchase")
     public ResponseEntity<PaymentUrlResponse> purchase(@Valid @RequestBody PurchaseRequest request) {
+        // TODO: запрос расширен контактами покупателя (fullName, phone, email, marketingConsent).
+        //  Прокинуть phone/fullName в сохранение транзакции и/или в CRM (amoCRM),
+        //  завести рассылочный контакт при marketingConsent == true.
         return ResponseEntity.ok(purchaseService.purchase(request));
     }
 

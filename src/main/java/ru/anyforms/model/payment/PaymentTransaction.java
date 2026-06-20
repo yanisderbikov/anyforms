@@ -33,9 +33,9 @@ public class PaymentTransaction {
     @Column(name = "external_payment_id", nullable = false, unique = true)
     private UUID externalPaymentId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentProduct product;
+    /** Код купленного продукта (см. {@link PaymentProduct#getCode()}). */
+    @Column(name = "product_code", nullable = false)
+    private String productCode;
 
     /** Сумма в копейках. */
     @Column(nullable = false)
@@ -47,6 +47,10 @@ public class PaymentTransaction {
 
     @Column(nullable = false)
     private String email;
+
+    /** Согласие покупателя на маркетинговую рассылку на email. */
+    @Column(name = "marketing_consent")
+    private Boolean marketingConsent;
 
     private String description;
 

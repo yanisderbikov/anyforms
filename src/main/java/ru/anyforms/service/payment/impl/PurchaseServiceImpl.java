@@ -1,5 +1,6 @@
 package ru.anyforms.service.payment.impl;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,17 +18,23 @@ import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
+import ru.anyforms.repository.GetterPaymentProduct;
 import ru.anyforms.repository.SaverTransaction;
 import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.PurchaseService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.util.MoneyUtil;
 
+import java.net.URI;
 import java.util.List;
 
 /**
- * Покупка продукта: строит запрос в Юкассу по {@link PaymentProduct}, сохраняет транзакцию
- * в статусе PENDING и возвращает ссылку на оплату.
+ * Покупка продукта: берёт продукт из таблицы {@code payment_product}, строит запрос в Юкассу,
+ * сохраняет транзакцию в статусе PENDING и возвращает ссылку на оплату.
+ *
+ * <p>Страница успеха собирается динамически: {@code return_url = домен + product.successUrlPath}.
+ * Домен берётся (по приоритету) из {@code returnUrl} запроса → заголовка {@code Origin} →
+ * дефолтного {@code payment.default-domain}; чужие хосты отсекаются белым списком.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -41,14 +48,25 @@ class PurchaseServiceImpl implements PurchaseService {
 
     private final YooKassaService yooKassaService;
     private final SaverTransaction saverTransaction;
+    private final GetterPaymentProduct getterPaymentProduct;
     private final PaymentStatusConverter paymentStatusConverter;
+    private final HttpServletRequest httpRequest;
 
-    @Value("${payment.success.url}")
-    private String paymentSuccessUrl;
+    /** Домен по умолчанию для страницы успеха, если не удалось определить динамически. */
+    @Value("${payment.default-domain}")
+    private String defaultDomain;
+
+    /** Хосты, с которых разрешено брать домен страницы успеха (через запятую). */
+    @Value("${payment.allowed-return-hosts:anyforms.ru,www.anyforms.ru,localhost}")
+    private String allowedReturnHosts;
 
     @Override
     public PaymentUrlResponse purchase(PurchaseRequest request) {
-        PaymentProduct product = PaymentProduct.fromCode(request.getProductCode());
+        PaymentProduct product = getterPaymentProduct.getByCode(request.getProductCode())
+                .orElseThrow(() -> new RuntimeException("Продукт не найден: " + request.getProductCode()));
+        if (!Boolean.TRUE.equals(product.getActive())) {
+            throw new RuntimeException("Продукт неактивен: " + product.getCode());
+        }
 
         Amount amount = Amount.builder()
                 .value(MoneyUtil.kopecksToString(product.getPriceKopecks()))
@@ -59,7 +77,7 @@ class PurchaseServiceImpl implements PurchaseService {
                 .amount(amount)
                 .description("Покупка: " + product.getTitle())
                 .capture(true)
-                .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT, paymentSuccessUrl))
+                .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT, buildReturnUrl(product, request)))
                 .receipt(buildReceipt(product, amount, request))
                 .paymentMode(PAYMENT_MODE)
                 .paymentSubject(PAYMENT_SUBJECT)
@@ -73,11 +91,12 @@ class PurchaseServiceImpl implements PurchaseService {
 
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .externalPaymentId(response.getId())
-                .product(product)
+                .productCode(product.getCode())
                 .amount(MoneyUtil.stringToKopecks(response.getAmount().getValue()))
                 .currency(Currency.fromCode(response.getAmount().getCurrency()))
                 .description(response.getDescription())
                 .email(request.getEmail())
+                .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
                 .status(resolveStatus(response.getStatus()))
                 .build();
         saverTransaction.save(transaction);
@@ -92,6 +111,59 @@ class PurchaseServiceImpl implements PurchaseService {
     private PaymentTransactionStatus resolveStatus(String yooKassaStatus) {
         PaymentTransactionStatus status = paymentStatusConverter.fromYooKassa(yooKassaStatus);
         return status != null ? status : PaymentTransactionStatus.PENDING;
+    }
+
+    /** {@code return_url = домен (динамически) + успешный путь продукта}. */
+    private String buildReturnUrl(PaymentProduct product, PurchaseRequest request) {
+        String domain = resolveDomain(request.getReturnUrl());
+        String path = product.getSuccessUrlPath();
+        if (domain.endsWith("/") && path.startsWith("/")) {
+            return domain + path.substring(1);
+        }
+        if (!domain.endsWith("/") && !path.startsWith("/")) {
+            return domain + "/" + path;
+        }
+        return domain + path;
+    }
+
+    /**
+     * Возвращает базовый домен (scheme://host[:port]) из переданного {@code returnUrl}, иначе
+     * из заголовка {@code Origin}, иначе дефолтный. Хост проверяется по белому списку.
+     */
+    private String resolveDomain(String requestedReturnUrl) {
+        String fromRequest = extractAllowedOrigin(requestedReturnUrl);
+        if (fromRequest != null) {
+            return fromRequest;
+        }
+        String fromHeader = extractAllowedOrigin(httpRequest.getHeader("Origin"));
+        if (fromHeader != null) {
+            return fromHeader;
+        }
+        return defaultDomain;
+    }
+
+    /** Достаёт {@code scheme://host[:port]} из URL, если его хост в белом списке; иначе null. */
+    private String extractAllowedOrigin(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            String host = uri.getHost();
+            if (host == null) {
+                return null;
+            }
+            for (String allowed : allowedReturnHosts.split(",")) {
+                if (host.equalsIgnoreCase(allowed.trim())) {
+                    String scheme = uri.getScheme() != null ? uri.getScheme() : "https";
+                    String port = uri.getPort() != -1 ? ":" + uri.getPort() : "";
+                    return scheme + "://" + host + port;
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            log.warn("Некорректный URL для домена '{}'", url);
+        }
+        return null;
     }
 
     private PaymentReceipt buildReceipt(PaymentProduct product, Amount amount, PurchaseRequest request) {

@@ -1,68 +1,70 @@
 package ru.anyforms.model.payment;
 
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.Instant;
+import java.util.UUID;
+
 /**
- * Каталог продаваемых продуктов. Цена хранится в копейках, чтобы не плодить ошибки округления.
- * Новые продукты и комбо («что-то с чем-то») добавляются новыми значениями enum.
+ * Каталог продаваемых продуктов (источник истины по цене и пути страницы успеха).
+ * Цена — в копейках. Новые продукты и комбо («что-то с чем-то») добавляются строками таблицы,
+ * без правок кода.
  *
+ * <p>{@code successUrlPath} — относительный путь страницы успеха (например {@code /guide/success}).
+ * Домен подставляется динамически на этапе покупки, итоговый {@code return_url} = домен + путь.</p>
  * <p>{@code vatCode} — код ставки НДС для чека Юкассы (1 — без НДС).</p>
  */
-public enum PaymentProduct {
+@Entity
+@Table(name = "payment_product")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@ToString
+public class PaymentProduct {
 
-    GUIDE(
-            "GUIDE",
-            "Гайд",
-            "Гайд anyforms",
-            99_000L,
-            1
-    ),
-    COURSE(
-            "COURSE",
-            "Курс",
-            "Курс anyforms",
-            990_000L,
-            1
-    );
+    /** Известные коды продуктов, для которых в коде есть отдельная логика выдачи. */
+    public static final String CODE_GUIDE = "GUIDE";
+    public static final String CODE_COURSE = "COURSE";
 
-    private final String code;
-    private final String title;
-    private final String description;
-    private final long priceKopecks;
-    private final int vatCode;
+    @Id
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(updatable = false, nullable = false)
+    private UUID id;
 
-    PaymentProduct(String code, String title, String description, long priceKopecks, int vatCode) {
-        this.code = code;
-        this.title = title;
-        this.description = description;
-        this.priceKopecks = priceKopecks;
-        this.vatCode = vatCode;
-    }
+    @Column(nullable = false, unique = true)
+    private String code;
 
-    public String getCode() {
-        return code;
-    }
+    @Column(nullable = false)
+    private String title;
 
-    public String getTitle() {
-        return title;
-    }
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String description;
 
-    public String getDescription() {
-        return description;
-    }
+    @Column(name = "price_kopecks", nullable = false)
+    private Long priceKopecks;
 
-    public long getPriceKopecks() {
-        return priceKopecks;
-    }
+    @Column(name = "vat_code", nullable = false)
+    private Integer vatCode;
 
-    public int getVatCode() {
-        return vatCode;
-    }
+    /** Относительный путь страницы успеха, обязателен. Домен добавляется динамически. */
+    @Column(name = "success_url_path", nullable = false)
+    private String successUrlPath;
 
-    public static PaymentProduct fromCode(String code) {
-        for (PaymentProduct product : values()) {
-            if (product.code.equalsIgnoreCase(code)) {
-                return product;
-            }
-        }
-        throw new IllegalArgumentException("Неизвестный продукт: " + code);
-    }
+    @Column(nullable = false)
+    private Boolean active;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 }

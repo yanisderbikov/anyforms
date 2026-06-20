@@ -29,11 +29,11 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
 
     @Override
     public void fulfill(PaymentTransaction transaction) {
-        PaymentProduct product = transaction.getProduct();
-        switch (product) {
-            case GUIDE -> fulfillGuide(transaction);
+        String productCode = transaction.getProductCode();
+        switch (productCode) {
+            case PaymentProduct.CODE_GUIDE -> fulfillGuide(transaction);
             default -> log.warn("Нет реализации выдачи для продукта {} (транзакция {})",
-                    product, transaction.getId());
+                    productCode, transaction.getId());
         }
     }
 
