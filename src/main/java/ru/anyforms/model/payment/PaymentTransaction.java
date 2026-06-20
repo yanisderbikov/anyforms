@@ -29,15 +29,12 @@ public class PaymentTransaction {
     @Column(nullable = false)
     private PaymentTransactionStatus status;
 
-    /** Идентификатор платежа на стороне Юкассы. */
     @Column(name = "external_payment_id", nullable = false, unique = true)
     private UUID externalPaymentId;
 
-    /** Код купленного продукта (см. {@link PaymentProduct#getCode()}). */
     @Column(name = "product_code", nullable = false)
     private String productCode;
 
-    /** Сумма в копейках. */
     @Column(nullable = false)
     private Long amount;
 
@@ -48,7 +45,6 @@ public class PaymentTransaction {
     @Column(nullable = false)
     private String email;
 
-    /** Согласие покупателя на маркетинговую рассылку на email. */
     @Column(name = "marketing_consent")
     private Boolean marketingConsent;
 

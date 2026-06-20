@@ -9,15 +9,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Каталог продаваемых продуктов (источник истины по цене и пути страницы успеха).
- * Цена — в копейках. Новые продукты и комбо («что-то с чем-то») добавляются строками таблицы,
- * без правок кода.
- *
- * <p>{@code successUrlPath} — относительный путь страницы успеха (например {@code /guide/success}).
- * Домен подставляется динамически на этапе покупки, итоговый {@code return_url} = домен + путь.</p>
- * <p>{@code vatCode} — код ставки НДС для чека Юкассы (1 — без НДС).</p>
- */
 @Entity
 @Table(name = "payment_product")
 @Getter
@@ -28,7 +19,6 @@ import java.util.UUID;
 @ToString
 public class PaymentProduct {
 
-    /** Известные коды продуктов, для которых в коде есть отдельная логика выдачи. */
     public static final String CODE_GUIDE = "GUIDE";
     public static final String CODE_COURSE = "COURSE";
 
@@ -53,7 +43,6 @@ public class PaymentProduct {
     @Column(name = "vat_code", nullable = false)
     private Integer vatCode;
 
-    /** Относительный путь страницы успеха, обязателен. Домен добавляется динамически. */
     @Column(name = "success_url_path", nullable = false)
     private String successUrlPath;
 

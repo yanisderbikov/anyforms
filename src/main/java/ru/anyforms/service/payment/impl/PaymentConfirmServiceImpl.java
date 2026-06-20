@@ -12,10 +12,6 @@ import ru.anyforms.service.payment.PaymentConfirmService;
 import ru.anyforms.service.payment.PaymentFulfillmentService;
 import ru.anyforms.service.payment.PaymentStatusConverter;
 
-/**
- * Обработка вебхука Юкассы: обновляет статус транзакции и при переходе в SUCCEEDED
- * (ровно один раз) запускает выдачу продукта.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -9,11 +9,6 @@ import ru.anyforms.repository.SaverTask;
 
 import java.util.List;
 
-/**
- * База для фоновых раннеров: по расписанию забирает батч новых тасок своего типа и
- * прогоняет каждую, ведя статус NEW → RUNNING → DONE/FAILED. Конкретный раннер задаёт
- * только выборку батча ({@link #fetchBatch}) и обработку одной таски ({@link #process}).
- */
 @Slf4j
 public abstract class AbstractRunnableTask {
 

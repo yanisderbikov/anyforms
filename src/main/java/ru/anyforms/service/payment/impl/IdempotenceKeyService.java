@@ -8,11 +8,6 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.UUID;
 
-/**
- * Выдаёт Idempotence-Key для запросов к Юкассе. Один и тот же логический запрос
- * (по хешу тела) в пределах TTL получает один и тот же ключ — чтобы повтор не создал
- * второй платёж.
- */
 @Service
 @Slf4j
 class IdempotenceKeyService {

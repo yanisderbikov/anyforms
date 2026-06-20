@@ -3,7 +3,6 @@ package ru.anyforms.service.payment;
 import org.springframework.stereotype.Component;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 
-/** Маппинг статуса платежа Юкассы в наш {@link PaymentTransactionStatus}. */
 @Component
 public class PaymentStatusConverter {
 

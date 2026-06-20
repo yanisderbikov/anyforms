@@ -7,10 +7,6 @@ import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.service.email.EmailTemplate;
 import ru.anyforms.service.email.PurchaseEmailRenderer;
 
-/**
- * Подбирает шаблон и тему письма под продукт. Новый продукт/комбо → новая ветка + свой шаблон.
- * Ссылки на контент берутся из конфигурации.
- */
 @Slf4j
 @Component
 class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {

@@ -9,10 +9,6 @@ import ru.anyforms.model.task.TaskType;
 import ru.anyforms.repository.SaverTask;
 import ru.anyforms.service.task.TaskAdder;
 
-/**
- * Кладёт новую таску в очередь (таблица {@code task}) со статусом {@link TaskStatus#NEW}.
- * Тип таски определяется по классу payload через {@link TaskType#fromObject(Object)}.
- */
 @Service
 @Slf4j
 class TaskAdderService implements TaskAdder {

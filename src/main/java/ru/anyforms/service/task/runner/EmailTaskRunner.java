@@ -14,11 +14,6 @@ import ru.anyforms.service.email.PurchaseEmailRenderer;
 
 import java.util.List;
 
-/**
- * Раннер тасок отправки писем о покупке. В payload лежит только адресат и код продукта;
- * тему и HTML рендерит {@link PurchaseEmailRenderer} здесь, в момент исполнения, по шаблону
- * соответствующего продукта.
- */
 @Slf4j
 @Component
 class EmailTaskRunner extends AbstractRunnableTask {

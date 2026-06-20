@@ -14,9 +14,6 @@ import ru.anyforms.service.email.EmailService;
 
 import java.util.Map;
 
-/**
- * Отправка писем через NotiSend (HTTP API), как в vizhuonline.
- */
 @Slf4j
 @Component
 class NotiSendEmailService implements EmailService {

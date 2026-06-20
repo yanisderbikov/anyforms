@@ -28,14 +28,6 @@ import ru.anyforms.util.MoneyUtil;
 import java.net.URI;
 import java.util.List;
 
-/**
- * Покупка продукта: берёт продукт из таблицы {@code payment_product}, строит запрос в Юкассу,
- * сохраняет транзакцию в статусе PENDING и возвращает ссылку на оплату.
- *
- * <p>Страница успеха собирается динамически: {@code return_url = домен + product.successUrlPath}.
- * Домен берётся (по приоритету) из {@code returnUrl} запроса → заголовка {@code Origin} →
- * дефолтного {@code payment.default-domain}; чужие хосты отсекаются белым списком.</p>
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -52,11 +44,9 @@ class PurchaseServiceImpl implements PurchaseService {
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
 
-    /** Домен по умолчанию для страницы успеха, если не удалось определить динамически. */
     @Value("${payment.default-domain}")
     private String defaultDomain;
 
-    /** Хосты, с которых разрешено брать домен страницы успеха (через запятую). */
     @Value("${payment.allowed-return-hosts}")
     private String allowedReturnHosts;
 
@@ -113,7 +103,6 @@ class PurchaseServiceImpl implements PurchaseService {
         return status != null ? status : PaymentTransactionStatus.PENDING;
     }
 
-    /** {@code return_url = домен (динамически) + успешный путь продукта}. */
     private String buildReturnUrl(PaymentProduct product, PurchaseRequest request) {
         String domain = resolveDomain(request.getReturnUrl());
         String path = product.getSuccessUrlPath();
@@ -126,10 +115,6 @@ class PurchaseServiceImpl implements PurchaseService {
         return domain + path;
     }
 
-    /**
-     * Возвращает базовый домен (scheme://host[:port]) из переданного {@code returnUrl}, иначе
-     * из заголовка {@code Origin}, иначе дефолтный. Хост проверяется по белому списку.
-     */
     private String resolveDomain(String requestedReturnUrl) {
         String fromRequest = extractAllowedOrigin(requestedReturnUrl);
         if (fromRequest != null) {
@@ -142,7 +127,6 @@ class PurchaseServiceImpl implements PurchaseService {
         return defaultDomain;
     }
 
-    /** Достаёт {@code scheme://host[:port]} из URL, если его хост в белом списке; иначе null. */
     private String extractAllowedOrigin(String url) {
         if (url == null || url.isBlank()) {
             return null;

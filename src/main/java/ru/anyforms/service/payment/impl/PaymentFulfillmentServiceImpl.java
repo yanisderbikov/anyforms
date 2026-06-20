@@ -8,11 +8,6 @@ import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.service.payment.PaymentFulfillmentService;
 import ru.anyforms.service.task.TaskAdder;
 
-/**
- * Выдача продукта после успешной оплаты: ставит таску на письмо с адресатом и кодом продукта.
- * Конкретный шаблон письма (гайд/курс/…) подбирается уже при исполнении таски в раннере,
- * поэтому здесь нет привязки к конкретному продукту.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j

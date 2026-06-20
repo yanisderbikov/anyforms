@@ -2,10 +2,6 @@ package ru.anyforms.model.task;
 
 import ru.anyforms.dto.email.EmailTaskPayload;
 
-/**
- * Тип фоновой таски. Каждый тип знает класс своего payload — по нему {@code TaskAdder}
- * определяет тип из объекта, а раннер десериализует payload обратно.
- */
 public enum TaskType {
     EMAIL(EmailTaskPayload.class);
 
