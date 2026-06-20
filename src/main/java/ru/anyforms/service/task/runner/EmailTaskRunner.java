@@ -10,26 +10,31 @@ import ru.anyforms.model.task.TaskType;
 import ru.anyforms.repository.GetterTaskByStatus;
 import ru.anyforms.repository.SaverTask;
 import ru.anyforms.service.email.EmailService;
+import ru.anyforms.service.email.PurchaseEmailRenderer;
 
 import java.util.List;
 
 /**
- * Раннер тасок отправки писем (по аналогии с FeedbackTaskRunner из vizhuonline).
- * Раз в интервал берёт новые EMAIL-таски и шлёт письмо через {@link EmailService}.
+ * Раннер тасок отправки писем о покупке. В payload лежит только адресат и код продукта;
+ * тему и HTML рендерит {@link PurchaseEmailRenderer} здесь, в момент исполнения, по шаблону
+ * соответствующего продукта.
  */
 @Slf4j
 @Component
 class EmailTaskRunner extends AbstractRunnableTask {
 
     private final GetterTaskByStatus getterTaskByStatus;
+    private final PurchaseEmailRenderer purchaseEmailRenderer;
     private final EmailService emailService;
     private final Gson gson = new Gson();
 
     EmailTaskRunner(GetterTaskByStatus getterTaskByStatus,
+                    PurchaseEmailRenderer purchaseEmailRenderer,
                     EmailService emailService,
                     SaverTask saverTask) {
         super(saverTask);
         this.getterTaskByStatus = getterTaskByStatus;
+        this.purchaseEmailRenderer = purchaseEmailRenderer;
         this.emailService = emailService;
     }
 
@@ -41,6 +46,7 @@ class EmailTaskRunner extends AbstractRunnableTask {
     @Override
     protected void process(Task task) {
         EmailTaskPayload payload = gson.fromJson(task.getPayload(), EmailTaskPayload.class);
-        emailService.sendEmail(payload.getTo(), payload.getSubject(), payload.getHtml());
+        PurchaseEmailRenderer.RenderedEmail email = purchaseEmailRenderer.render(payload.getProductCode());
+        emailService.sendEmail(payload.getTo(), email.subject(), email.html());
     }
 }

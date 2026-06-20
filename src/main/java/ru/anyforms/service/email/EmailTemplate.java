@@ -6,10 +6,14 @@ public final class EmailTemplate {
     private EmailTemplate() {
     }
 
-    /** Письмо с доступом к гайду. {@code guideLink} — ссылка на скачивание/просмотр. */
-    public static String getGuideEmail(String guideLink) {
-        return load("templates/email-guide.html")
-                .replace("%LINK%", guideLink);
+    /** Письмо с доступом к гайду. {@code link} — ссылка на скачивание/просмотр. */
+    public static String getGuideEmail(String link) {
+        return load("templates/email-guide.html").replace("%LINK%", link);
+    }
+
+    /** Письмо с доступом к курсу. {@code link} — ссылка на курс. */
+    public static String getCourseEmail(String link) {
+        return load("templates/email-course.html").replace("%LINK%", link);
     }
 
     private static String load(String templatePath) {
