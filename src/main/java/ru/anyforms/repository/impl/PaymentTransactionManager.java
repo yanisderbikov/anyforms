@@ -13,7 +13,7 @@ import java.util.UUID;
 @Component
 @AllArgsConstructor
 @Log4j2
-class TransactionManager implements GetterTransaction, SaverTransaction {
+class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
 
     private final TransactionRepo transactionRepo;
 
