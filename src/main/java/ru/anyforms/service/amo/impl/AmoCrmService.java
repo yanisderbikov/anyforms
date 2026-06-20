@@ -18,10 +18,10 @@ public class AmoCrmService {
     private WebClient webClient;
     private final Gson gson;
     
-    @Value("${amocrm.subdomain:hairdoskeels38}")
+    @Value("${amocrm.subdomain}")
     private String subdomain;
     
-    @Value("${amocrm.access.token:}")
+    @Value("${amocrm.access.token}")
     private String accessToken;
 
     public AmoCrmService() {

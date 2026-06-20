@@ -19,7 +19,7 @@ public abstract class AbstractRunnableTask {
 
     private final SaverTask saverTask;
 
-    @Value("${tasks.batch-size:50}")
+    @Value("${tasks.batch-size}")
     private int batchSize;
 
     protected AbstractRunnableTask(SaverTask saverTask) {
@@ -30,7 +30,7 @@ public abstract class AbstractRunnableTask {
 
     protected abstract void process(Task task) throws Exception;
 
-    @Scheduled(fixedRateString = "${tasks.fixed-rate-ms:5000}", initialDelayString = "${tasks.initial-delay-ms:10000}")
+    @Scheduled(fixedRateString = "${tasks.fixed-rate-ms}", initialDelayString = "${tasks.initial-delay-ms}")
     public void runBatch() {
         List<Task> tasks = fetchBatch(batchSize);
         for (Task t : tasks) {

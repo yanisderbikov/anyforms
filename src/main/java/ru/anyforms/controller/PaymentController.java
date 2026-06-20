@@ -43,9 +43,6 @@ public class PaymentController {
     @Operation(summary = "Купить продукт", description = "Создаёт платёж в Юкассе и возвращает ссылку на оплату")
     @PostMapping("/purchase")
     public ResponseEntity<PaymentUrlResponse> purchase(@Valid @RequestBody PurchaseRequest request) {
-        // TODO: запрос расширен контактами покупателя (fullName, phone, email, marketingConsent).
-        //  Прокинуть phone/fullName в сохранение транзакции и/или в CRM (amoCRM),
-        //  завести рассылочный контакт при marketingConsent == true.
         return ResponseEntity.ok(purchaseService.purchase(request));
     }
 

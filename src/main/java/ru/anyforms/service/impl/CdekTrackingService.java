@@ -24,10 +24,10 @@ public class CdekTrackingService {
     private final WebClient webClient;
     private final Gson gson;
     
-    @Value("${sdek.secret.key:}")
+    @Value("${sdek.secret.key}")
     private String sdekSecretKey;
     
-    @Value("${sdek.client.id:}")
+    @Value("${sdek.client.id}")
     private String sdekClientId;
     
     // Кэш для токена доступа

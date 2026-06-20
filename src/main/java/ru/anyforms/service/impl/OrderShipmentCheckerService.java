@@ -22,7 +22,7 @@ public class OrderShipmentCheckerService {
     private final OrderService orderService;
     private final SheetRowExtractorUtil sheetRowExtractorUtil;
     
-    @Value("${google.sheets.sheet.name:Лошадка тест}")
+    @Value("${google.sheets.sheet.name}")
     private String sheetName;
 
     public OrderShipmentCheckerService(ru.anyforms.integration.GoogleSheetsGateway googleSheetsGateway,

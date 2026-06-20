@@ -57,7 +57,7 @@ class PurchaseServiceImpl implements PurchaseService {
     private String defaultDomain;
 
     /** Хосты, с которых разрешено брать домен страницы успеха (через запятую). */
-    @Value("${payment.allowed-return-hosts:anyforms.ru,www.anyforms.ru,localhost}")
+    @Value("${payment.allowed-return-hosts}")
     private String allowedReturnHosts;
 
     @Override

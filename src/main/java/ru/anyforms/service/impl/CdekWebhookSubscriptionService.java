@@ -24,13 +24,13 @@ public class CdekWebhookSubscriptionService {
     private final WebClient webClient;
     private final Gson gson;
     
-    @Value("${sdek.webhook.url:}")
+    @Value("${sdek.webhook.url}")
     private String webhookUrl;
     
-    @Value("${server.port:8090}")
+    @Value("${server.port}")
     private String serverPort;
     
-    @Value("${sdek.auto.subscribe:true}")
+    @Value("${sdek.auto.subscribe}")
     private boolean autoSubscribe;
 
     public CdekWebhookSubscriptionService(CdekTrackingGateway cdekTrackingService) {

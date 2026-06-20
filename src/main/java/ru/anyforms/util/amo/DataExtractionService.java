@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DataExtractionService {
 
-    @Value("${amocrm.subdomain:hairdoskeels38}")
+    @Value("${amocrm.subdomain}")
     private String subdomain;
 
     /**

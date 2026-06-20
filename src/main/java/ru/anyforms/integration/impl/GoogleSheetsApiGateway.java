@@ -28,10 +28,10 @@ class GoogleSheetsApiGateway implements GoogleSheetsGateway {
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final List<String> SCOPES = Collections.singletonList(SheetsScopes.SPREADSHEETS);
 
-    @Value("${google.sheets.spreadsheet.id:}")
+    @Value("${google.sheets.spreadsheet.id}")
     private String spreadsheetId;
 
-    @Value("${google.sheets.sheet.name:Лошадка тест}")
+    @Value("${google.sheets.sheet.name}")
     private String sheetName;
 
     @Value("${google.sheets.credentials.json}")
