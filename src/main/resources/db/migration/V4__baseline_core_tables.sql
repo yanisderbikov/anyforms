@@ -2,17 +2,19 @@
 --  V4 — baseline таблиц, которые раньше создавались автоматически через
 --  hibernate ddl-auto=update (orders, order_items, users, product).
 --  Теперь схема ведётся только миграциями, а Hibernate переведён в режим validate.
+--  IF NOT EXISTS обязателен: это baseline уже существующих таблиц — на окружениях,
+--  где их раньше создал ddl-auto=update, миграция должна быть no-op, а не падать.
 --  Колонки/типы соответствуют тому, что генерировал Hibernate из @Entity.
 -- ============================================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id       BIGSERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role     VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id              BIGSERIAL PRIMARY KEY,
     lead_id         BIGINT NOT NULL UNIQUE,
     contact_id      BIGINT,
@@ -30,7 +32,7 @@ CREATE TABLE orders (
     title           VARCHAR(255)
 );
 
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     id           BIGSERIAL PRIMARY KEY,
     order_id     BIGINT NOT NULL REFERENCES orders (id),
     product_name VARCHAR(255) NOT NULL,
@@ -39,7 +41,7 @@ CREATE TABLE order_items (
     catalog_id   BIGINT
 );
 
-CREATE TABLE product (
+CREATE TABLE IF NOT EXISTS product (
     id                    UUID PRIMARY KEY,
     name                  VARCHAR(255) NOT NULL,
     description           TEXT NOT NULL,
