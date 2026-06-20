@@ -35,7 +35,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     private final CdekTrackingGateway cdekTrackingGateway;
     private final SaverOrder saverOrder;
     
-    @Value("${google.sheets.sheet.name:Лошадка тест}")
+    @Value("${google.sheets.sheet.name}")
     private String sheetName;
 
     public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder) {

@@ -29,7 +29,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     @Value("${amocrm.subdomain}")
     private String subdomain;
     
-    @Value("${amocrm.access.token:}")
+    @Value("${amocrm.access.token}")
     private String accessToken;
 
     @Value("${amocrm.landing.responsible.user.id}")

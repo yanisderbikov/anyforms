@@ -40,7 +40,7 @@ class OrderServiceImpl implements OrderService  {
     private final GoogleSheetsGateway googleSheetsGateway;
     private final CdekTrackingGateway cdekTrackingGateway;
     
-    @Value("${google.sheets.sheet.name:Лошадка тест}")
+    @Value("${google.sheets.sheet.name}")
     private String sheetName;
 
     /**
