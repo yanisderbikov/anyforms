@@ -35,6 +35,12 @@ public interface BotExecutionLogRepository extends JpaRepository<BotExecutionLog
             Long leadId, BotExecutionStatus status, Instant dayStart);
 
     /**
+     * Был ли уже успешно запущен конкретный бот для конкретного лида.
+     * Дедуп ручного массового запуска: один и тот же бот не уходит лиду дважды.
+     */
+    boolean existsByLeadIdAndBotIdAndStatus(Long leadId, Long botId, BotExecutionStatus status);
+
+    /**
      * Идемпотентная запись результата (жёсткий бэкстоп против двойной отправки).
      * <p>
      * {@code ON CONFLICT (lead_id, bot_id) DO UPDATE} позволяет «повысить» прежний FAILED

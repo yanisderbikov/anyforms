@@ -27,4 +27,10 @@ public interface BotExecutionReader {
      * (например, при рестарте/catch-up прогоне). Проверяется только по нашей БД, без amo.
      */
     boolean alreadySentToday(Long leadId, Instant now);
+
+    /**
+     * Был ли указанный бот уже успешно запущен для указанного лида.
+     * Дедуп ручного массового запуска (вне дрип-цепочки): бот не уходит лиду дважды.
+     */
+    boolean alreadyExecuted(Long leadId, Long botId);
 }

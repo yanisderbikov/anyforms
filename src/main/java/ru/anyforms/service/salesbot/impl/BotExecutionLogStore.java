@@ -40,6 +40,11 @@ class BotExecutionLogStore implements BotExecutionReader, BotExecutionRecorder {
     }
 
     @Override
+    public boolean alreadyExecuted(Long leadId, Long botId) {
+        return repository.existsByLeadIdAndBotIdAndStatus(leadId, botId, BotExecutionStatus.SUCCESS);
+    }
+
+    @Override
     @Transactional
     public void recordSuccess(Long leadId, OrderType type, BotStep step) {
         upsert(leadId, type, step, BotExecutionStatus.SUCCESS);
