@@ -13,6 +13,9 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByLeadId(Long leadId);
 
+    /** Под-заказные сделки (без товаров из amo-каталога). */
+    List<Order> findByIsRetailFalseOrderByCreatedAtDesc();
+
     @Query("SELECT o FROM Order o WHERE o.isRetail = TRUE AND (o.tracker IS NULL OR o.tracker = '') order by o.purchaseDate")
     List<Order> findOrdersWithoutTracker();
 

@@ -15,8 +15,12 @@ import ru.anyforms.dto.ApiResponseDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
+import ru.anyforms.repository.CustomProductItemRepository;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.util.converter.ConverterOrder;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -27,6 +31,9 @@ import java.util.List;
 public class OrderController {
     private final OrderService orderService;
     private final GetterOrderDTOByType getterOrderDTOByType;
+    private final OrderRepository orderRepository;
+    private final ConverterOrder converterOrder;
+    private final CustomProductItemRepository customProductItemRepository;
 
     @Operation(
             summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
@@ -62,6 +69,34 @@ public class OrderController {
     public ResponseEntity<List<OrderSummaryDTO>> getOrdersWithoutTracker() {
         List<OrderSummaryDTO> summaries = getterOrderDTOByType.getOrdersWithoutTrackerDTOs();
         return ResponseEntity.ok(summaries);
+    }
+
+    @Operation(
+            summary = "Получить под-заказные сделки (без товаров из amo-каталога)",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @GetMapping("/custom")
+    public List<OrderSummaryDTO> getCustomOrders() {
+        return orderRepository.findByIsRetailFalseOrderByCreatedAtDesc().stream()
+                .map(this::convertWithCount)
+                .toList();
+    }
+
+    @Operation(
+            summary = "Получить заказ по нашему id",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @GetMapping("/{id}")
+    public OrderSummaryDTO getOrderById(@PathVariable Long id) {
+        return orderRepository.findById(id)
+                .map(this::convertWithCount)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + id));
+    }
+
+    private OrderSummaryDTO convertWithCount(ru.anyforms.model.Order order) {
+        OrderSummaryDTO dto = converterOrder.convert(order);
+        dto.setCustomItemsCount(customProductItemRepository.countByOrderId(order.getId()));
+        return dto;
     }
 
     /**

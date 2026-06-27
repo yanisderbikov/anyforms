@@ -20,12 +20,12 @@ public class AuthController {
 
     private final AuthService authService;
 
-//    @Operation(summary = "Регистрация админа")
-//    @PostMapping("/register-admin")
-//    public ResponseEntity<Void> registerAdmin(@Valid @RequestBody RegisterAdminRequestDTO request) {
-//        authService.registerAdmin(request);
-//        return ResponseEntity.status(HttpStatus.CREATED).build();
-//    }
+    @Operation(summary = "Регистрация админа")
+    @PostMapping("/register-admin")
+    public ResponseEntity<Void> registerAdmin(@Valid @RequestBody RegisterAdminRequestDTO request) {
+        authService.registerAdmin(request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 
     @Operation(summary = "Вход, получение токена")
     @PostMapping("/login")

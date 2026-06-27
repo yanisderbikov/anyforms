@@ -38,6 +38,8 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/api/orders/**").hasRole("ADMIN")
+                    .requestMatchers("/api/custom-product-items/**").hasRole("ADMIN")
+                    .requestMatchers("/api/custom-product-files/**").hasRole("ADMIN")
                     .requestMatchers("/api/product/create").hasRole("ADMIN")
                     .requestMatchers("/webhook/**").permitAll()
                     .requestMatchers("/api/**").permitAll()

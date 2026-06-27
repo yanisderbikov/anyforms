@@ -19,6 +19,7 @@ class ConverterOrderImpl implements ConverterOrder {
         var dtoStatus = orderStatus == CdekOrderStatus.UNKNOWN ? "" : orderStatus.getDescription();
 
         OrderSummaryDTO dto = new OrderSummaryDTO();
+        dto.setId(order.getId());
         dto.setLeadId(order.getLeadId());
         dto.setContactId(order.getContactId());
         dto.setContactName(order.getContactName());
