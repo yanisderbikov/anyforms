@@ -12,9 +12,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.anyforms.dto.ApiResponseDTO;
+import ru.anyforms.dto.CustomOrderCreateRequestDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
+import ru.anyforms.model.Order;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.GetterOrderDTOByType;
@@ -80,6 +82,22 @@ public class OrderController {
         return orderRepository.findByIsRetailFalseOrderByCreatedAtDesc().stream()
                 .map(this::convertWithCount)
                 .toList();
+    }
+
+    @Operation(
+            summary = "Создать под-заказ без CRM (с нуля)",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @PostMapping("/custom")
+    public ResponseEntity<OrderSummaryDTO> createCustomOrder(@RequestBody(required = false) CustomOrderCreateRequestDTO request) {
+        Order order = new Order();
+        order.setRetail(false);
+        if (request != null) {
+            order.setContactName(request.getContactName());
+            order.setContactPhone(request.getContactPhone());
+        }
+        Order saved = orderRepository.save(order);
+        return ResponseEntity.status(HttpStatus.CREATED).body(convertWithCount(saved));
     }
 
     @Operation(

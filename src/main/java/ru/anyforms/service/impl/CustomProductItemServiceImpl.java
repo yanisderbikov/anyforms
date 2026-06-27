@@ -142,6 +142,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         CustomProductItemDTO dto = new CustomProductItemDTO();
         dto.setId(item.getId());
         dto.setOrderId(item.getOrder() != null ? item.getOrder().getId() : null);
+        dto.setClientName(item.getOrder() != null ? item.getOrder().getContactName() : null);
         dto.setProductName(item.getProductName());
         dto.setDescription(item.getDescription());
         dto.setQuantity(item.getQuantity());
