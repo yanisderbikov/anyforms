@@ -16,6 +16,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** Под-заказные сделки (без товаров из amo-каталога). */
     List<Order> findByIsRetailFalseOrderByCreatedAtDesc();
 
+    /** Поиск по ФИО/телефону (для предзаполнения нового заказа). */
+    @Query("""
+       SELECT o FROM Order o
+       WHERE o.contactName IS NOT NULL
+         AND (LOWER(o.contactName) LIKE LOWER(CONCAT('%', :q, '%'))
+              OR o.contactPhone LIKE CONCAT('%', :q, '%'))
+       ORDER BY o.id DESC
+    """)
+    List<Order> searchByContact(String q);
+
     @Query("SELECT o FROM Order o WHERE o.isRetail = TRUE AND (o.tracker IS NULL OR o.tracker = '') order by o.purchaseDate")
     List<Order> findOrdersWithoutTracker();
 

@@ -8,9 +8,15 @@ import lombok.Data;
 @Schema(description = "Создание под-заказа без CRM")
 public class CustomOrderCreateRequestDTO {
 
-    @Schema(description = "Имя клиента (необязательно)")
+    @Schema(description = "ФИО клиента")
     private String contactName;
 
-    @Schema(description = "Телефон (необязательно)")
+    @Schema(description = "Телефон")
     private String contactPhone;
+
+    @Schema(description = "Город (ПВЗ СДЭК)")
+    private String pvzSdekCity;
+
+    @Schema(description = "Улица/адрес (ПВЗ СДЭК)")
+    private String pvzSdekStreet;
 }
