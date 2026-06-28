@@ -58,7 +58,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional(readOnly = true)
     public List<CustomProductItemDTO> getAll() {
-        return itemRepository.findByStatusNot(CustomProductStatus.SENT, Sort.by(Sort.Direction.DESC, "id")).stream()
+        return itemRepository.findByStatusNot(CustomProductStatus.SENT, Sort.by(Sort.Direction.ASC, "createdAt")).stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -191,6 +191,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setId(item.getId());
         dto.setOrderId(item.getOrder() != null ? item.getOrder().getId() : null);
         dto.setClientName(item.getOrder() != null ? item.getOrder().getContactName() : null);
+        dto.setLeadId(item.getOrder() != null ? item.getOrder().getLeadId() : null);
         dto.setProductName(item.getProductName());
         dto.setDescription(item.getDescription());
         dto.setQuantity(item.getQuantity());

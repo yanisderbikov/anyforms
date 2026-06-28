@@ -20,6 +20,9 @@ public class CustomProductItemDTO {
     @Schema(description = "Имя клиента (из заказа)")
     private String clientName;
 
+    @Schema(description = "ID сделки в amoCRM (из заказа), может быть null")
+    private Long leadId;
+
     private String productName;
     private String description;
     private Integer quantity;
