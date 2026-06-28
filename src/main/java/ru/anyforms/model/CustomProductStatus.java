@@ -6,7 +6,8 @@ package ru.anyforms.model;
 public enum CustomProductStatus {
     MODELING("Моделирование"),
     IN_PRODUCTION("В производстве"),
-    READY_TO_SHIP("Готов к отправке");
+    READY_TO_SHIP("Готов к отправке"),
+    SENT("Отправлен");
 
     private final String description;
 

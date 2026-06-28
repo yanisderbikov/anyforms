@@ -3,6 +3,7 @@ package ru.anyforms.service;
 import org.springframework.web.multipart.MultipartFile;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
+import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.model.CustomProductStatus;
 
 import java.util.List;
@@ -26,4 +27,10 @@ public interface CustomProductItemService {
 
     /** Удаляет один файл по его id, возвращает обновлённую позицию. */
     CustomProductItemDTO removeFile(Long fileId);
+
+    /** Группы позиций «к отправке» (READY_TO_SHIP), сгруппированные по заказу. */
+    List<ShipGroupDTO> getReadyToShipGroups();
+
+    /** Отгрузка: ставит трекер на заказ и переводит его готовые позиции в SENT. */
+    void ship(Long orderId, String tracker);
 }

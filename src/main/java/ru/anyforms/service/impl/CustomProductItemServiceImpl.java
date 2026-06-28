@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.CustomProductFileDTO;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
+import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.model.CustomProductFile;
 import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.CustomProductStatus;
@@ -20,8 +21,12 @@ import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
 import ru.anyforms.service.s3.S3FileStorage;
+import ru.anyforms.util.converter.ConverterOrder;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Log4j2
 @Service
@@ -34,11 +39,12 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private final CustomProductFileRepository fileRepository;
     private final OrderRepository orderRepository;
     private final S3FileStorage s3FileStorage;
+    private final ConverterOrder converterOrder;
 
     @Override
     @Transactional(readOnly = true)
     public List<CustomProductItemDTO> getByOrderId(Long orderId) {
-        return itemRepository.findByOrderIdOrderByIdAsc(orderId).stream()
+        return itemRepository.findByOrderIdAndStatusNot(orderId, CustomProductStatus.SENT, Sort.by(Sort.Direction.ASC, "id")).stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -46,7 +52,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional(readOnly = true)
     public List<CustomProductItemDTO> getAll() {
-        return itemRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
+        return itemRepository.findByStatusNot(CustomProductStatus.SENT, Sort.by(Sort.Direction.DESC, "id")).stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -125,6 +131,42 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
                     itemRepository.save(item);
                 });
         return toDTO(item);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShipGroupDTO> getReadyToShipGroups() {
+        Map<Long, ShipGroupDTO> groups = new LinkedHashMap<>();
+        for (CustomProductItem item : itemRepository.findByStatus(CustomProductStatus.READY_TO_SHIP)) {
+            Order order = item.getOrder();
+            if (order == null) {
+                continue;
+            }
+            ShipGroupDTO group = groups.computeIfAbsent(order.getId(), k -> {
+                ShipGroupDTO g = new ShipGroupDTO();
+                g.setOrder(converterOrder.convert(order));
+                g.setItems(new ArrayList<>());
+                return g;
+            });
+            group.getItems().add(toDTO(item));
+        }
+        return new ArrayList<>(groups.values());
+    }
+
+    @Override
+    @Transactional
+    public void ship(Long orderId, String tracker) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + orderId));
+        order.setTracker(tracker);
+        orderRepository.save(order);
+
+        List<CustomProductItem> items = itemRepository.findByOrderIdAndStatus(orderId, CustomProductStatus.READY_TO_SHIP);
+        for (CustomProductItem item : items) {
+            item.setStatus(CustomProductStatus.SENT);
+            itemRepository.save(item);
+        }
+        log.info("Order {} shipped: tracker={}, items sent={}", orderId, tracker, items.size());
     }
 
     private CustomProductItem getOrThrow(Long itemId) {

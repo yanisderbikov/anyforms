@@ -13,6 +13,8 @@ import org.springframework.web.multipart.MultipartFile;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.CustomProductStatusUpdateRequestDTO;
+import ru.anyforms.dto.ShipGroupDTO;
+import ru.anyforms.dto.ShipRequestDTO;
 import ru.anyforms.service.CustomProductItemService;
 
 import java.util.List;
@@ -63,5 +65,18 @@ public class CustomProductItemController {
     @PostMapping(value = "/{id}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CustomProductItemDTO addFiles(@PathVariable Long id, @RequestParam("files") List<MultipartFile> files) {
         return service.addFiles(id, files);
+    }
+
+    @Operation(summary = "Заказы с позициями, готовыми к отправке (группировка по заказу)")
+    @GetMapping("/ready-to-ship")
+    public List<ShipGroupDTO> readyToShip() {
+        return service.getReadyToShipGroups();
+    }
+
+    @Operation(summary = "Отгрузить заказ: трекер + перевод готовых позиций в SENT")
+    @PostMapping("/ship")
+    public ResponseEntity<Void> ship(@Valid @RequestBody ShipRequestDTO request) {
+        service.ship(request.getOrderId(), request.getTracker());
+        return ResponseEntity.noContent().build();
     }
 }
