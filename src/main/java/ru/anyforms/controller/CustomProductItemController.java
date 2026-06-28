@@ -34,6 +34,12 @@ public class CustomProductItemController {
         return orderId != null ? service.getByOrderId(orderId) : service.getAll();
     }
 
+    @Operation(summary = "Позиция по id (для шеринга ссылки)")
+    @GetMapping("/{id}")
+    public CustomProductItemDTO get(@PathVariable Long id) {
+        return service.getById(id);
+    }
+
     @Operation(summary = "Создать позицию")
     @PostMapping
     public ResponseEntity<CustomProductItemDTO> create(@RequestParam Long orderId,

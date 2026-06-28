@@ -12,6 +12,9 @@ public interface CustomProductItemService {
 
     List<CustomProductItemDTO> getByOrderId(Long orderId);
 
+    /** Одна позиция по id (для шеринга ссылки; отдаётся в любом статусе). */
+    CustomProductItemDTO getById(Long itemId);
+
     /** Все позиции (плоский список для страницы-трекера). */
     List<CustomProductItemDTO> getAll();
 
