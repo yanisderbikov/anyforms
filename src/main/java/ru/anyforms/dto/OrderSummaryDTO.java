@@ -8,6 +8,9 @@ import java.util.List;
 @Data
 @Schema(description = "Сводка по заказу без трекера")
 public class OrderSummaryDTO {
+    @Schema(description = "Наш ID заказа", example = "1")
+    private Long id;
+
     @Schema(description = "ID сделки в AmoCRM", example = "12345")
     private Long leadId;
     
@@ -40,5 +43,8 @@ public class OrderSummaryDTO {
     
     @Schema(description = "Список товаров в заказе")
     private List<OrderItemDTO> items;
+
+    @Schema(description = "Кол-во кастомных позиций под-заказа", example = "0")
+    private Long customItemsCount;
 }
 

@@ -12,12 +12,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.anyforms.dto.ApiResponseDTO;
+import ru.anyforms.dto.ContactSuggestionDTO;
+import ru.anyforms.dto.CustomOrderCreateRequestDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
+import ru.anyforms.model.Order;
+import ru.anyforms.repository.CustomProductItemRepository;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.util.converter.ConverterOrder;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 @RestController
@@ -27,6 +36,9 @@ import java.util.List;
 public class OrderController {
     private final OrderService orderService;
     private final GetterOrderDTOByType getterOrderDTOByType;
+    private final OrderRepository orderRepository;
+    private final ConverterOrder converterOrder;
+    private final CustomProductItemRepository customProductItemRepository;
 
     @Operation(
             summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
@@ -62,6 +74,77 @@ public class OrderController {
     public ResponseEntity<List<OrderSummaryDTO>> getOrdersWithoutTracker() {
         List<OrderSummaryDTO> summaries = getterOrderDTOByType.getOrdersWithoutTrackerDTOs();
         return ResponseEntity.ok(summaries);
+    }
+
+    @Operation(
+            summary = "Получить под-заказные сделки (без товаров из amo-каталога)",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @GetMapping("/custom")
+    public List<OrderSummaryDTO> getCustomOrders() {
+        return orderRepository.findByIsRetailFalseOrderByCreatedAtDesc().stream()
+                .filter(o -> o.getTracker() == null || o.getTracker().isBlank())
+                .map(this::convertWithCount)
+                .toList();
+    }
+
+    @Operation(
+            summary = "Создать под-заказ без CRM (с нуля)",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @PostMapping("/custom")
+    public ResponseEntity<OrderSummaryDTO> createCustomOrder(@RequestBody(required = false) CustomOrderCreateRequestDTO request) {
+        Order order = new Order();
+        order.setRetail(false);
+        if (request != null) {
+            order.setContactName(request.getContactName());
+            order.setContactPhone(request.getContactPhone());
+            order.setPvzSdekCity(request.getPvzSdekCity());
+            order.setPvzSdekStreet(request.getPvzSdekStreet());
+        }
+        Order saved = orderRepository.save(order);
+        return ResponseEntity.status(HttpStatus.CREATED).body(convertWithCount(saved));
+    }
+
+    @Operation(
+            summary = "Поиск клиентов по ФИО/телефону (для предзаполнения нового заказа)",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @GetMapping("/contacts/search")
+    public List<ContactSuggestionDTO> searchContacts(@RequestParam(required = false) String q) {
+        if (q == null || q.trim().length() < 2) {
+            return List.of();
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<ContactSuggestionDTO> out = new ArrayList<>();
+        for (Order o : orderRepository.searchByContact(q.trim())) {
+            String key = (o.getContactName() == null ? "" : o.getContactName()) + "|"
+                    + (o.getContactPhone() == null ? "" : o.getContactPhone());
+            if (seen.add(key)) {
+                out.add(new ContactSuggestionDTO(o.getContactName(), o.getContactPhone(), o.getPvzSdekCity(), o.getPvzSdekStreet()));
+            }
+            if (out.size() >= 10) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    @Operation(
+            summary = "Получить заказ по нашему id",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @GetMapping("/{id}")
+    public OrderSummaryDTO getOrderById(@PathVariable Long id) {
+        return orderRepository.findById(id)
+                .map(this::convertWithCount)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + id));
+    }
+
+    private OrderSummaryDTO convertWithCount(ru.anyforms.model.Order order) {
+        OrderSummaryDTO dto = converterOrder.convert(order);
+        dto.setCustomItemsCount(customProductItemRepository.countByOrderId(order.getId()));
+        return dto;
     }
 
     /**

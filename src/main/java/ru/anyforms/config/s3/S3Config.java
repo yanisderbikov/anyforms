@@ -29,15 +29,11 @@ public class S3Config {
 
     @Bean
     public S3Client s3Client() {
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
-                accessKey,
-                accessSecretKey
-        );
-
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, accessSecretKey);
         return S3Client.builder()
                 .region(Region.of(region))
                 .endpointOverride(URI.create(endpointApi))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(false)
                         .build())
@@ -46,15 +42,11 @@ public class S3Config {
 
     @Bean
     public S3Presigner createS3Presigner() {
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
-                accessKey,
-                accessSecretKey
-        );
-
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, accessSecretKey);
         return S3Presigner.builder()
                 .region(Region.of(region))
                 .endpointOverride(URI.create(endpointApi))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .build();
     }
 }
