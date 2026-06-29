@@ -73,6 +73,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("""
                 SELECT o FROM Order o
                 WHERE o.deliveryStatus <> 'DELIVERED'
+                  AND o.tracker IS NOT NULL
+                  AND o.tracker <> ''
             """)
     List<Order> getNonDeliveredOrders();
 
