@@ -22,4 +22,7 @@ public class CustomProductItemRequestDTO {
     @Min(1)
     @Schema(description = "Количество", example = "5")
     private Integer quantity;
+
+    @Schema(description = "Кто моделирует позицию", example = "Иван")
+    private String modeler;
 }

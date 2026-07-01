@@ -35,6 +35,9 @@ public class CustomProductItem {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "modeler")
+    private String modeler;
+
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 

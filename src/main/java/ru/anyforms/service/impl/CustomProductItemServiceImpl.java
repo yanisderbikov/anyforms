@@ -64,6 +64,12 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<String> getModelers() {
+        return itemRepository.findDistinctModelers();
+    }
+
+    @Override
     @Transactional
     public CustomProductItemDTO create(Long orderId, CustomProductItemRequestDTO request) {
         Order order = orderRepository.findById(orderId)
@@ -184,6 +190,8 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         item.setProductName(request.getProductName());
         item.setDescription(request.getDescription());
         item.setQuantity(request.getQuantity());
+        String modeler = request.getModeler();
+        item.setModeler(modeler != null && !modeler.isBlank() ? modeler.trim() : null);
     }
 
     private CustomProductItemDTO toDTO(CustomProductItem item) {
@@ -195,6 +203,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setProductName(item.getProductName());
         dto.setDescription(item.getDescription());
         dto.setQuantity(item.getQuantity());
+        dto.setModeler(item.getModeler());
         dto.setStatus(item.getStatus());
         dto.setStatusDescription(item.getStatus() != null ? item.getStatus().getDescription() : null);
         dto.setFiles(item.getFiles().stream()

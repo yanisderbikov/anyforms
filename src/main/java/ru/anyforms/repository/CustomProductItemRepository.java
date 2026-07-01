@@ -2,12 +2,17 @@ package ru.anyforms.repository;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.CustomProductStatus;
 
 import java.util.List;
 
 public interface CustomProductItemRepository extends JpaRepository<CustomProductItem, Long> {
+
+    /** Уникальные непустые значения «кто моделирует» (для select с автодобавлением). */
+    @Query("SELECT DISTINCT i.modeler FROM CustomProductItem i WHERE i.modeler IS NOT NULL AND i.modeler <> '' ORDER BY i.modeler")
+    List<String> findDistinctModelers();
 
     /** Кастомные позиции сделки по нашему order.id. */
     List<CustomProductItem> findByOrderIdOrderByIdAsc(Long orderId);

@@ -27,6 +27,9 @@ public class CustomProductItemDTO {
     private String description;
     private Integer quantity;
 
+    @Schema(description = "Кто моделирует позицию")
+    private String modeler;
+
     private CustomProductStatus status;
 
     @Schema(description = "Человекочитаемый статус", example = "В производстве")

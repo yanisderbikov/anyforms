@@ -18,6 +18,9 @@ public interface CustomProductItemService {
     /** Все позиции (плоский список для страницы-трекера). */
     List<CustomProductItemDTO> getAll();
 
+    /** Уникальные значения «кто моделирует» (для select с автодобавлением). */
+    List<String> getModelers();
+
     CustomProductItemDTO create(Long orderId, CustomProductItemRequestDTO request);
 
     CustomProductItemDTO update(Long itemId, CustomProductItemRequestDTO request);

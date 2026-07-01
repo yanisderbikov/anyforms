@@ -34,6 +34,12 @@ public class CustomProductItemController {
         return orderId != null ? service.getByOrderId(orderId) : service.getAll();
     }
 
+    @Operation(summary = "Уникальные значения «кто моделирует» (select с автодобавлением)")
+    @GetMapping("/modelers")
+    public List<String> modelers() {
+        return service.getModelers();
+    }
+
     @Operation(summary = "Позиция по id (для шеринга ссылки)")
     @GetMapping("/{id}")
     public CustomProductItemDTO get(@PathVariable Long id) {
