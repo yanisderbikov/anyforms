@@ -64,6 +64,7 @@ class ProductServiceImpl implements ProductService {
                 .discountPercent(request.getDiscountPercent())
                 .tgLink(request.getTgLink())
                 .orderNumber(request.getOrderNumber())
+                .amoProductId(request.getAmoProductId())
                 .build();
     }
 
@@ -91,6 +92,9 @@ class ProductServiceImpl implements ProductService {
         }
         if (request.getOrderNumber() != null) {
             product.setOrderNumber(request.getOrderNumber());
+        }
+        if (request.getAmoProductId() != null) {
+            product.setAmoProductId(request.getAmoProductId());
         }
         return product;
     }

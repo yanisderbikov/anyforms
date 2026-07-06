@@ -18,15 +18,14 @@ import ru.anyforms.dto.payment.yookassa.PaymentConfirmation;
 import ru.anyforms.dto.payment.yookassa.PaymentCustomer;
 import ru.anyforms.dto.payment.yookassa.PaymentItem;
 import ru.anyforms.dto.payment.yookassa.PaymentReceipt;
-import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
-import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.GetterProduct;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverTransaction;
@@ -63,7 +62,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
     private final OrderRepository orderRepository;
-    private final CustomProductItemRepository customProductItemRepository;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
 
@@ -75,6 +73,9 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     @Value("${payment.marketplace.vat-code:1}")
     private Integer marketplaceVatCode;
+
+    @Value("${amocrm.products.catalog.id}")
+    private Long productsCatalogId;
 
     /** Позиция корзины после серверной валидации и прайсинга. */
     private record PricedItem(Product product, int quantity, long unitKopecks) {
@@ -171,17 +172,19 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         order.setPvzSdekCity(request.getPvzCity());
         order.setPvzSdekStreet(request.getPvzStreet());
         order.setComment("Заказ с сайта. ПВЗ СДЭК: " + pvzSummary(request) + ". Состав: " + itemsSummary(priced));
-        Order saved = orderRepository.save(order);
 
+        // Позиции — как у розницы: OrderItem с амо-идентификаторами товара
+        // (product_id = элемент каталога АМО из маппинга товара, catalog_id — из конфига).
         for (PricedItem item : priced) {
-            CustomProductItem custom = new CustomProductItem();
-            custom.setOrder(saved);
-            custom.setProductName(item.product().getName());
-            custom.setQuantity(item.quantity());
-            custom.setPriceKopecks(item.unitKopecks());
-            customProductItemRepository.save(custom);
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProductName(item.product().getName());
+            orderItem.setQuantity(item.quantity());
+            orderItem.setProductId(item.product().getAmoProductId());
+            orderItem.setCatalogId(productsCatalogId != null && productsCatalogId > 0 ? productsCatalogId : null);
+            orderItem.setPriceKopecks(item.unitKopecks());
+            order.addItem(orderItem);
         }
-        return saved;
+        return orderRepository.save(order);
     }
 
     /** Цена товара — строка рублей ("890", "1 190", "1190,50"). Приводим к копейкам. */

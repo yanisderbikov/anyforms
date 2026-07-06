@@ -22,4 +22,5 @@ public class ProductDTO {
     private String crossedPrice;
     private String discountPercent;
     private String tgLink;
+    private Long amoProductId;
 }

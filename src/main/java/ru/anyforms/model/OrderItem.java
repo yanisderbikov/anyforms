@@ -28,4 +28,11 @@ public class OrderItem {
 
     @Column(name = "catalog_id")
     private Long catalogId; // ID каталога AmoCRM
+
+    /**
+     * Цена за штуку в копейках на момент оплаты (маркетплейс, для письма-чека).
+     * Синк из АМО пересоздаёт позиции без цены — чек к этому моменту уже отправлен.
+     */
+    @Column(name = "price_kopecks")
+    private Long priceKopecks;
 }

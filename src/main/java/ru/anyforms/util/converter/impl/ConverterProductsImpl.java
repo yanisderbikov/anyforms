@@ -24,7 +24,8 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getPrice(),
                 product.getCrossedPrice(),
                 product.getDiscountPercent(),
-                product.getTgLink()
+                product.getTgLink(),
+                product.getAmoProductId()
         );
     }
 }

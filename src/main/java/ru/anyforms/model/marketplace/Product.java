@@ -38,4 +38,6 @@ public class Product {
     @NonNull
     private String tgLink;
     private Integer orderNumber;
+    @Column(name = "amo_product_id")
+    private Long amoProductId;
 }

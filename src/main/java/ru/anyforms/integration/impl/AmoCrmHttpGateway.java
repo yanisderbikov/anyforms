@@ -954,6 +954,11 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public Long createLandingLead(String leadName, String contactName, String phone) {
+        return createLead(leadName, contactName, phone, landingPipelineId, landingStatusId);
+    }
+
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
         try {
             JsonObject phoneValue = new JsonObject();
             phoneValue.addProperty("value", phone);
@@ -982,8 +987,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             JsonObject lead = new JsonObject();
             lead.addProperty("name", leadName);
             lead.addProperty("responsible_user_id", landingResponsibleUserId);
-            lead.addProperty("pipeline_id", landingPipelineId);
-            lead.addProperty("status_id", landingStatusId);
+            lead.addProperty("pipeline_id", pipelineId);
+            lead.addProperty("status_id", statusId);
             lead.add("_embedded", embedded);
 
             JsonArray requestBody = new JsonArray();
@@ -1030,8 +1035,47 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
             throw new RuntimeException("AmoCRM did not return created lead id");
         } catch (Exception e) {
-            log.error("Failed to create landing lead in amoCRM", e);
-            throw new RuntimeException("Failed to create landing lead in amoCRM", e);
+            log.error("Failed to create lead in amoCRM (pipeline={}, status={})", pipelineId, statusId, e);
+            throw new RuntimeException("Failed to create lead in amoCRM", e);
+        }
+    }
+
+    @Override
+    public boolean linkCatalogElementsToLead(Long leadId, Long catalogId, Map<Long, Integer> elementIdToQuantity) {
+        if (elementIdToQuantity == null || elementIdToQuantity.isEmpty()) {
+            return true;
+        }
+        try {
+            JsonArray requestBody = new JsonArray();
+            for (Map.Entry<Long, Integer> entry : elementIdToQuantity.entrySet()) {
+                JsonObject metadata = new JsonObject();
+                metadata.addProperty("quantity", entry.getValue() == null ? 1 : entry.getValue());
+                metadata.addProperty("catalog_id", catalogId);
+
+                JsonObject link = new JsonObject();
+                link.addProperty("to_entity_id", entry.getKey());
+                link.addProperty("to_entity_type", "catalog_elements");
+                link.add("metadata", metadata);
+                requestBody.add(link);
+            }
+
+            webClient.post()
+                    .uri("/api/v4/leads/" + leadId + "/link")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(requestBody.toString())
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new RuntimeException(
+                                            "AmoCRM leads/link API " + clientResponse.statusCode() + ": " + body))))
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Linked {} catalog elements to lead {}", elementIdToQuantity.size(), leadId);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to link catalog elements to lead {}", leadId, e);
+            return false;
         }
     }
 }

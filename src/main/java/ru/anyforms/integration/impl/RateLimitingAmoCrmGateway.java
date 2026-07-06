@@ -181,4 +181,16 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
         acquireSlot();
         return delegate.createLandingLead(leadName, contactName, phone);
     }
+
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
+        acquireSlot();
+        return delegate.createLead(leadName, contactName, phone, pipelineId, statusId);
+    }
+
+    @Override
+    public boolean linkCatalogElementsToLead(Long leadId, Long catalogId, Map<Long, Integer> elementIdToQuantity) {
+        acquireSlot();
+        return delegate.linkCatalogElementsToLead(leadId, catalogId, elementIdToQuantity);
+    }
 }

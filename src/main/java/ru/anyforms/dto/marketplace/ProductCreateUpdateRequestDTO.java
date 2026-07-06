@@ -33,4 +33,5 @@ public class ProductCreateUpdateRequestDTO {
     @NotBlank(message = "tgLink обязателен")
     private String tgLink;
     private Integer orderNumber;
+    private Long amoProductId;
 }

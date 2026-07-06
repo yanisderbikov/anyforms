@@ -146,4 +146,22 @@ public interface AmoCrmGateway {
      * @return ID созданной сделки
      */
     Long createLandingLead(String leadName, String contactName, String phone);
+
+    /**
+     * Создаёт сделку с вложенным контактом в заданной воронке и статусе
+     * (маркетплейс: розничная воронка, статус «Готов к отправке»).
+     *
+     * @return ID созданной сделки
+     */
+    Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId);
+
+    /**
+     * Привязывает товары каталога к сделке (POST /api/v4/leads/{id}/link).
+     *
+     * @param leadId              ID сделки
+     * @param catalogId           ID каталога товаров
+     * @param elementIdToQuantity ID элемента каталога → количество
+     * @return true при успехе
+     */
+    boolean linkCatalogElementsToLead(Long leadId, Long catalogId, Map<Long, Integer> elementIdToQuantity);
 }
