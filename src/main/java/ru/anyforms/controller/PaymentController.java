@@ -11,11 +11,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.anyforms.dto.payment.CartPurchaseRequest;
 import ru.anyforms.dto.payment.PaymentProductDTO;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
 import ru.anyforms.dto.payment.PurchaseRequest;
 import ru.anyforms.dto.payment.YooKassaWebhookBody;
 import ru.anyforms.repository.GetterPaymentProduct;
+import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.PaymentConfirmService;
 import ru.anyforms.service.payment.PurchaseService;
 
@@ -28,6 +30,7 @@ import java.util.List;
 public class PaymentController {
 
     private final PurchaseService purchaseService;
+    private final CartPurchaseService cartPurchaseService;
     private final PaymentConfirmService paymentConfirmService;
     private final GetterPaymentProduct getterPaymentProduct;
 
@@ -44,6 +47,13 @@ public class PaymentController {
     @PostMapping("/purchase")
     public ResponseEntity<PaymentUrlResponse> purchase(@Valid @RequestBody PurchaseRequest request) {
         return ResponseEntity.ok(purchaseService.purchase(request));
+    }
+
+    @Operation(summary = "Оформить заказ маркетплейса",
+            description = "Считает сумму корзины по серверным ценам, создаёт платёж в Юкассе и возвращает ссылку на оплату")
+    @PostMapping("/cart-purchase")
+    public ResponseEntity<PaymentUrlResponse> cartPurchase(@Valid @RequestBody CartPurchaseRequest request) {
+        return ResponseEntity.ok(cartPurchaseService.purchase(request));
     }
 
     @Operation(summary = "Вебхук Юкассы", description = "Принимает уведомления об изменении статуса платежа")

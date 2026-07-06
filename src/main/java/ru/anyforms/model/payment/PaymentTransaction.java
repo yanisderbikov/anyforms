@@ -7,6 +7,8 @@ import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -16,7 +18,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString
+@ToString(exclude = "items")
 public class PaymentTransaction {
 
     @Id
@@ -50,6 +52,26 @@ public class PaymentTransaction {
 
     private String description;
 
+    // Снапшот чекаута маркетплейса (nullable — у курса/гайда пусто).
+    @Column(name = "customer_name")
+    private String customerName;
+
+    @Column(name = "customer_phone")
+    private String customerPhone;
+
+    @Column(name = "pvz_city")
+    private String pvzCity;
+
+    @Column(name = "pvz_street")
+    private String pvzStreet;
+
+    @Column(name = "pvz_code")
+    private String pvzCode;
+
+    @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @Builder.Default
+    private List<PaymentTransactionItem> items = new ArrayList<>();
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -57,4 +79,9 @@ public class PaymentTransaction {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    public void addItem(PaymentTransactionItem item) {
+        items.add(item);
+        item.setTransaction(this);
+    }
 }
