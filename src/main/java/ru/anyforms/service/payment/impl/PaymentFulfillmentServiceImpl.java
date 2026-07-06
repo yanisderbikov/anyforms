@@ -32,4 +32,12 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
         log.info("Поставлена таска на письмо о покупке продукта {} на {} (транзакция {})",
                 transaction.getProductCode(), transaction.getEmail(), transaction.getId());
     }
+
+    @Override
+    public void cancel(PaymentTransaction transaction) {
+        if (PaymentProduct.CODE_MARKETPLACE_CART.equals(transaction.getProductCode())) {
+            marketplaceFulfillmentService.cancel(transaction);
+        }
+        // Для курса/гайда при отмене ничего делать не нужно.
+    }
 }

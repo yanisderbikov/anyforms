@@ -42,6 +42,11 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
                 paymentFulfillmentService.fulfill(transaction);
             }
 
+            if (lastStatus != PaymentTransactionStatus.CANCELED
+                    && newStatus == PaymentTransactionStatus.CANCELED) {
+                paymentFulfillmentService.cancel(transaction);
+            }
+
             log.debug("Вебхук обработан: {}", webhookBody);
             return true;
         } catch (Exception e) {

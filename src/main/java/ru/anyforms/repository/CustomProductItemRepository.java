@@ -19,13 +19,31 @@ public interface CustomProductItemRepository extends JpaRepository<CustomProduct
 
     long countByOrderId(Long orderId);
 
-    /** Все позиции, кроме указанного статуса (скрываем SENT). */
+    /**
+     * Все позиции, кроме указанного статуса (скрываем SENT).
+     * Позиции неоплаченных/отменённых заказов маркетплейса в работу не попадают.
+     */
+    @Query("""
+       SELECT i FROM CustomProductItem i
+       WHERE i.status <> :status
+         AND i.order.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
+                                           ru.anyforms.model.OrderPaymentStatus.CANCELED)
+    """)
     List<CustomProductItem> findByStatusNot(CustomProductStatus status, Sort sort);
 
     /** Позиции заказа, кроме указанного статуса (скрываем SENT). */
     List<CustomProductItem> findByOrderIdAndStatusNot(Long orderId, CustomProductStatus status, Sort sort);
 
-    /** Позиции по статусу (для «к отправке»). */
+    /**
+     * Позиции по статусу (для «к отправке»).
+     * Позиции неоплаченных/отменённых заказов маркетплейса не показываем.
+     */
+    @Query("""
+       SELECT i FROM CustomProductItem i
+       WHERE i.status = :status
+         AND i.order.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
+                                           ru.anyforms.model.OrderPaymentStatus.CANCELED)
+    """)
     List<CustomProductItem> findByStatus(CustomProductStatus status);
 
     /** Позиции заказа в статусе (для отгрузки). */

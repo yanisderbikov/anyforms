@@ -82,7 +82,7 @@ public class OrderController {
     )
     @GetMapping("/custom")
     public List<OrderSummaryDTO> getCustomOrders() {
-        return orderRepository.findByIsRetailFalseOrderByCreatedAtDesc().stream()
+        return orderRepository.findWorkableCustomOrders().stream()
                 .filter(o -> o.getTracker() == null || o.getTracker().isBlank())
                 .map(this::convertWithCount)
                 .toList();

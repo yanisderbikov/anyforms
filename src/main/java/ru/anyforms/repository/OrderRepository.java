@@ -16,6 +16,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** Под-заказные сделки (без товаров из amo-каталога). */
     List<Order> findByIsRetailFalseOrderByCreatedAtDesc();
 
+    /**
+     * Под-заказные сделки для работы цеха: без неоплаченных и отменённых заказов
+     * маркетплейса (брошенные корзины в работу не попадают).
+     */
+    @Query("""
+       SELECT o FROM Order o
+       WHERE o.isRetail = FALSE
+         AND o.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
+                                     ru.anyforms.model.OrderPaymentStatus.CANCELED)
+       ORDER BY o.createdAt DESC
+    """)
+    List<Order> findWorkableCustomOrders();
+
     /** Поиск по ФИО/телефону (для предзаполнения нового заказа). */
     @Query("""
        SELECT o FROM Order o

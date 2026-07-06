@@ -41,6 +41,10 @@ public class CustomProductItem {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
+    /** Цена за штуку в копейках на момент оплаты (для чека). Null у позиций, созданных вручную. */
+    @Column(name = "price_kopecks")
+    private Long priceKopecks;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     private CustomProductStatus status = CustomProductStatus.MODELING;

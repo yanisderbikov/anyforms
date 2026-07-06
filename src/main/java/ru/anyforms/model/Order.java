@@ -56,6 +56,10 @@ public class Order {
     @Column(name = "retail")
     private boolean isRetail;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false, length = 32)
+    private OrderPaymentStatus paymentStatus = OrderPaymentStatus.NONE;
+
     @Column(name = "comment")
     private String comment;
 

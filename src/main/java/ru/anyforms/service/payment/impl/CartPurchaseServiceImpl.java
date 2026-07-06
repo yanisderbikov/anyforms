@@ -4,9 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.payment.Amount;
 import ru.anyforms.dto.payment.CartItemDTO;
 import ru.anyforms.dto.payment.CartPurchaseRequest;
@@ -17,13 +18,17 @@ import ru.anyforms.dto.payment.yookassa.PaymentConfirmation;
 import ru.anyforms.dto.payment.yookassa.PaymentCustomer;
 import ru.anyforms.dto.payment.yookassa.PaymentItem;
 import ru.anyforms.dto.payment.yookassa.PaymentReceipt;
+import ru.anyforms.model.CustomProductItem;
+import ru.anyforms.model.Order;
+import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
-import ru.anyforms.model.payment.PaymentTransactionItem;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
+import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.GetterProduct;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverTransaction;
 import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.PaymentStatusConverter;
@@ -35,7 +40,14 @@ import java.math.RoundingMode;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * Оформление заказа маркетплейса (order-first): заказ создаётся сразу со статусом
+ * AWAITING_PAYMENT вместе с позициями, затем создаётся платёж в Юкассе. Вебхук
+ * переводит заказ в PAID. Брошенные корзины остаются заказами AWAITING_PAYMENT
+ * (в рабочие списки цеха не попадают) — их можно дожимать как лидов.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -50,6 +62,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final YooKassaService yooKassaService;
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
+    private final OrderRepository orderRepository;
+    private final CustomProductItemRepository customProductItemRepository;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
 
@@ -62,45 +76,16 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     @Value("${payment.marketplace.vat-code:1}")
     private Integer marketplaceVatCode;
 
+    /** Позиция корзины после серверной валидации и прайсинга. */
+    private record PricedItem(Product product, int quantity, long unitKopecks) {
+    }
+
     @Override
+    @Transactional
     public PaymentUrlResponse purchase(CartPurchaseRequest request) {
-        if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Корзина пуста");
-        }
-
-        long totalKopecks = 0;
-        long totalQty = 0;
-        List<PaymentItem> receiptItems = new ArrayList<>();
-        List<PaymentTransactionItem> snapshotItems = new ArrayList<>();
-
-        for (CartItemDTO cartItem : request.getItems()) {
-            Product product = getterProduct.getById(cartItem.getProductId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST, "Товар не найден: " + cartItem.getProductId()));
-            int quantity = cartItem.getQuantity() == null ? 0 : cartItem.getQuantity();
-            if (quantity < 1) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Некорректное количество для товара " + product.getName());
-            }
-
-            long unitKopecks = parsePriceToKopecks(product.getPrice(), product.getName());
-            totalKopecks += unitKopecks * quantity;
-            totalQty += quantity;
-
-            String unitValue = MoneyUtil.kopecksToString(unitKopecks);
-            receiptItems.add(new PaymentItem(
-                    product.getName(),
-                    Amount.builder().value(unitValue).currency(Currency.RUB.getCode()).build(),
-                    marketplaceVatCode,
-                    quantity));
-
-            snapshotItems.add(PaymentTransactionItem.builder()
-                    .productId(product.getId())
-                    .productName(product.getName())
-                    .priceKopecks(unitKopecks)
-                    .quantity(quantity)
-                    .build());
-        }
+        List<PricedItem> priced = priceItems(request.getItems());
+        long totalKopecks = priced.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).sum();
+        long totalQty = priced.stream().mapToLong(PricedItem::quantity).sum();
 
         Amount amount = Amount.builder()
                 .value(MoneyUtil.kopecksToString(totalKopecks))
@@ -116,12 +101,14 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .description("Заказ anyforms: " + totalQty + " " + pluralItems(totalQty))
                 .capture(true)
                 .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT, buildReturnUrl(request.getReturnUrl())))
-                .receipt(new PaymentReceipt(new PaymentCustomer(fullName, request.getEmail()), receiptItems))
+                .receipt(buildReceipt(fullName, request.getEmail(), priced))
                 .paymentMode(PAYMENT_MODE)
                 .paymentSubject(PAYMENT_SUBJECT)
                 .build();
 
         YooKassaPaymentResponse response = yooKassaService.createPayment(paymentRequest);
+
+        Order order = createAwaitingOrder(request, fullName, priced);
 
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .externalPaymentId(response.getId())
@@ -132,19 +119,69 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .email(request.getEmail())
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
                 .status(resolveStatus(response.getStatus()))
-                .customerName(fullName)
-                .customerPhone(request.getPhone())
-                .pvzCity(request.getPvzCity())
-                .pvzStreet(request.getPvzStreet())
-                .pvzCode(request.getPvzCode())
+                .orderId(order.getId())
                 .build();
-        snapshotItems.forEach(transaction::addItem);
         saverTransaction.save(transaction);
 
         return new PaymentUrlResponse(
                 response.getId(),
                 response.getConfirmation().getConfirmationUrl(),
                 response.getAmount());
+    }
+
+    private List<PricedItem> priceItems(List<CartItemDTO> items) {
+        if (items == null || items.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Корзина пуста");
+        }
+        List<PricedItem> priced = new ArrayList<>();
+        for (CartItemDTO cartItem : items) {
+            Product product = getterProduct.getById(cartItem.getProductId())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST, "Товар не найден: " + cartItem.getProductId()));
+            int quantity = cartItem.getQuantity() == null ? 0 : cartItem.getQuantity();
+            if (quantity < 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Некорректное количество для товара " + product.getName());
+            }
+            priced.add(new PricedItem(product, quantity, parsePriceToKopecks(product.getPrice(), product.getName())));
+        }
+        return priced;
+    }
+
+    private PaymentReceipt buildReceipt(String fullName, String email, List<PricedItem> priced) {
+        List<PaymentItem> receiptItems = priced.stream()
+                .map(i -> new PaymentItem(
+                        i.product().getName(),
+                        Amount.builder()
+                                .value(MoneyUtil.kopecksToString(i.unitKopecks()))
+                                .currency(Currency.RUB.getCode())
+                                .build(),
+                        marketplaceVatCode,
+                        i.quantity()))
+                .collect(Collectors.toList());
+        return new PaymentReceipt(new PaymentCustomer(fullName, email), receiptItems);
+    }
+
+    private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
+        Order order = new Order();
+        order.setRetail(false);
+        order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
+        order.setContactName(fullName);
+        order.setContactPhone(request.getPhone());
+        order.setPvzSdekCity(request.getPvzCity());
+        order.setPvzSdekStreet(request.getPvzStreet());
+        order.setComment("Заказ с сайта. ПВЗ СДЭК: " + pvzSummary(request) + ". Состав: " + itemsSummary(priced));
+        Order saved = orderRepository.save(order);
+
+        for (PricedItem item : priced) {
+            CustomProductItem custom = new CustomProductItem();
+            custom.setOrder(saved);
+            custom.setProductName(item.product().getName());
+            custom.setQuantity(item.quantity());
+            custom.setPriceKopecks(item.unitKopecks());
+            customProductItemRepository.save(custom);
+        }
+        return saved;
     }
 
     /** Цена товара — строка рублей ("890", "1 190", "1190,50"). Приводим к копейкам. */
@@ -215,6 +252,29 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             log.warn("Некорректный URL для домена '{}'", url);
         }
         return null;
+    }
+
+    private String itemsSummary(List<PricedItem> priced) {
+        return priced.stream()
+                .map(i -> i.product().getName() + " ×" + i.quantity())
+                .collect(Collectors.joining(", "));
+    }
+
+    private String pvzSummary(CartPurchaseRequest request) {
+        StringBuilder sb = new StringBuilder();
+        if (request.getPvzCity() != null && !request.getPvzCity().isBlank()) {
+            sb.append(request.getPvzCity());
+        }
+        if (request.getPvzStreet() != null && !request.getPvzStreet().isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(request.getPvzStreet());
+        }
+        if (request.getPvzCode() != null && !request.getPvzCode().isBlank()) {
+            sb.append(" [").append(request.getPvzCode()).append("]");
+        }
+        return sb.toString();
     }
 
     private String pluralItems(long n) {
