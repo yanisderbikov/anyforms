@@ -45,7 +45,7 @@ class ProductServiceImpl implements ProductService {
             product = newProductFromRequest(request);
         }
         Product saved = saverProduct.save(product);
-        if (request.getFolder() != null) {
+        if (request.getFolder() != null && !request.getFolder().isBlank()) {
             getterPhotosFromS3Folder.invalidateFolder(saved.getS3PhotosFolderPath());
             if (oldFolder != null && !oldFolder.equals(saved.getS3PhotosFolderPath())) {
                 getterPhotosFromS3Folder.invalidateFolder(oldFolder);
@@ -65,6 +65,7 @@ class ProductServiceImpl implements ProductService {
                 .tgLink(request.getTgLink())
                 .orderNumber(request.getOrderNumber())
                 .amoProductId(request.getAmoProductId())
+                .amoProductName(request.getAmoProductName())
                 .build();
     }
 
@@ -75,7 +76,7 @@ class ProductServiceImpl implements ProductService {
         if (request.getDescription() != null) {
             product.setDescription(request.getDescription());
         }
-        if (request.getFolder() != null) {
+        if (request.getFolder() != null && !request.getFolder().isBlank()) {
             product.setS3PhotosFolderPath(request.getFolder());
         }
         if (request.getPrice() != null) {
@@ -95,6 +96,9 @@ class ProductServiceImpl implements ProductService {
         }
         if (request.getAmoProductId() != null) {
             product.setAmoProductId(request.getAmoProductId());
+        }
+        if (request.getAmoProductName() != null) {
+            product.setAmoProductName(request.getAmoProductName());
         }
         return product;
     }

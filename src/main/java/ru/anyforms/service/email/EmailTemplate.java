@@ -22,6 +22,7 @@ public final class EmailTemplate {
      */
     public static String getMarketplaceOrderEmail(MarketplaceOrderEmailPayload payload) {
         return load("templates/email-marketplace-order.html")
+                .replace("%ORDER%", esc(payload.getOrderPublicId() == null ? "" : payload.getOrderPublicId()))
                 .replace("%ROWS%", buildRows(payload.getItems()))
                 .replace("%TOTAL%", formatRub(payload.getTotalRub()))
                 .replace("%PVZ%", esc(buildPvz(payload)))
@@ -36,11 +37,11 @@ public final class EmailTemplate {
         for (MarketplaceOrderEmailPayload.Item item : items) {
             int qty = item.getQuantity() == null ? 1 : item.getQuantity();
             sb.append("<tr>")
-                    .append("<td class=\"body-font\" style=\"padding:12px 22px; font-size:15px; line-height:1.4; color:#16140e; border-top:1px solid #eee7da;\">")
+                    .append("<td class=\"font\" style=\"padding:12px 22px; font-size:15px; line-height:1.4; color:#111111; border-top:1px solid #ececec;\">")
                     .append(esc(item.getName())).append("</td>")
-                    .append("<td class=\"body-font\" align=\"center\" style=\"padding:12px 10px; font-size:15px; color:#5b554a; border-top:1px solid #eee7da; white-space:nowrap;\">×")
+                    .append("<td class=\"font\" align=\"center\" style=\"padding:12px 10px; font-size:15px; color:#8c8c8c; border-top:1px solid #ececec; white-space:nowrap;\">×")
                     .append(qty).append("</td>")
-                    .append("<td class=\"body-font\" align=\"right\" style=\"padding:12px 22px; font-size:15px; color:#16140e; border-top:1px solid #eee7da; white-space:nowrap;\">")
+                    .append("<td class=\"font\" align=\"right\" style=\"padding:12px 22px; font-size:15px; color:#111111; border-top:1px solid #ececec; white-space:nowrap;\">")
                     .append(formatRub(item.getPriceRub())).append("&nbsp;&#8381;</td>")
                     .append("</tr>");
         }

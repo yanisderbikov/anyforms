@@ -164,4 +164,12 @@ public interface AmoCrmGateway {
      * @return true при успехе
      */
     boolean linkCatalogElementsToLead(Long leadId, Long catalogId, Map<Long, Integer> elementIdToQuantity);
+
+    /**
+     * Возвращает все элементы (товары) каталога АМО: id + name (+ catalogId).
+     * Для выпадающего списка товаров в админке маркетплейса.
+     *
+     * @param catalogId ID каталога товаров
+     */
+    List<AmoProduct> getCatalogElements(Long catalogId);
 }

@@ -241,6 +241,7 @@ class MarketplaceFulfillmentService {
                 .collect(Collectors.toList());
         return MarketplaceOrderEmailPayload.builder()
                 .to(transaction.getEmail())
+                .orderPublicId(order.getPublicId())
                 .customerName(order.getContactName())
                 .pvzCity(order.getPvzSdekCity())
                 .pvzStreet(order.getPvzSdekStreet())

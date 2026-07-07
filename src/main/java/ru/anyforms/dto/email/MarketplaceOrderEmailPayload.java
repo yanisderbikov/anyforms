@@ -18,6 +18,7 @@ import java.util.List;
 @Builder
 public class MarketplaceOrderEmailPayload {
     private String to;
+    private String orderPublicId;
     private String customerName;
     private String pvzCity;
     private String pvzStreet;

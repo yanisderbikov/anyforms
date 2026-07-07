@@ -1,8 +1,9 @@
 package ru.anyforms.service.task;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import ru.anyforms.integration.AmoCrmGateway;
@@ -13,11 +14,14 @@ import ru.anyforms.service.DeliveryProcessor;
 
 @Slf4j
 @Component
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class OrderMoveToSecond {
 
     private final AmoCrmGateway amoCrmGateway;
     private final OrderDeleter deleter;
+
+    @Value("${amocrm.retail.pipeline.id}")
+    private Long retailPipelineId;
 
     /**
      * Периодическая проверка всех заказов на отправку
@@ -33,7 +37,7 @@ public class OrderMoveToSecond {
             long now = System.currentTimeMillis() / 1000;
             long twoWeeksAgo = now - (14L * 24 * 60 * 60);
 
-            var leads = amoCrmGateway.getLeadIdsOlderThanTwoWeeks(9846162L, 142L, twoWeeksAgo);
+            var leads = amoCrmGateway.getLeadIdsOlderThanTwoWeeks(retailPipelineId, 142L, twoWeeksAgo);
             amoCrmGateway.updateLeadStatus(leads, 82053234L, 9939750L);
 
             deleter.deleteByLeadId(leads);

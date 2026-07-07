@@ -38,6 +38,10 @@ public class Product {
     @NonNull
     private String tgLink;
     private Integer orderNumber;
+    /** ID элемента каталога товаров в AmoCRM (для привязки товара к сделке после оплаты). */
     @Column(name = "amo_product_id")
     private Long amoProductId;
+    /** Имя товара в каталоге АМО (чтобы позиции заказа назывались как в АМО). */
+    @Column(name = "amo_product_name")
+    private String amoProductName;
 }

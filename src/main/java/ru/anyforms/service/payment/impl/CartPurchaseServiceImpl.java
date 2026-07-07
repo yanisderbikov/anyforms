@@ -37,6 +37,7 @@ import ru.anyforms.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -57,6 +58,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private static final String CONFIRMATION_REDIRECT = "redirect";
     private static final String DEFAULT_FULL_NAME = "Клиент не представился";
     private static final String DEFAULT_SUCCESS_PATH = "/shop/success";
+    // Публичный номер заказа: 6 символов, заглавные буквы + цифры.
+    private static final char[] PUBLIC_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
+    private static final int PUBLIC_ID_LENGTH = 6;
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final YooKassaService yooKassaService;
     private final SaverTransaction saverTransaction;
@@ -71,7 +76,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     @Value("${payment.allowed-return-hosts}")
     private String allowedReturnHosts;
 
-    @Value("${payment.marketplace.vat-code:1}")
+    @Value("${payment.marketplace.vat-code}")
     private Integer marketplaceVatCode;
 
     @Value("${amocrm.products.catalog.id}")
@@ -97,19 +102,20 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 ? DEFAULT_FULL_NAME
                 : request.getFullName().trim();
 
+        Order order = createAwaitingOrder(request, fullName, priced);
+
         CreatePaymentRequest paymentRequest = CreatePaymentRequest.builder()
                 .amount(amount)
                 .description("Заказ anyforms: " + totalQty + " " + pluralItems(totalQty))
                 .capture(true)
-                .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT, buildReturnUrl(request.getReturnUrl())))
+                .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT,
+                        buildReturnUrl(request.getReturnUrl(), order.getPublicId())))
                 .receipt(buildReceipt(fullName, request.getEmail(), priced))
                 .paymentMode(PAYMENT_MODE)
                 .paymentSubject(PAYMENT_SUBJECT)
                 .build();
 
         YooKassaPaymentResponse response = yooKassaService.createPayment(paymentRequest);
-
-        Order order = createAwaitingOrder(request, fullName, priced);
 
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .externalPaymentId(response.getId())
@@ -167,19 +173,21 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         Order order = new Order();
         order.setRetail(false);
         order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
+        order.setPublicId(generateUniquePublicId());
         order.setContactName(fullName);
         order.setContactPhone(request.getPhone());
         order.setPvzSdekCity(request.getPvzCity());
         order.setPvzSdekStreet(request.getPvzStreet());
-        order.setComment("Заказ с сайта. ПВЗ СДЭК: " + pvzSummary(request) + ". Состав: " + itemsSummary(priced));
 
-        // Позиции — как у розницы: OrderItem с амо-идентификаторами товара
-        // (product_id = элемент каталога АМО из маппинга товара, catalog_id — из конфига).
         for (PricedItem item : priced) {
+            Product product = item.product();
+            String itemName = product.getAmoProductName() != null && !product.getAmoProductName().isBlank()
+                    ? product.getAmoProductName()
+                    : product.getName();
             OrderItem orderItem = new OrderItem();
-            orderItem.setProductName(item.product().getName());
+            orderItem.setProductName(itemName);
             orderItem.setQuantity(item.quantity());
-            orderItem.setProductId(item.product().getAmoProductId());
+            orderItem.setProductId(product.getAmoProductId());
             orderItem.setCatalogId(productsCatalogId != null && productsCatalogId > 0 ? productsCatalogId : null);
             orderItem.setPriceKopecks(item.unitKopecks());
             order.addItem(orderItem);
@@ -209,19 +217,44 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         return status != null ? status : PaymentTransactionStatus.PENDING;
     }
 
-    private String buildReturnUrl(String requestedReturnUrl) {
+    private String buildReturnUrl(String requestedReturnUrl, String orderPublicId) {
         String origin = extractAllowedOrigin(requestedReturnUrl);
         if (origin == null) {
             origin = extractAllowedOrigin(httpRequest.getHeader("Origin"));
         }
+
+        String base;
         if (origin == null) {
-            return joinUrl(defaultDomain, DEFAULT_SUCCESS_PATH);
+            base = joinUrl(defaultDomain, DEFAULT_SUCCESS_PATH);
+        } else if (requestedReturnUrl != null && !requestedReturnUrl.isBlank()) {
+            // Клиент прислал полный URL с разрешённого хоста — используем как есть.
+            base = requestedReturnUrl.trim();
+        } else {
+            base = joinUrl(origin, DEFAULT_SUCCESS_PATH);
         }
-        // Если клиент прислал полный URL с разрешённого хоста — используем его как есть.
-        if (requestedReturnUrl != null && !requestedReturnUrl.isBlank()) {
-            return requestedReturnUrl.trim();
+        return appendOrderParam(base, orderPublicId);
+    }
+
+    private String appendOrderParam(String url, String orderPublicId) {
+        if (orderPublicId == null || orderPublicId.isBlank()) {
+            return url;
         }
-        return joinUrl(origin, DEFAULT_SUCCESS_PATH);
+        return url + (url.contains("?") ? "&" : "?") + "order=" + orderPublicId;
+    }
+
+    /** Уникальный публичный номер заказа (6 символов A-Z/0-9, заглавные). */
+    private String generateUniquePublicId() {
+        for (int attempt = 0; attempt < 12; attempt++) {
+            StringBuilder sb = new StringBuilder(PUBLIC_ID_LENGTH);
+            for (int i = 0; i < PUBLIC_ID_LENGTH; i++) {
+                sb.append(PUBLIC_ID_ALPHABET[RANDOM.nextInt(PUBLIC_ID_ALPHABET.length)]);
+            }
+            String candidate = sb.toString();
+            if (!orderRepository.existsByPublicId(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Не удалось сгенерировать уникальный публичный номер заказа");
     }
 
     private String joinUrl(String domain, String path) {
@@ -255,29 +288,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             log.warn("Некорректный URL для домена '{}'", url);
         }
         return null;
-    }
-
-    private String itemsSummary(List<PricedItem> priced) {
-        return priced.stream()
-                .map(i -> i.product().getName() + " ×" + i.quantity())
-                .collect(Collectors.joining(", "));
-    }
-
-    private String pvzSummary(CartPurchaseRequest request) {
-        StringBuilder sb = new StringBuilder();
-        if (request.getPvzCity() != null && !request.getPvzCity().isBlank()) {
-            sb.append(request.getPvzCity());
-        }
-        if (request.getPvzStreet() != null && !request.getPvzStreet().isBlank()) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(request.getPvzStreet());
-        }
-        if (request.getPvzCode() != null && !request.getPvzCode().isBlank()) {
-            sb.append(" [").append(request.getPvzCode()).append("]");
-        }
-        return sb.toString();
     }
 
     private String pluralItems(long n) {

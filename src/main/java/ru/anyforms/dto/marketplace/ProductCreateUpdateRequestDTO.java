@@ -23,8 +23,8 @@ public class ProductCreateUpdateRequestDTO {
     private String description;
     /**
      * Папка в S3 (под shop/). В ней лежат фото продукта.
+     * При обновлении необязательна: пустое значение оставляет текущую папку без изменений.
      */
-    @NotBlank(message = "folder обязателен")
     private String folder;
     @NotBlank(message = "price обязателен")
     private String price;
@@ -34,4 +34,5 @@ public class ProductCreateUpdateRequestDTO {
     private String tgLink;
     private Integer orderNumber;
     private Long amoProductId;
+    private String amoProductName;
 }

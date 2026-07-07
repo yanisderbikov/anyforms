@@ -23,4 +23,5 @@ public class ProductDTO {
     private String discountPercent;
     private String tgLink;
     private Long amoProductId;
+    private String amoProductName;
 }

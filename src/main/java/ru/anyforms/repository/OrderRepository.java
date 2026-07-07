@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByLeadId(Long leadId);
 
+    boolean existsByPublicId(String publicId);
+
     /** Под-заказные сделки (без товаров из amo-каталога). */
     List<Order> findByIsRetailFalseOrderByCreatedAtDesc();
 

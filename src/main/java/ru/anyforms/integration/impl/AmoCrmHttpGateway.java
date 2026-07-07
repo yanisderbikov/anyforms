@@ -38,6 +38,9 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     @Value("${amocrm.landing.pipeline.id}")
     private Long landingPipelineId;
 
+    @Value("${amocrm.products.catalog.id}")
+    private Long productsCatalogId;
+
     @Value("${amocrm.landing.status.id}")
     private Long landingStatusId;
 
@@ -738,7 +741,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             }
 
             // Получаем детали товаров (название и т.д.) из каталога
-            Long catalogId = 12983L; // ID каталога из URL
+            Long catalogId = productsCatalogId;
             List<Long> productIds = new java.util.ArrayList<>(productMetadataMap.keySet());
             
             // AmoCRM API позволяет получить до 250 элементов за раз
@@ -810,6 +813,62 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         } catch (Exception e) {
             log.error("Failed to get products from lead {}", leadId, e);
             return new java.util.ArrayList<>();
+        }
+    }
+
+    @Override
+    public List<AmoProduct> getCatalogElements(Long catalogId) {
+        List<AmoProduct> products = new java.util.ArrayList<>();
+        if (catalogId == null || catalogId <= 0) {
+            log.warn("getCatalogElements: не задан catalogId");
+            return products;
+        }
+        try {
+            int limit = 250;
+            for (int page = 1; page <= 100; page++) { // страховочный потолок 25000 товаров
+                String url = "/api/v4/catalogs/" + catalogId + "/elements?limit=" + limit + "&page=" + page;
+                String response = webClient.get()
+                        .uri(url)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
+
+                if (response == null || response.trim().isEmpty()) {
+                    break;
+                }
+                JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+                if (!json.has("_embedded")) {
+                    break;
+                }
+                JsonObject embedded = json.getAsJsonObject("_embedded");
+                if (!embedded.has("elements")) {
+                    break;
+                }
+                JsonArray elements = embedded.getAsJsonArray("elements");
+                if (elements == null || elements.isEmpty()) {
+                    break;
+                }
+                for (int i = 0; i < elements.size(); i++) {
+                    JsonObject element = elements.get(i).getAsJsonObject();
+                    if (!element.has("id") || element.get("id").isJsonNull()) {
+                        continue;
+                    }
+                    AmoProduct product = new AmoProduct();
+                    product.setId(element.get("id").getAsLong());
+                    product.setName(element.has("name") && !element.get("name").isJsonNull()
+                            ? element.get("name").getAsString() : null);
+                    product.setCatalogId(catalogId);
+                    products.add(product);
+                }
+                if (elements.size() < limit) {
+                    break; // последняя страница
+                }
+            }
+            return products;
+        } catch (Exception e) {
+            log.error("Failed to get catalog {} elements", catalogId, e);
+            return products;
         }
     }
 

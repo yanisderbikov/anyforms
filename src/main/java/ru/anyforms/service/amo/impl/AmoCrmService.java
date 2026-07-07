@@ -24,6 +24,9 @@ public class AmoCrmService {
     @Value("${amocrm.access.token}")
     private String accessToken;
 
+    @Value("${amocrm.products.catalog.id}")
+    private Long productsCatalogId;
+
     public AmoCrmService() {
         this.gson = new Gson();
     }
@@ -571,7 +574,7 @@ public class AmoCrmService {
             }
 
             // Получаем детали товаров (название и т.д.) из каталога
-            Long catalogId = 12983L; // ID каталога из URL
+            Long catalogId = productsCatalogId;
             java.util.List<Long> productIds = new java.util.ArrayList<>(productMetadataMap.keySet());
             
             // AmoCRM API позволяет получить до 250 элементов за раз

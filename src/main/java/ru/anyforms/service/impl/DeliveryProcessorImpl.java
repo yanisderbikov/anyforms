@@ -38,6 +38,9 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     @Value("${google.sheets.sheet.name}")
     private String sheetName;
 
+    @Value("${amocrm.retail.pipeline.id}")
+    private Long retailPipelineId;
+
     public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
@@ -70,13 +73,13 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
 
             amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getCode());
             if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
-                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT.getStatusId(), 9846162L);
+                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT.getStatusId(), retailPipelineId);
             }
             else if (CdekStatusHelper.isReadyToPickUp(orderStatus)) {
-                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.DELIVERED.getStatusId(), 9846162L);
+                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.DELIVERED.getStatusId(), retailPipelineId);
             }
             else if (CdekStatusHelper.isDelivered(orderStatus)) {
-                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.REALIZED.getStatusId(), 9846162L);
+                amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.REALIZED.getStatusId(), retailPipelineId);
             }
             order.setDeliveryStatus(orderStatus.getCode());
             saverOrder.save(order);
