@@ -17,6 +17,11 @@ public final class EmailTemplate {
         return load("templates/email-course.html").replace("%LINK%", link);
     }
 
+    /** Курс, тариф «Личное ведение»: то же письмо, но с полным составом тарифа. */
+    public static String getCoursePersonalEmail(String link) {
+        return load("templates/email-course-personal.html").replace("%LINK%", link);
+    }
+
     /**
      * Письмо-чек заказа маркетплейса: таблица позиций, итог, адрес ПВЗ, данные получателя.
      */

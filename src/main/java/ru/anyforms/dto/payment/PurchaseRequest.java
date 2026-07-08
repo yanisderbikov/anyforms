@@ -42,4 +42,7 @@ public class PurchaseRequest {
      */
     @JsonProperty("returnUrl")
     private String returnUrl;
+
+    @JsonProperty("promoCode")
+    private String promoCode;
 }

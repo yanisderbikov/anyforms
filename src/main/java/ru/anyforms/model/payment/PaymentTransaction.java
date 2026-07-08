@@ -50,9 +50,14 @@ public class PaymentTransaction {
 
     private String description;
 
-    /** Заказ, который оплачивает эта транзакция (маркетплейс). Null у курса/гайда. */
     @Column(name = "order_id")
     private Long orderId;
+
+    @Column(name = "promo_code", length = 64)
+    private String promoCode;
+
+    @Column(name = "discount_percent")
+    private Integer discountPercent;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

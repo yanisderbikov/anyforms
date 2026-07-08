@@ -14,6 +14,13 @@ public final class MoneyUtil {
                 .toPlainString();
     }
 
+    public static long applyDiscountPercent(long kopecks, int discountPercent) {
+        return BigDecimal.valueOf(kopecks)
+                .multiply(BigDecimal.valueOf(100 - discountPercent))
+                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
+                .longValue();
+    }
+
     public static long stringToKopecks(String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Сумма не может быть пустой");

@@ -21,7 +21,7 @@ public class PaymentProduct {
 
     public static final String CODE_GUIDE = "GUIDE";
     public static final String CODE_COURSE = "COURSE";
-    /** Псевдо-код для платежей корзины маркетплейса (сумма и позиции динамические, не из каталога). */
+    public static final String CODE_COURSE_PERSONAL = "COURSE_PERSONAL";
     public static final String CODE_MARKETPLACE_CART = "MARKETPLACE_CART";
 
     @Id

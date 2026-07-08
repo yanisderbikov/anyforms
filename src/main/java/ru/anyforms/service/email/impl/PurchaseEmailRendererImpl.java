@@ -12,7 +12,8 @@ import ru.anyforms.service.email.PurchaseEmailRenderer;
 class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {
 
     private static final String GUIDE_SUBJECT = "Гайд - Как продавать сложный продукт через короткие видео";
-    private static final String COURSE_SUBJECT = "Ваш предзаказ курса anyforms оформлен";
+    private static final String COURSE_SUBJECT = "Ваш предзаказ курса anyforms оформлен — «Самостоятельное изучение»";
+    private static final String COURSE_PERSONAL_SUBJECT = "Ваш предзаказ курса anyforms оформлен — «Личное ведение»";
 
     @Value("${product.guide.url}")
     private String guideUrl;
@@ -23,7 +24,10 @@ class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {
     public RenderedEmail render(String productCode) {
         return switch (productCode) {
             case PaymentProduct.CODE_GUIDE -> new RenderedEmail(GUIDE_SUBJECT, EmailTemplate.getGuideEmail(guideUrl));
-            case PaymentProduct.CODE_COURSE -> new RenderedEmail(COURSE_SUBJECT, EmailTemplate.getCourseEmail(courseUrl));
+            case PaymentProduct.CODE_COURSE ->
+                    new RenderedEmail(COURSE_SUBJECT, EmailTemplate.getCourseEmail(courseUrl));
+            case PaymentProduct.CODE_COURSE_PERSONAL ->
+                    new RenderedEmail(COURSE_PERSONAL_SUBJECT, EmailTemplate.getCoursePersonalEmail(courseUrl));
             default -> throw new IllegalArgumentException("Нет шаблона письма для продукта: " + productCode);
         };
     }
