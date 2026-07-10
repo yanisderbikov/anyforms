@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.dto.telegram.RetailOrderTelegramPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
@@ -25,22 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Фулфилмент заказа маркетплейса (order-first): заказ уже создан на чекауте со статусом
- * AWAITING_PAYMENT и позициями OrderItem (product_id = элемент каталога АМО из маппинга
- * товара). По вебхуку Юкассы:
- *   1) заказ переводится в PAID;
- *   2) ставится таска на письмо-чек (по позициям заказа с ценами на момент оплаты);
- *   3) в розничной воронке АМО заводится сделка сразу в статусе «Готов к отправке»
- *      с контактом (телефон при создании; ФИО и ПВЗ город/улица — кастомные поля контакта),
- *      бюджетом и датой оплаты;
- *   4) к сделке привязываются товары каталога АМО (по product_id позиций);
- *   5) заказ синкается из АМО — становится isRetail=true и едет по розничному флоу
- *      (цех ставит трекер, СДЭК-вебхуки двигают статусы).
- * Шаги 3-5 — best-effort: при недоступности АМО заказ остаётся PAID (виден в кастомных
- * списках), письмо уходит в любом случае.
- * При отмене платежа заказ помечается CANCELED.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -71,9 +56,9 @@ class MarketplaceFulfillmentService {
         order.setPurchaseDate(LocalDateTime.now());
         orderRepository.save(order);
 
-        // Письмо-чек собираем ДО пуша в АМО: синк пересоздаёт позиции без цен.
         List<OrderItem> items = new ArrayList<>(order.getItems());
         taskAdder.addTask(buildEmailPayload(transaction, order, items));
+        taskAdder.addTask(RetailOrderTelegramPayload.builder().orderId(order.getId()).build());
 
         pushToAmo(order, transaction, items);
 
@@ -95,10 +80,6 @@ class MarketplaceFulfillmentService {
         }
     }
 
-    /**
-     * Заводит сделку в АМО и вводит заказ в розничный флоу. Best-effort: любой сбой
-     * логируется, но не роняет фулфилмент (заказ остаётся PAID, письмо уже поставлено).
-     */
     private void pushToAmo(Order order, PaymentTransaction transaction, List<OrderItem> items) {
         Long leadId;
         try {

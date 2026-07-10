@@ -99,4 +99,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE o.leadId IN :leadIds
     """)
     int deleteByLeadIds(List<Long> leadIds);
+
+    /** Розничные заказы, ожидающие отправки (цех ещё не поставил трекер). */
+    @Query("""
+       SELECT COUNT(o) FROM Order o
+       WHERE o.isRetail = TRUE
+         AND (o.tracker IS NULL OR o.tracker = '')
+       """)
+    long countRetailAwaitingShipment();
+
+    /** Розничные заказы с трекером, ещё не доставленные. */
+    @Query("""
+       SELECT COUNT(o) FROM Order o
+       WHERE o.isRetail = TRUE
+         AND o.tracker IS NOT NULL
+         AND o.tracker <> ''
+         AND (o.deliveryStatus IS NULL OR o.deliveryStatus <> 'DELIVERED')
+       """)
+    long countRetailInDelivery();
 }
