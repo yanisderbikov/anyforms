@@ -1,6 +1,7 @@
 package ru.anyforms.integration.impl;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import ru.anyforms.integration.AmoCrmGateway;
@@ -33,6 +34,7 @@ import java.util.Map;
  */
 @Primary
 @Component
+@ConditionalOnProperty(name = "amocrm.enabled", havingValue = "true", matchIfMissing = true)
 class RateLimitingAmoCrmGateway implements AmoCrmGateway {
 
     private final AmoCrmHttpGateway delegate;
