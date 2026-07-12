@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.*;
 import ru.anyforms.dto.ApiResponseDTO;
 import ru.anyforms.dto.ContactSuggestionDTO;
 import ru.anyforms.dto.CustomOrderCreateRequestDTO;
+import ru.anyforms.dto.DeliveryMethodUpdateRequestDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
+import ru.anyforms.service.CustomOrderCreator;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.converter.ConverterOrder;
@@ -39,6 +41,7 @@ public class OrderController {
     private final OrderRepository orderRepository;
     private final ConverterOrder converterOrder;
     private final CustomProductItemRepository customProductItemRepository;
+    private final CustomOrderCreator customOrderCreator;
 
     @Operation(
             summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
@@ -89,20 +92,12 @@ public class OrderController {
     }
 
     @Operation(
-            summary = "Создать под-заказ без CRM (с нуля)",
+            summary = "Создать под-заказ с нуля (с созданием сделки в AmoCRM)",
             security = @SecurityRequirement(name = "Bearer")
     )
     @PostMapping("/custom")
     public ResponseEntity<OrderSummaryDTO> createCustomOrder(@RequestBody(required = false) CustomOrderCreateRequestDTO request) {
-        Order order = new Order();
-        order.setRetail(false);
-        if (request != null) {
-            order.setContactName(request.getContactName());
-            order.setContactPhone(request.getContactPhone());
-            order.setPvzSdekCity(request.getPvzSdekCity());
-            order.setPvzSdekStreet(request.getPvzSdekStreet());
-        }
-        Order saved = orderRepository.save(order);
+        Order saved = customOrderCreator.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(convertWithCount(saved));
     }
 
@@ -128,6 +123,19 @@ public class OrderController {
             }
         }
         return out;
+    }
+
+    @Operation(
+            summary = "Сменить способ получения заказа",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @PatchMapping("/{id}/delivery-method")
+    public OrderSummaryDTO updateDeliveryMethod(@PathVariable Long id,
+                                                @RequestBody DeliveryMethodUpdateRequestDTO request) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + id));
+        order.setDeliveryMethod(request.getDeliveryMethod());
+        return convertWithCount(orderRepository.save(order));
     }
 
     @Operation(
@@ -178,6 +186,20 @@ public class OrderController {
         ApiResponseDTO response = orderService.setTrackerAndComment(request);
         HttpStatus status = response.getSuccess() == null 
                 ? HttpStatus.BAD_REQUEST 
+                : response.getSuccess() ? HttpStatus.OK : HttpStatus.INTERNAL_SERVER_ERROR;
+        return ResponseEntity.status(status).body(response);
+    }
+
+    @Operation(
+            summary = "Розничный самовывоз: заказ готов, можно забирать",
+            description = "Помечает заказ трекером «лично», переводит сделку в «Отправлено» и запускает пикап-бота в AmoCRM",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @PostMapping("/pickup-ready")
+    public ResponseEntity<ApiResponseDTO> readyForPickup(@RequestBody SetTrackerAndCommentRequestDTO request) {
+        ApiResponseDTO response = orderService.readyForPickup(request);
+        HttpStatus status = response.getSuccess() == null
+                ? HttpStatus.BAD_REQUEST
                 : response.getSuccess() ? HttpStatus.OK : HttpStatus.INTERNAL_SERVER_ERROR;
         return ResponseEntity.status(status).body(response);
     }

@@ -2,6 +2,7 @@ package ru.anyforms.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import ru.anyforms.model.DeliveryMethod;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -40,6 +41,9 @@ public class OrderSummaryDTO {
 
     @Schema(description = "Трекер доставки", example = "121212")
     private String tracker;
+
+    @Schema(description = "Способ получения заказа", example = "PICKUP")
+    private DeliveryMethod deliveryMethod;
     
     @Schema(description = "Список товаров в заказе")
     private List<OrderItemDTO> items;

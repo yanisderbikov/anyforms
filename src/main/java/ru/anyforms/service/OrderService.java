@@ -10,6 +10,7 @@ public interface OrderService {
     boolean setTrackerAndCommentForOrder(Long leadId, String tracker, String comment);
     boolean updateDeliveryStatus(Long leadId, String status);
     ApiResponseDTO setTrackerAndComment(SetTrackerAndCommentRequestDTO request);
+    ApiResponseDTO readyForPickup(SetTrackerAndCommentRequestDTO request);
     ApiResponseDTO syncOrder(SyncOrderRequestDTO request);
     default ApiResponseDTO syncOrder(Long leadId) {
         return syncOrder(new SyncOrderRequestDTO(leadId));

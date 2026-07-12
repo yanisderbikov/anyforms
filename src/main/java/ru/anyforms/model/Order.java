@@ -64,6 +64,10 @@ public class Order {
     @Column(name = "payment_status", nullable = false, length = 32)
     private OrderPaymentStatus paymentStatus = OrderPaymentStatus.NONE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_method", nullable = false, length = 32)
+    private DeliveryMethod deliveryMethod = DeliveryMethod.CDEK;
+
     @Column(name = "comment")
     private String comment;
 

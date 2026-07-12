@@ -16,6 +16,7 @@ import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.event.OrderShippedEvent;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CustomProductFile;
+import ru.anyforms.model.DeliveryMethod;
 import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.CustomProductStatus;
 import ru.anyforms.model.Order;
@@ -23,6 +24,7 @@ import ru.anyforms.repository.CustomProductFileRepository;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
+import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.converter.ConverterOrder;
 
@@ -47,6 +49,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private final S3FileStorage s3FileStorage;
     private final ConverterOrder converterOrder;
     private final ApplicationEventPublisher eventPublisher;
+    private final DeliveryBotNotifier deliveryBotNotifier;
 
     @Override
     @Transactional(readOnly = true)
@@ -207,16 +210,31 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     public void ship(Long orderId, String tracker) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + orderId));
-        order.setTracker(tracker);
-        orderRepository.save(order);
+
+        boolean pickup = order.getDeliveryMethod() == DeliveryMethod.PICKUP;
+        if (!pickup) {
+            if (tracker == null || tracker.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Для отправки СДЭК обязателен трекер");
+            }
+            order.setTracker(tracker);
+            orderRepository.save(order);
+        }
 
         List<CustomProductItem> items = itemRepository.findByOrderIdAndStatus(orderId, CustomProductStatus.READY_TO_SHIP);
         for (CustomProductItem item : items) {
             item.setStatus(CustomProductStatus.DELIVERING);
             itemRepository.save(item);
         }
-        eventPublisher.publishEvent(new OrderShippedEvent(tracker));
-        log.info("Order {} shipped: tracker={}, items delivering={}", orderId, tracker, items.size());
+        if (pickup) {
+            if (order.getLeadId() != null) {
+                deliveryBotNotifier.notifyPickupReady(order.getLeadId());
+            } else {
+                log.warn("Order {} is pickup-ready but has no leadId, pickup bot not triggered", orderId);
+            }
+        } else {
+            eventPublisher.publishEvent(new OrderShippedEvent(tracker));
+        }
+        log.info("Order {} shipped: pickup={}, tracker={}, items delivering={}", orderId, pickup, tracker, items.size());
     }
 
     @Override

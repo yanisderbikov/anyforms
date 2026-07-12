@@ -1,11 +1,10 @@
 package ru.anyforms.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/** Отгрузка заказа: трекер. После отгрузки готовые позиции переходят в SENT. */
+/** Отгрузка заказа. Для СДЭК обязателен трекер, для самовывоза трекер не нужен. */
 @Data
 @Schema(description = "Отгрузка заказа")
 public class ShipRequestDTO {
@@ -13,7 +12,6 @@ public class ShipRequestDTO {
     @NotNull
     private Long orderId;
 
-    @NotBlank
-    @Schema(description = "Номер трекера")
+    @Schema(description = "Номер трекера (обязателен для СДЭК, игнорируется для самовывоза)")
     private String tracker;
 }

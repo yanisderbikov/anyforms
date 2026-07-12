@@ -15,7 +15,9 @@ import ru.anyforms.integration.GoogleSheetsGateway;
 import ru.anyforms.model.*;
 import ru.anyforms.model.amo.*;
 import ru.anyforms.repository.OrderRepository;
+import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.util.PickupAddressDetector;
 import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 
@@ -34,11 +36,15 @@ class OrderServiceImpl implements OrderService  {
 
     // Паттерн для извлечения ID сделки из URL
     private static final Pattern LEAD_ID_PATTERN = Pattern.compile("leads/detail/(\\d+)");
-    
+
+    // Значение трекера для самовывоза (входит в TrackerCustomFields.READY_KEYWORDS → сделка уходит в «Отправлено»)
+    private static final String PICKUP_TRACKER = "лично";
+
     private final OrderRepository orderRepository;
     private final AmoCrmGateway amoCrmGateway;
     private final GoogleSheetsGateway googleSheetsGateway;
     private final CdekTrackingGateway cdekTrackingGateway;
+    private final DeliveryBotNotifier deliveryBotNotifier;
     
     @Value("${google.sheets.sheet.name}")
     private String sheetName;
@@ -130,6 +136,10 @@ class OrderServiceImpl implements OrderService  {
 
             String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_CITY_CONTACT.getId());
             order.setPvzSdekCity(pvzSdekCity);
+
+            order.setDeliveryMethod(PickupAddressDetector.isPickup(pvzSdekCity, pvzSdekStreet)
+                    ? DeliveryMethod.PICKUP
+                    : DeliveryMethod.CDEK);
 
             // Получаем дату покупки из сделки
             // todo 3 исправить дату
@@ -263,6 +273,28 @@ class OrderServiceImpl implements OrderService  {
             return new ApiResponseDTO(true, null, request.getLeadId(), tracker, null);
         } catch (Exception e) {
             log.error("Error setting tracker: {}", e.getMessage(), e);
+            return new ApiResponseDTO(false, e.getMessage(), null, null, null);
+        }
+    }
+
+    /**
+     * Розничный самовывоз: помечает заказ трекером «лично» (сделка уходит в «Отправлено»)
+     * и запускает пикап-бота, который сообщает клиенту, что заказ можно забрать
+     */
+    @Override
+    public ApiResponseDTO readyForPickup(SetTrackerAndCommentRequestDTO request) {
+        if (request.getLeadId() == null) {
+            return new ApiResponseDTO(null, "LeadId is required", null, null, null);
+        }
+        try {
+            boolean success = setTrackerAndCommentForOrder(request.getLeadId(), PICKUP_TRACKER, request.getComment());
+            if (!success) {
+                return new ApiResponseDTO(false, "Failed to mark order as ready for pickup", null, null, null);
+            }
+            deliveryBotNotifier.notifyPickupReady(request.getLeadId());
+            return new ApiResponseDTO(true, null, request.getLeadId(), PICKUP_TRACKER, null);
+        } catch (Exception e) {
+            log.error("Error marking order ready for pickup: {}", e.getMessage(), e);
             return new ApiResponseDTO(false, e.getMessage(), null, null, null);
         }
     }

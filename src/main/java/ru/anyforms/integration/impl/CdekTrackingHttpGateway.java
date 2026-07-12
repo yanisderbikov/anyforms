@@ -226,8 +226,7 @@ class CdekTrackingHttpGateway implements CdekTrackingGateway {
     public String getOrderStatus(String trackingNumber) {
         try {
             logger.debug("Получение кода статуса для трекера СДЭК: {}", trackingNumber);
-            
-            // Очищаем номер трекера от пробелов и дефисов
+
             String cleanTrackingNumber = trackingNumber.trim().replaceAll("[\\s-]", "");
             
             String token = getAccessToken();

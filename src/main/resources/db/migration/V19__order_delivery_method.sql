@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN delivery_method VARCHAR(32) NOT NULL DEFAULT 'CDEK';

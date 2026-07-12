@@ -29,6 +29,7 @@ class ConverterOrderImpl implements ConverterOrder {
         dto.setPurchaseDate(order.getPurchaseDate());
         dto.setComment(order.getComment());
         dto.setTracker(order.getTracker());
+        dto.setDeliveryMethod(order.getDeliveryMethod());
         dto.setDeliveryStatus(dtoStatus);
         dto.setItems(order.getItems().stream()
                 .map(this::convertToOrderItemDTO)
