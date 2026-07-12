@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.CustomProductStatus;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface CustomProductItemRepository extends JpaRepository<CustomProductItem, Long> {
@@ -20,19 +21,19 @@ public interface CustomProductItemRepository extends JpaRepository<CustomProduct
     long countByOrderId(Long orderId);
 
     /**
-     * Все позиции, кроме указанного статуса (скрываем SENT).
+     * Все позиции, кроме указанных статусов (скрываем DELIVERING и COMPLETED).
      * Позиции неоплаченных/отменённых заказов маркетплейса в работу не попадают.
      */
     @Query("""
        SELECT i FROM CustomProductItem i
-       WHERE i.status <> :status
+       WHERE i.status NOT IN :statuses
          AND i.order.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
                                            ru.anyforms.model.OrderPaymentStatus.CANCELED)
     """)
-    List<CustomProductItem> findByStatusNot(CustomProductStatus status, Sort sort);
+    List<CustomProductItem> findByStatusNotIn(Collection<CustomProductStatus> statuses, Sort sort);
 
-    /** Позиции заказа, кроме указанного статуса (скрываем SENT). */
-    List<CustomProductItem> findByOrderIdAndStatusNot(Long orderId, CustomProductStatus status, Sort sort);
+    /** Позиции заказа, кроме указанных статусов (скрываем DELIVERING и COMPLETED). */
+    List<CustomProductItem> findByOrderIdAndStatusNotIn(Long orderId, Collection<CustomProductStatus> statuses, Sort sort);
 
     /**
      * Позиции по статусу (для «к отправке»).

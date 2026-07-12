@@ -15,6 +15,7 @@ import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.CustomProductStatusUpdateRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.dto.ShipRequestDTO;
+import ru.anyforms.model.CustomProductStatus;
 import ru.anyforms.service.CustomProductItemService;
 
 import java.util.List;
@@ -28,10 +29,14 @@ public class CustomProductItemController {
 
     private final CustomProductItemService service;
 
-    @Operation(summary = "Список позиций: по order.id или все (без orderId — для трекера)")
+    @Operation(summary = "Список позиций: по order.id, по статусу или все кроме завершённых")
     @GetMapping
-    public List<CustomProductItemDTO> list(@RequestParam(required = false) Long orderId) {
-        return orderId != null ? service.getByOrderId(orderId) : service.getAll();
+    public List<CustomProductItemDTO> list(@RequestParam(required = false) Long orderId,
+                                           @RequestParam(required = false) CustomProductStatus status) {
+        if (orderId != null) {
+            return service.getByOrderId(orderId);
+        }
+        return status != null ? service.getAllByStatus(status) : service.getAll();
     }
 
     @Operation(summary = "Уникальные значения «кто моделирует» (select с автодобавлением)")
@@ -85,10 +90,23 @@ public class CustomProductItemController {
         return service.getReadyToShipGroups();
     }
 
-    @Operation(summary = "Отгрузить заказ: трекер + перевод готовых позиций в SENT")
+    @Operation(summary = "Заказы с отправленными позициями, ещё не доставленные (группировка по заказу)")
+    @GetMapping("/in-delivery")
+    public List<ShipGroupDTO> inDelivery() {
+        return service.getInDeliveryGroups();
+    }
+
+    @Operation(summary = "Отгрузить заказ: трекер + перевод готовых позиций в DELIVERING")
     @PostMapping("/ship")
     public ResponseEntity<Void> ship(@Valid @RequestBody ShipRequestDTO request) {
         service.ship(request.getOrderId(), request.getTracker());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Завершить заказ: перевод доставляющихся позиций в COMPLETED")
+    @PostMapping("/complete/{orderId}")
+    public ResponseEntity<Void> complete(@PathVariable Long orderId) {
+        service.completeOrder(orderId);
         return ResponseEntity.noContent().build();
     }
 }

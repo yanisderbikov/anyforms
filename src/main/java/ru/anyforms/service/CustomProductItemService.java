@@ -15,8 +15,11 @@ public interface CustomProductItemService {
     /** Одна позиция по id (для шеринга ссылки; отдаётся в любом статусе). */
     CustomProductItemDTO getById(Long itemId);
 
-    /** Все позиции (плоский список для страницы-трекера). */
+    /** Все позиции, кроме завершённых (плоский список для «в работе»). */
     List<CustomProductItemDTO> getAll();
+
+    /** Позиции в конкретном статусе (для фильтра, в т.ч. COMPLETED). */
+    List<CustomProductItemDTO> getAllByStatus(CustomProductStatus status);
 
     /** Уникальные значения «кто моделирует» (для select с автодобавлением). */
     List<String> getModelers();
@@ -37,6 +40,12 @@ public interface CustomProductItemService {
     /** Группы позиций «к отправке» (READY_TO_SHIP), сгруппированные по заказу. */
     List<ShipGroupDTO> getReadyToShipGroups();
 
-    /** Отгрузка: ставит трекер на заказ и переводит его готовые позиции в SENT. */
+    /** Группы позиций «доставляются» (DELIVERING), заказ ещё не вручен. */
+    List<ShipGroupDTO> getInDeliveryGroups();
+
+    /** Отгрузка: ставит трекер на заказ и переводит его готовые позиции в DELIVERING. */
     void ship(Long orderId, String tracker);
+
+    /** Завершение: переводит доставляющиеся позиции заказа в COMPLETED. */
+    void completeOrder(Long orderId);
 }

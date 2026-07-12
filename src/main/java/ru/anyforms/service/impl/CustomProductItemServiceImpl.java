@@ -2,6 +2,7 @@ package ru.anyforms.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,8 @@ import ru.anyforms.dto.CustomProductFileDTO;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
+import ru.anyforms.event.OrderShippedEvent;
+import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CustomProductFile;
 import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.CustomProductStatus;
@@ -27,6 +30,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 @Log4j2
 @Service
@@ -34,17 +38,20 @@ import java.util.Map;
 class CustomProductItemServiceImpl implements CustomProductItemService {
 
     private static final String FILE_KEY_PREFIX = "custom-products/";
+    private static final List<CustomProductStatus> HIDDEN_STATUSES =
+            List.of(CustomProductStatus.DELIVERING, CustomProductStatus.COMPLETED);
 
     private final CustomProductItemRepository itemRepository;
     private final CustomProductFileRepository fileRepository;
     private final OrderRepository orderRepository;
     private final S3FileStorage s3FileStorage;
     private final ConverterOrder converterOrder;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
     public List<CustomProductItemDTO> getByOrderId(Long orderId) {
-        return itemRepository.findByOrderIdAndStatusNot(orderId, CustomProductStatus.SENT, Sort.by(Sort.Direction.ASC, "id")).stream()
+        return itemRepository.findByOrderIdAndStatusNotIn(orderId, HIDDEN_STATUSES, Sort.by(Sort.Direction.ASC, "id")).stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -58,7 +65,15 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional(readOnly = true)
     public List<CustomProductItemDTO> getAll() {
-        return itemRepository.findByStatusNot(CustomProductStatus.SENT, Sort.by(Sort.Direction.ASC, "createdAt")).stream()
+        return itemRepository.findByStatusNotIn(List.of(CustomProductStatus.COMPLETED), Sort.by(Sort.Direction.ASC, "createdAt")).stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomProductItemDTO> getAllByStatus(CustomProductStatus status) {
+        return itemRepository.findByStatus(status).stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -76,8 +91,12 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + orderId));
         CustomProductItem item = new CustomProductItem();
         item.setOrder(order);
+        if (request.getStatus() == CustomProductStatus.DELIVERING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "В статус DELIVERING позиция переводится только через отгрузку с трекером");
+        }
         applyRequest(item, request);
-        item.setStatus(CustomProductStatus.MODELING);
+        item.setStatus(request.getStatus() != null ? request.getStatus() : CustomProductStatus.MODELING);
         CustomProductItem saved = itemRepository.save(item);
         log.info("CustomProductItem created: id={}, orderId={}", saved.getId(), orderId);
         return toDTO(saved);
@@ -94,6 +113,10 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional
     public CustomProductItemDTO updateStatus(Long itemId, CustomProductStatus status) {
+        if (status == CustomProductStatus.DELIVERING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "В статус DELIVERING позиция переводится только через отгрузку с трекером");
+        }
         CustomProductItem item = getOrThrow(itemId);
         item.setStatus(status);
         return toDTO(itemRepository.save(item));
@@ -148,10 +171,24 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional(readOnly = true)
     public List<ShipGroupDTO> getReadyToShipGroups() {
+        return groupByOrder(itemRepository.findByStatus(CustomProductStatus.READY_TO_SHIP), order -> true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShipGroupDTO> getInDeliveryGroups() {
+        return groupByOrder(itemRepository.findByStatus(CustomProductStatus.DELIVERING), this::isNotDelivered);
+    }
+
+    private boolean isNotDelivered(Order order) {
+        return !CdekOrderStatus.DELIVERED.getCode().equals(order.getDeliveryStatus());
+    }
+
+    private List<ShipGroupDTO> groupByOrder(List<CustomProductItem> items, Predicate<Order> orderFilter) {
         Map<Long, ShipGroupDTO> groups = new LinkedHashMap<>();
-        for (CustomProductItem item : itemRepository.findByStatus(CustomProductStatus.READY_TO_SHIP)) {
+        for (CustomProductItem item : items) {
             Order order = item.getOrder();
-            if (order == null) {
+            if (order == null || !orderFilter.test(order)) {
                 continue;
             }
             ShipGroupDTO group = groups.computeIfAbsent(order.getId(), k -> {
@@ -175,10 +212,22 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
 
         List<CustomProductItem> items = itemRepository.findByOrderIdAndStatus(orderId, CustomProductStatus.READY_TO_SHIP);
         for (CustomProductItem item : items) {
-            item.setStatus(CustomProductStatus.SENT);
+            item.setStatus(CustomProductStatus.DELIVERING);
             itemRepository.save(item);
         }
-        log.info("Order {} shipped: tracker={}, items sent={}", orderId, tracker, items.size());
+        eventPublisher.publishEvent(new OrderShippedEvent(tracker));
+        log.info("Order {} shipped: tracker={}, items delivering={}", orderId, tracker, items.size());
+    }
+
+    @Override
+    @Transactional
+    public void completeOrder(Long orderId) {
+        List<CustomProductItem> items = itemRepository.findByOrderIdAndStatus(orderId, CustomProductStatus.DELIVERING);
+        for (CustomProductItem item : items) {
+            item.setStatus(CustomProductStatus.COMPLETED);
+            itemRepository.save(item);
+        }
+        log.info("Order {} completed: items={}", orderId, items.size());
     }
 
     private CustomProductItem getOrThrow(Long itemId) {

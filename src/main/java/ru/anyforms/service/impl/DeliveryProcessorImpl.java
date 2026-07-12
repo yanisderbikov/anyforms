@@ -12,6 +12,7 @@ import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.repository.GetterOrderByTracker;
 import ru.anyforms.repository.SaverOrder;
+import ru.anyforms.service.CustomProductItemService;
 import ru.anyforms.service.DeliveryProcessor;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.CdekStatusHelper;
@@ -34,6 +35,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     private final GetterOrderByTracker getterOrder;
     private final CdekTrackingGateway cdekTrackingGateway;
     private final SaverOrder saverOrder;
+    private final CustomProductItemService customProductItemService;
     
     @Value("${google.sheets.sheet.name}")
     private String sheetName;
@@ -41,13 +43,14 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     @Value("${amocrm.retail.pipeline.id}")
     private Long retailPipelineId;
 
-    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder) {
+    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder, CustomProductItemService customProductItemService) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
         this.orderService = orderService;
         this.getterOrder = getterOrder;
         this.cdekTrackingGateway = cdekTrackingGateway;
         this.saverOrder = saverOrder;
+        this.customProductItemService = customProductItemService;
     }
 
     @Override
@@ -80,6 +83,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
             }
             else if (CdekStatusHelper.isDelivered(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.REALIZED.getStatusId(), retailPipelineId);
+                customProductItemService.completeOrder(order.getId());
             }
             order.setDeliveryStatus(orderStatus.getCode());
             saverOrder.save(order);

@@ -10,6 +10,7 @@ import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.GetterOrder;
 import ru.anyforms.repository.SaverOrder;
+import ru.anyforms.service.CustomProductItemService;
 
 
 import static ru.anyforms.util.TrackerCustomFields.READY_KEYWORDS;
@@ -22,6 +23,7 @@ public class OrderShipmentSchedulerEmptyDeliveryAndNonEmptyTracker {
     private final GetterOrder getterOrder;
     private final AmoCrmGateway amoCrmGateway;
     private final SaverOrder saverOrder;
+    private final CustomProductItemService customProductItemService;
 
     /**
      * Периодическая проверка всех заказов на отправку
@@ -49,6 +51,7 @@ public class OrderShipmentSchedulerEmptyDeliveryAndNonEmptyTracker {
         if (lead.getStatusId() != null && lead.getStatusId().equals(AmoLeadStatus.REALIZED.getStatusId())) {
             order.setDeliveryStatus(CdekOrderStatus.DELIVERED.getCode());
             saverOrder.save(order);
+            customProductItemService.completeOrder(order.getId());
             log.info("order is delivered");
             return;
         }

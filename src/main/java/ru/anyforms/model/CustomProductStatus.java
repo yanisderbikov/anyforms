@@ -7,7 +7,8 @@ public enum CustomProductStatus {
     MODELING("Моделирование"),
     IN_PRODUCTION("В производстве"),
     READY_TO_SHIP("Готов к отправке"),
-    SENT("Отправлен");
+    DELIVERING("Доставляется"),
+    COMPLETED("Завершен");
 
     private final String description;
 
