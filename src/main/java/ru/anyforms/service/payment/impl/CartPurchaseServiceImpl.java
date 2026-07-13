@@ -13,6 +13,10 @@ import ru.anyforms.dto.payment.CartItemDTO;
 import ru.anyforms.dto.payment.CartPurchaseRequest;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
 import ru.anyforms.dto.payment.YooKassaPaymentResponse;
+import ru.anyforms.dto.payment.tinkoff.TinkoffInitRequest;
+import ru.anyforms.dto.payment.tinkoff.TinkoffInitResponse;
+import ru.anyforms.dto.payment.tinkoff.TinkoffReceipt;
+import ru.anyforms.dto.payment.tinkoff.TinkoffReceiptItem;
 import ru.anyforms.dto.payment.yookassa.CreatePaymentRequest;
 import ru.anyforms.dto.payment.yookassa.PaymentConfirmation;
 import ru.anyforms.dto.payment.yookassa.PaymentCustomer;
@@ -24,6 +28,7 @@ import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
+import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.repository.GetterProduct;
@@ -31,6 +36,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverTransaction;
 import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.PaymentStatusConverter;
+import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.util.MoneyUtil;
 
@@ -58,12 +64,16 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private static final String CONFIRMATION_REDIRECT = "redirect";
     private static final String DEFAULT_FULL_NAME = "Клиент не представился";
     private static final String DEFAULT_SUCCESS_PATH = "/shop/success";
+    private static final String PROVIDER_TINKOFF = "tinkoff";
+    private static final String TINKOFF_PAY_TYPE_SINGLE_STAGE = "O";
+    private static final int TINKOFF_ITEM_NAME_MAX_LENGTH = 128;
     // Публичный номер заказа: 6 символов, заглавные буквы + цифры.
     private static final char[] PUBLIC_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
     private static final int PUBLIC_ID_LENGTH = 6;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final YooKassaService yooKassaService;
+    private final TinkoffService tinkoffService;
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
     private final OrderRepository orderRepository;
@@ -78,6 +88,18 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     @Value("${payment.marketplace.vat-code}")
     private Integer marketplaceVatCode;
+
+    @Value("${payment.marketplace.provider}")
+    private String marketplaceProvider;
+
+    @Value("${payment.tinkoff.taxation}")
+    private String tinkoffTaxation;
+
+    @Value("${payment.tinkoff.tax}")
+    private String tinkoffTax;
+
+    @Value("${payment.tinkoff.notification-url}")
+    private String tinkoffNotificationUrl;
 
     @Value("${amocrm.products.catalog.id}")
     private Long productsCatalogId;
@@ -103,13 +125,23 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 : request.getFullName().trim();
 
         Order order = createAwaitingOrder(request, fullName, priced);
+        String description = "Заказ anyforms: " + totalQty + " " + pluralItems(totalQty);
+        String returnUrl = buildReturnUrl(request.getReturnUrl(), order.getPublicId());
 
+        if (PROVIDER_TINKOFF.equalsIgnoreCase(marketplaceProvider)) {
+            return purchaseViaTinkoff(request, order, priced, totalKopecks, description, returnUrl, amount);
+        }
+        return purchaseViaYooKassa(request, order, priced, fullName, description, returnUrl, amount);
+    }
+
+    private PaymentUrlResponse purchaseViaYooKassa(CartPurchaseRequest request, Order order,
+                                                   List<PricedItem> priced, String fullName,
+                                                   String description, String returnUrl, Amount amount) {
         CreatePaymentRequest paymentRequest = CreatePaymentRequest.builder()
                 .amount(amount)
-                .description("Заказ anyforms: " + totalQty + " " + pluralItems(totalQty))
+                .description(description)
                 .capture(true)
-                .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT,
-                        buildReturnUrl(request.getReturnUrl(), order.getPublicId())))
+                .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT, returnUrl))
                 .receipt(buildReceipt(fullName, request.getEmail(), priced))
                 .paymentMode(PAYMENT_MODE)
                 .paymentSubject(PAYMENT_SUBJECT)
@@ -118,7 +150,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         YooKassaPaymentResponse response = yooKassaService.createPayment(paymentRequest);
 
         PaymentTransaction transaction = PaymentTransaction.builder()
-                .externalPaymentId(response.getId())
+                .provider(PaymentProvider.YOOKASSA)
+                .externalPaymentId(response.getId().toString())
                 .productCode(PaymentProduct.CODE_MARKETPLACE_CART)
                 .amount(MoneyUtil.stringToKopecks(response.getAmount().getValue()))
                 .currency(Currency.fromCode(response.getAmount().getCurrency()))
@@ -131,9 +164,78 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         saverTransaction.save(transaction);
 
         return new PaymentUrlResponse(
-                response.getId(),
+                response.getId().toString(),
                 response.getConfirmation().getConfirmationUrl(),
                 response.getAmount());
+    }
+
+    private PaymentUrlResponse purchaseViaTinkoff(CartPurchaseRequest request, Order order,
+                                                  List<PricedItem> priced, long totalKopecks,
+                                                  String description, String returnUrl, Amount amount) {
+        TinkoffInitRequest initRequest = TinkoffInitRequest.builder()
+                .amount(totalKopecks)
+                .orderId(order.getPublicId())
+                .description(description)
+                .payType(TINKOFF_PAY_TYPE_SINGLE_STAGE)
+                .successURL(returnUrl)
+                .failURL(returnUrl)
+                .notificationURL(blankToNull(tinkoffNotificationUrl))
+                .receipt(buildTinkoffReceipt(request, priced))
+                .build();
+
+        TinkoffInitResponse response = tinkoffService.init(initRequest);
+
+        PaymentTransaction transaction = PaymentTransaction.builder()
+                .provider(PaymentProvider.TINKOFF)
+                .externalPaymentId(response.getPaymentId())
+                .productCode(PaymentProduct.CODE_MARKETPLACE_CART)
+                .amount(totalKopecks)
+                .currency(Currency.RUB)
+                .description(description)
+                .email(request.getEmail())
+                .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
+                .status(resolveTinkoffStatus(response.getStatus()))
+                .orderId(order.getId())
+                .build();
+        saverTransaction.save(transaction);
+
+        return new PaymentUrlResponse(response.getPaymentId(), response.getPaymentURL(), amount);
+    }
+
+    private TinkoffReceipt buildTinkoffReceipt(CartPurchaseRequest request, List<PricedItem> priced) {
+        List<TinkoffReceiptItem> items = priced.stream()
+                .map(i -> TinkoffReceiptItem.builder()
+                        .name(truncate(i.product().getName(), TINKOFF_ITEM_NAME_MAX_LENGTH))
+                        .price(i.unitKopecks())
+                        .quantity(i.quantity())
+                        .amount(i.unitKopecks() * i.quantity())
+                        .tax(tinkoffTax)
+                        .paymentMethod(PAYMENT_MODE)
+                        .paymentObject(PAYMENT_SUBJECT)
+                        .build())
+                .collect(Collectors.toList());
+        return TinkoffReceipt.builder()
+                .email(request.getEmail())
+                .phone(blankToNull(request.getPhone()))
+                .taxation(tinkoffTaxation)
+                .items(items)
+                .build();
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private PaymentTransactionStatus resolveTinkoffStatus(String tinkoffStatus) {
+        PaymentTransactionStatus status = paymentStatusConverter.fromTinkoff(tinkoffStatus);
+        return status != null ? status : PaymentTransactionStatus.PENDING;
     }
 
     private List<PricedItem> priceItems(List<CartItemDTO> items) {

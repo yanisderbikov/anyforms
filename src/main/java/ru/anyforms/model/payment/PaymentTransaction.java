@@ -29,8 +29,12 @@ public class PaymentTransaction {
     @Column(nullable = false)
     private PaymentTransactionStatus status;
 
-    @Column(name = "external_payment_id", nullable = false, unique = true)
-    private UUID externalPaymentId;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentProvider provider;
+
+    @Column(name = "external_payment_id", nullable = false, unique = true, length = 64)
+    private String externalPaymentId;
 
     @Column(name = "product_code", nullable = false)
     private String productCode;

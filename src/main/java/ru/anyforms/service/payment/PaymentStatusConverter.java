@@ -17,4 +17,20 @@ public class PaymentStatusConverter {
             default -> PaymentTransactionStatus.FAILED;
         };
     }
+
+    public PaymentTransactionStatus fromTinkoff(String status) {
+        if (status == null) {
+            return PaymentTransactionStatus.FAILED;
+        }
+        return switch (status.toUpperCase()) {
+            case "NEW", "FORM_SHOWED", "AUTHORIZING", "3DS_CHECKING", "3DS_CHECKED",
+                 "PAY_CHECKING", "AUTHORIZED", "CONFIRMING", "CHECKING", "CHECKED",
+                 "COMPLETING" -> PaymentTransactionStatus.PENDING;
+            case "CONFIRMED", "COMPLETED" -> PaymentTransactionStatus.SUCCEEDED;
+            case "CANCELED", "REVERSING", "REVERSED", "REFUNDING", "REFUNDED",
+                 "PARTIAL_REFUNDED", "DEADLINE_EXPIRED", "REJECTED", "AUTH_FAIL",
+                 "ATTEMPTS_EXPIRED" -> PaymentTransactionStatus.CANCELED;
+            default -> PaymentTransactionStatus.FAILED;
+        };
+    }
 }

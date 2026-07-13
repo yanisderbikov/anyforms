@@ -8,7 +8,6 @@ import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.SaverTransaction;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Component
 @AllArgsConstructor
@@ -18,7 +17,7 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     private final TransactionRepo transactionRepo;
 
     @Override
-    public Optional<PaymentTransaction> getByExternalPaymentId(UUID externalPaymentId) {
+    public Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId) {
         try {
             return transactionRepo.findByExternalPaymentId(externalPaymentId);
         } catch (Exception e) {

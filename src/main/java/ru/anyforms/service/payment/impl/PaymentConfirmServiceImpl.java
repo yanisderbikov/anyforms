@@ -1,9 +1,12 @@
 package ru.anyforms.service.payment.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.payment.YooKassaWebhookBody;
+import ru.anyforms.dto.payment.tinkoff.TinkoffNotification;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.repository.GetterTransaction;
@@ -21,37 +24,74 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
     private final SaverTransaction saverTransaction;
     private final PaymentStatusConverter paymentStatusConverter;
     private final PaymentFulfillmentService paymentFulfillmentService;
+    private final TinkoffTokenService tinkoffTokenService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public boolean confirm(YooKassaWebhookBody webhookBody) {
         try {
-            PaymentTransaction transaction = getterTransaction
-                    .getByExternalPaymentId(webhookBody.getData().getId())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Транзакция не найдена по external id: " + webhookBody.getData().getId()));
-
-            PaymentTransactionStatus lastStatus = transaction.getStatus();
             PaymentTransactionStatus newStatus = paymentStatusConverter
                     .fromYooKassa(webhookBody.getData().getStatus());
-
-            transaction.setStatus(newStatus);
-            saverTransaction.save(transaction);
-
-            if (lastStatus != PaymentTransactionStatus.SUCCEEDED
-                    && newStatus == PaymentTransactionStatus.SUCCEEDED) {
-                paymentFulfillmentService.fulfill(transaction);
-            }
-
-            if (lastStatus != PaymentTransactionStatus.CANCELED
-                    && newStatus == PaymentTransactionStatus.CANCELED) {
-                paymentFulfillmentService.cancel(transaction);
-            }
-
-            log.debug("Вебхук обработан: {}", webhookBody);
-            return true;
+            return applyStatus(String.valueOf(webhookBody.getData().getId()), newStatus);
         } catch (Exception e) {
             log.error("Не удалось обработать вебхук {}", webhookBody, e);
             return false;
         }
+    }
+
+    @Override
+    public boolean confirmTinkoff(String rawNotificationBody) {
+        try {
+            JsonNode root = objectMapper.readTree(rawNotificationBody);
+            if (!tinkoffTokenService.verify(root)) {
+                log.error("Нотификация Т-Кассы с невалидным Token: {}", rawNotificationBody);
+                return false;
+            }
+            TinkoffNotification notification = objectMapper.treeToValue(root, TinkoffNotification.class);
+            if (notification.getPaymentId() == null) {
+                log.error("Нотификация Т-Кассы без PaymentId: {}", rawNotificationBody);
+                return false;
+            }
+            PaymentTransactionStatus newStatus = paymentStatusConverter
+                    .fromTinkoff(notification.getStatus());
+            return applyStatus(String.valueOf(notification.getPaymentId()), newStatus);
+        } catch (Exception e) {
+            log.error("Не удалось обработать нотификацию Т-Кассы {}", rawNotificationBody, e);
+            return false;
+        }
+    }
+
+    private boolean applyStatus(String externalPaymentId, PaymentTransactionStatus newStatus) {
+        PaymentTransaction transaction = getterTransaction
+                .getByExternalPaymentId(externalPaymentId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Транзакция не найдена по external id: " + externalPaymentId));
+
+        PaymentTransactionStatus lastStatus = transaction.getStatus();
+
+        if (newStatus == PaymentTransactionStatus.PENDING
+                && (lastStatus == PaymentTransactionStatus.SUCCEEDED
+                || lastStatus == PaymentTransactionStatus.CANCELED)) {
+            log.debug("Игнорируем откат статуса {} -> {} для транзакции {}",
+                    lastStatus, newStatus, transaction.getId());
+            return true;
+        }
+
+        transaction.setStatus(newStatus);
+        saverTransaction.save(transaction);
+
+        if (lastStatus != PaymentTransactionStatus.SUCCEEDED
+                && newStatus == PaymentTransactionStatus.SUCCEEDED) {
+            paymentFulfillmentService.fulfill(transaction);
+        }
+
+        if (lastStatus != PaymentTransactionStatus.CANCELED
+                && newStatus == PaymentTransactionStatus.CANCELED) {
+            paymentFulfillmentService.cancel(transaction);
+        }
+
+        log.debug("Вебхук обработан: транзакция {} перешла {} -> {}",
+                transaction.getId(), lastStatus, newStatus);
+        return true;
     }
 }

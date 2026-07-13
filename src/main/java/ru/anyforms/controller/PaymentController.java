@@ -105,4 +105,14 @@ public class PaymentController {
                 ? new ResponseEntity<>("success", HttpStatus.OK)
                 : new ResponseEntity<>("fail", HttpStatus.BAD_REQUEST);
     }
+
+    @Operation(summary = "Нотификации Т-Кассы",
+            description = "Принимает уведомления Тинькофф об изменении статуса платежа; при успехе отвечает OK")
+    @PostMapping("/tinkoff-webhook")
+    public ResponseEntity<String> tinkoffWebhook(@RequestBody String rawBody) {
+        boolean success = paymentConfirmService.confirmTinkoff(rawBody);
+        return success
+                ? new ResponseEntity<>("OK", HttpStatus.OK)
+                : new ResponseEntity<>("fail", HttpStatus.BAD_REQUEST);
+    }
 }

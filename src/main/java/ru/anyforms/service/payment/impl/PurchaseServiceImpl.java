@@ -16,6 +16,7 @@ import ru.anyforms.dto.payment.yookassa.PaymentItem;
 import ru.anyforms.dto.payment.yookassa.PaymentReceipt;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
+import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.payment.PromoCode;
@@ -89,7 +90,8 @@ class PurchaseServiceImpl implements PurchaseService {
         }
 
         PaymentTransaction transaction = PaymentTransaction.builder()
-                .externalPaymentId(response.getId())
+                .provider(PaymentProvider.YOOKASSA)
+                .externalPaymentId(response.getId().toString())
                 .productCode(product.getCode())
                 .amount(MoneyUtil.stringToKopecks(response.getAmount().getValue()))
                 .currency(Currency.fromCode(response.getAmount().getCurrency()))
@@ -103,7 +105,7 @@ class PurchaseServiceImpl implements PurchaseService {
         saverTransaction.save(transaction);
 
         return new PaymentUrlResponse(
-                response.getId(),
+                response.getId().toString(),
                 response.getConfirmation().getConfirmationUrl(),
                 response.getAmount()
         );
