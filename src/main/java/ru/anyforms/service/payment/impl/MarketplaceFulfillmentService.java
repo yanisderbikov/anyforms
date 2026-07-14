@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
-import ru.anyforms.dto.telegram.RetailOrderTelegramPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
@@ -16,6 +15,7 @@ import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.service.task.TaskAdder;
+import ru.anyforms.service.telegram.TelegramNotificationQueue;
 import ru.anyforms.util.MoneyUtil;
 
 import java.time.LocalDateTime;
@@ -35,6 +35,7 @@ class MarketplaceFulfillmentService {
     private final AmoCrmGateway amoCrmGateway;
     private final OrderService orderService;
     private final TaskAdder taskAdder;
+    private final TelegramNotificationQueue telegramNotificationQueue;
 
     @Value("${amocrm.retail.pipeline.id}")
     private Long retailPipelineId;
@@ -55,10 +56,10 @@ class MarketplaceFulfillmentService {
         order.setPaymentStatus(OrderPaymentStatus.PAID);
         order.setPurchaseDate(LocalDateTime.now());
         orderRepository.save(order);
+        telegramNotificationQueue.enqueue(order.getId());
 
         List<OrderItem> items = new ArrayList<>(order.getItems());
         taskAdder.addTask(buildEmailPayload(transaction, order, items));
-        taskAdder.addTask(RetailOrderTelegramPayload.builder().orderId(order.getId()).build());
 
         pushToAmo(order, transaction, items);
 

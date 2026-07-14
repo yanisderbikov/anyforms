@@ -4,7 +4,6 @@ import lombok.extern.log4j.Log4j2;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import ru.anyforms.dto.telegram.RetailOrderTelegramPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderPaymentStatus;
@@ -14,7 +13,7 @@ import ru.anyforms.service.amo.AmoCrmWebhookService;
 import ru.anyforms.service.amo.LeadAmoCrmStatusUpdater;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.service.impl.CacheService;
-import ru.anyforms.service.task.TaskAdder;
+import ru.anyforms.service.telegram.TelegramNotificationQueue;
 import ru.anyforms.util.WebhookParserService;
 import ru.anyforms.util.amo.JsonLeadIdExtractionService;
 
@@ -34,7 +33,7 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
     private final AmoCrmGateway amoCrmGateway;
     private final CacheService cacheService;
     private final OrderRepository orderRepository;
-    private final TaskAdder taskAdder;
+    private final TelegramNotificationQueue telegramNotificationQueue;
     @Value("${amocrm.subdomain}")
     private String subdomain;
 
@@ -146,8 +145,8 @@ class AmoCrmWebhookServiceImpl implements AmoCrmWebhookService {
             log.info("Lead {}: заказ #{} из маркетплейса, телеграм-уведомление уже отправлено при оплате", leadId, order.getId());
             return;
         }
-        taskAdder.addTask(RetailOrderTelegramPayload.builder().orderId(order.getId()).build());
-        log.info("Lead {}: поставлена таска на телеграм-уведомление о розничном заказе #{}", leadId, order.getId());
+        telegramNotificationQueue.enqueue(order.getId());
+        log.info("Lead {}: заказ #{} поставлен в очередь телеграм-уведомлений (заберёт telegram-pusher)", leadId, order.getId());
     }
 
     private Long parseLong(String str) {
