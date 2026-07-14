@@ -7,6 +7,7 @@ import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.SaverTransaction;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -20,6 +21,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     public Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId) {
         try {
             return transactionRepo.findByExternalPaymentId(externalPaymentId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<PaymentTransaction> getByOrderId(Long orderId) {
+        try {
+            return transactionRepo.findByOrderId(orderId);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

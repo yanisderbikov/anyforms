@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import ru.anyforms.dto.payment.tinkoff.TinkoffCancelRequest;
+import ru.anyforms.dto.payment.tinkoff.TinkoffCancelResponse;
 import ru.anyforms.dto.payment.tinkoff.TinkoffInitRequest;
 import ru.anyforms.dto.payment.tinkoff.TinkoffInitResponse;
 import ru.anyforms.service.payment.TinkoffService;
@@ -61,6 +63,50 @@ class TinkoffServiceImpl implements TinkoffService {
 
         log.info("Создан платёж Т-Кассы с external ID: {}", response.getPaymentId());
         return response;
+    }
+
+    @Override
+    public TinkoffCancelResponse cancel(TinkoffCancelRequest request) {
+        if (terminalKey == null || terminalKey.isBlank()) {
+            throw new RuntimeException("Т-Касса не настроена: пустой payment.tinkoff.terminal-key");
+        }
+        request.setTerminalKey(terminalKey);
+        request.setToken(tinkoffTokenService.sign(cancelRootParams(request)));
+
+        TinkoffCancelResponse response = tinkoffWebClient
+                .post()
+                .uri("/Cancel")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(TinkoffCancelResponse.class)
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    log.error("Ошибка Т-Кассы при возврате: {} - {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                    return Mono.error(new RuntimeException("Не удалось выполнить возврат в Т-Кассе: " + ex.getMessage()));
+                })
+                .block();
+
+        if (response == null) {
+            throw new RuntimeException("Получили пустой ответ от Т-Кассы на Cancel");
+        }
+        if (!Boolean.TRUE.equals(response.getSuccess())) {
+            log.error("Т-Касса отклонила Cancel для платежа {}: код {}, {} / {}",
+                    request.getPaymentId(), response.getErrorCode(), response.getMessage(), response.getDetails());
+            throw new RuntimeException("Т-Касса отклонила возврат: "
+                    + (response.getMessage() != null ? response.getMessage() : response.getErrorCode()));
+        }
+
+        log.info("Возврат по платежу Т-Кассы {}: статус {}", response.getPaymentId(), response.getStatus());
+        return response;
+    }
+
+    private Map<String, String> cancelRootParams(TinkoffCancelRequest request) {
+        Map<String, String> params = new HashMap<>();
+        params.put("TerminalKey", request.getTerminalKey());
+        params.put("PaymentId", request.getPaymentId());
+        if (request.getAmount() != null) {
+            params.put("Amount", String.valueOf(request.getAmount()));
+        }
+        return params;
     }
 
     private Map<String, String> rootParams(TinkoffInitRequest request) {
