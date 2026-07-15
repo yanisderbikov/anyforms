@@ -561,7 +561,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
-    public boolean updateLeadFields(Long leadId, Long price, Map<Long, String> customFields) {
+    public boolean updateLeadFields(Long leadId, Long price, Map<Long, ?> customFields) {
         try {
             // Формируем JSON для обновления полей
             JsonObject leadUpdate = new JsonObject();
@@ -575,13 +575,17 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             // Добавляем кастомные поля если есть
             if (customFields != null && !customFields.isEmpty()) {
                 JsonArray customFieldsArray = new JsonArray();
-                for (Map.Entry<Long, String> entry : customFields.entrySet()) {
+                for (Map.Entry<Long, ?> entry : customFields.entrySet()) {
                     JsonObject customField = new JsonObject();
                     customField.addProperty("field_id", entry.getKey());
-                    
+
                     JsonArray valuesArray = new JsonArray();
                     JsonObject fieldValue = new JsonObject();
-                    fieldValue.addProperty("value", entry.getValue());
+                    if (entry.getValue() instanceof Number number) {
+                        fieldValue.addProperty("value", number);
+                    } else {
+                        fieldValue.addProperty("value", String.valueOf(entry.getValue()));
+                    }
                     valuesArray.add(fieldValue);
                     
                     customField.add("values", valuesArray);

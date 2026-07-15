@@ -22,9 +22,11 @@ import ru.anyforms.dto.payment.yookassa.PaymentConfirmation;
 import ru.anyforms.dto.payment.yookassa.PaymentCustomer;
 import ru.anyforms.dto.payment.yookassa.PaymentItem;
 import ru.anyforms.dto.payment.yookassa.PaymentReceipt;
+import ru.anyforms.model.DeliveryMethod;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
+import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
@@ -39,6 +41,7 @@ import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.util.MoneyUtil;
+import ru.anyforms.util.PickupAddressDetector;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -273,6 +276,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
         Order order = new Order();
+        order.setSource(OrderSource.MARKETPLACE);
         order.setRetail(false);
         order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
         order.setPublicId(generateUniquePublicId());
@@ -280,6 +284,9 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         order.setContactPhone(request.getPhone());
         order.setPvzSdekCity(request.getPvzCity());
         order.setPvzSdekStreet(request.getPvzStreet());
+        order.setDeliveryMethod(PickupAddressDetector.isPickup(request.getPvzCity(), request.getPvzStreet())
+                ? DeliveryMethod.PICKUP
+                : DeliveryMethod.CDEK);
 
         for (PricedItem item : priced) {
             Product product = item.product();

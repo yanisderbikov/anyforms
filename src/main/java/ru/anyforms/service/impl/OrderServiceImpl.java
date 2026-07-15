@@ -76,25 +76,26 @@ class OrderServiceImpl implements OrderService  {
                 return null;
             }
 
-            // Получаем товары из сделки
             List<AmoProduct> products = amoCrmGateway.getLeadProducts(leadId);
 
-            // Ищем существующий заказ или создаем новый
             Order order = orderRepository.findByLeadId(leadId)
-                    .orElse(new Order());
+                    .orElseGet(() -> {
+                        Order created = new Order();
+                        created.setSource(OrderSource.AMO);
+                        return created;
+                    });
 
-            var isRetail = products != null && !products.isEmpty();
-            order.setRetail(isRetail);
+            boolean backendOwned = order.getSource() == OrderSource.MARKETPLACE;
 
-            // Обновляем данные заказа
             order.setLeadId(leadId);
-            order.setContactId(contactId);
-            order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO_CONTACT.getId()));
-            order.setContactPhone(contact.getPhone() != null && !contact.getPhone().isEmpty()
-                    ? contact.getPhone().get(0).getValue()
-                    : null);
+            if (!backendOwned) {
+                order.setContactId(contactId);
+                order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO_CONTACT.getId()));
+                order.setContactPhone(contact.getPhone() != null && !contact.getPhone().isEmpty()
+                        ? contact.getPhone().get(0).getValue()
+                        : null);
+            }
 
-            // Получаем трекер из кастомного поля
             String tracker = lead.getCustomFieldValue(AmoCrmFieldId.TRACKER.getId());
             if (tracker == null || tracker.equals("...")) {
                 tracker = "";
@@ -102,7 +103,6 @@ class OrderServiceImpl implements OrderService  {
             }
             order.setTracker(tracker);
 
-            // комментарий
             String commentFromCrm = lead.getCustomFieldValue(AmoCrmFieldId.COMMENT_TO_ORDER.getId());
             String commentFromOrder = order.getComment();
 
@@ -130,40 +130,46 @@ class OrderServiceImpl implements OrderService  {
             }
             order.setDeliveryStatus(deliveryStatus);
 
-            // Получаем ПВЗ СДЭК из контакта
-            String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_STREET_CONTACT.getId());
-            order.setPvzSdekStreet(pvzSdekStreet);
+            if (!backendOwned) {
+                String pvzSdekStreet = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_STREET_CONTACT.getId());
+                order.setPvzSdekStreet(pvzSdekStreet);
 
-            String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_CITY_CONTACT.getId());
-            order.setPvzSdekCity(pvzSdekCity);
+                String pvzSdekCity = contact.getCustomFieldValue(AmoCrmFieldId.PVZ_CITY_CONTACT.getId());
+                order.setPvzSdekCity(pvzSdekCity);
 
-            order.setDeliveryMethod(PickupAddressDetector.isPickup(pvzSdekCity, pvzSdekStreet)
-                    ? DeliveryMethod.PICKUP
-                    : DeliveryMethod.CDEK);
+                order.setDeliveryMethod(PickupAddressDetector.isPickup(pvzSdekCity, pvzSdekStreet)
+                        ? DeliveryMethod.PICKUP
+                        : DeliveryMethod.CDEK);
 
-            // Получаем дату покупки из сделки
-            // todo 3 исправить дату
-            String datePaymentValue = lead.getCustomFieldValue(AmoCrmFieldId.DATE_PAYMENT.getId());
-            if (datePaymentValue != null && !datePaymentValue.trim().isEmpty()) {
-                LocalDateTime purchaseDate = parseDateFromAmoCrm(datePaymentValue);
-                order.setPurchaseDate(purchaseDate);
-            } else {
-                order.setPurchaseDate(null);
-            }
+                String datePaymentValue = lead.getCustomFieldValue(AmoCrmFieldId.DATE_PAYMENT.getId());
+                if (datePaymentValue != null && !datePaymentValue.trim().isEmpty()) {
+                    LocalDateTime purchaseDate = parseDateFromAmoCrm(datePaymentValue);
+                    order.setPurchaseDate(purchaseDate);
+                } else {
+                    order.setPurchaseDate(null);
+                }
 
-            // Обновляем товары
-            order.getItems().clear();
-            for (AmoProduct product : products) {
-                OrderItem item = new OrderItem();
-                item.setProductName(product.getName());
-                item.setQuantity(product.getQuantity() != null ? product.getQuantity() : 1);
-                item.setProductId(product.getId());
-                item.setCatalogId(product.getCatalogId());
-                order.addItem(item);
+                boolean hasProducts = products != null && !products.isEmpty();
+                boolean paidRetail = order.isRetail() && order.getPaymentStatus() == OrderPaymentStatus.PAID;
+                if (hasProducts || !paidRetail) {
+                    order.setRetail(hasProducts);
+                    order.getItems().clear();
+                    if (products != null) {
+                        for (AmoProduct product : products) {
+                            OrderItem item = new OrderItem();
+                            item.setProductName(product.getName());
+                            item.setQuantity(product.getQuantity() != null ? product.getQuantity() : 1);
+                            item.setProductId(product.getId());
+                            item.setCatalogId(product.getCatalogId());
+                            order.addItem(item);
+                        }
+                    }
+                }
             }
 
             Order savedOrder = orderRepository.save(order);
-            log.info("Order synced from AmoCRM: leadId={}, items={}", leadId, products.size());
+            log.info("Order synced from AmoCRM: leadId={}, source={}, items={}",
+                    leadId, order.getSource(), order.getItems().size());
             return savedOrder;
         } catch (Exception e) {
             log.error("Error syncing order from AmoCRM for lead {}: {}", leadId, e.getMessage(), e);

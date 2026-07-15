@@ -81,7 +81,7 @@ class CdekTrackingHttpGateway implements CdekTrackingGateway {
         }
         
         try {
-            logger.info("Получение токена доступа СДЭК через OAuth 2.0");
+            logger.debug("Получение токена доступа СДЭК через OAuth 2.0");
             
             // Если client_id не указан, используем secret.key как client_secret
             // и пробуем использовать secret.key как client_id (иногда это один и тот же ключ)
@@ -124,7 +124,7 @@ class CdekTrackingHttpGateway implements CdekTrackingGateway {
                     // Устанавливаем время истечения с запасом в 60 секунд
                     tokenExpiresAt = Instant.now().plusSeconds(expiresIn - 60);
                     
-                    logger.info("Токен доступа СДЭК успешно получен, действителен до {}", tokenExpiresAt);
+                    logger.debug("Токен доступа СДЭК успешно получен, действителен до {}", tokenExpiresAt);
                     return accessToken;
                 } else {
                     logger.error("Ошибка получения токена СДЭК: {}", response);

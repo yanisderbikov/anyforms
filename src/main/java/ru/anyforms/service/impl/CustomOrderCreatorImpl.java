@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.CustomOrderCreateRequestDTO;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
@@ -33,6 +34,7 @@ class CustomOrderCreatorImpl implements CustomOrderCreator {
     @Transactional
     public Order create(CustomOrderCreateRequestDTO request) {
         Order order = new Order();
+        order.setSource(OrderSource.CUSTOM);
         order.setRetail(false);
         if (request != null) {
             order.setContactName(request.getContactName());

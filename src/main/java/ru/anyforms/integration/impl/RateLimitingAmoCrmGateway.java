@@ -143,7 +143,7 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
-    public boolean updateLeadFields(Long leadId, Long price, Map<Long, String> customFields) {
+    public boolean updateLeadFields(Long leadId, Long price, Map<Long, ?> customFields) {
         acquireSlot();
         return delegate.updateLeadFields(leadId, price, customFields);
     }

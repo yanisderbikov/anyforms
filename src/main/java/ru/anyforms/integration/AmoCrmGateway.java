@@ -93,11 +93,13 @@ public interface AmoCrmGateway {
     boolean sendMessageToContact(Long leadId, String message);
 
     /**
-     * Обновляет несколько полей сделки одновременно
+     * Обновляет несколько полей сделки одновременно.
+     * Числовые значения (например, timestamp для полей-дат) сериализуются числом — АМО
+     * не принимает строку для date-полей.
      */
-    boolean updateLeadFields(Long leadId, Long price, Map<Long, String> customFields);
+    boolean updateLeadFields(Long leadId, Long price, Map<Long, ?> customFields);
 
-    default boolean updateLeadFields(Long leadId, Map<Long, String> customFields) {
+    default boolean updateLeadFields(Long leadId, Map<Long, ?> customFields) {
         return updateLeadFields(leadId, null, customFields);
     }
 

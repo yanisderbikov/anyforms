@@ -54,6 +54,7 @@ class MarketplaceFulfillmentService {
         }
 
         order.setPaymentStatus(OrderPaymentStatus.PAID);
+        order.setRetail(true);
         order.setPurchaseDate(LocalDateTime.now());
         orderRepository.save(order);
         telegramNotificationQueue.enqueue(order.getId());
@@ -104,20 +105,11 @@ class MarketplaceFulfillmentService {
         fillContactFields(order, leadId);
         linkProducts(order, leadId, items);
 
-        // Синк из АМО: подтягивает товары сделки → заказ становится isRetail=true
-        // и попадает в розничный флоу (/orders/without-tracker → трекер → СДЭК).
         try {
             orderService.syncOrder(leadId);
         } catch (Exception e) {
             log.error("Маркетплейс: не удалось синкануть заказ #{} из АМО (lead {}): {}",
                     order.getId(), leadId, e.getMessage());
-        }
-
-        // Синк берёт дату покупки из амо-поля «Дата оплаты»; если оно не доехало —
-        // не даём затереть дату оплаты в нашем заказе.
-        if (order.getPurchaseDate() == null) {
-            order.setPurchaseDate(LocalDateTime.now());
-            orderRepository.save(order);
         }
     }
 
@@ -125,9 +117,9 @@ class MarketplaceFulfillmentService {
     private void fillLeadFields(Long leadId, PaymentTransaction transaction) {
         try {
             Long priceRub = transaction.getAmount() != null ? transaction.getAmount() / 100 : null;
-            Map<Long, String> fields = Map.of(
+            Map<Long, Object> fields = Map.of(
                     AmoCrmFieldId.DATE_PAYMENT.getId(),
-                    String.valueOf(java.time.Instant.now().getEpochSecond()));
+                    java.time.Instant.now().getEpochSecond());
             amoCrmGateway.updateLeadFields(leadId, priceRub, fields);
         } catch (Exception e) {
             log.error("Маркетплейс: не удалось заполнить поля сделки {}: {}", leadId, e.getMessage());

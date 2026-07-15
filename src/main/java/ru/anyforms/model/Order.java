@@ -65,6 +65,10 @@ public class Order {
     private OrderPaymentStatus paymentStatus = OrderPaymentStatus.NONE;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 32)
+    private OrderSource source;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "delivery_method", nullable = false, length = 32)
     private DeliveryMethod deliveryMethod = DeliveryMethod.CDEK;
 
