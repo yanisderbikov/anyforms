@@ -9,8 +9,11 @@ public final class EmailTemplate {
     private EmailTemplate() {
     }
 
-    public static String getGuideEmail(String link) {
-        return load("templates/email-guide.html").replace("%LINK%", link);
+    /** Письмо после покупки гайда: основной файл + бонусные материалы. */
+    public static String getGuideEmail(String link, String bonusLink) {
+        return load("templates/email-guide.html")
+                .replace("%LINK%", link)
+                .replace("%BONUS_LINK%", bonusLink);
     }
 
     public static String getCourseEmail(String link) {

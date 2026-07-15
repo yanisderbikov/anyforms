@@ -17,13 +17,16 @@ class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {
 
     @Value("${product.guide.url}")
     private String guideUrl;
+    @Value("${product.guide.bonus.url}")
+    private String guideBonusUrl;
     @Value("${product.course.url}")
     private String courseUrl;
 
     @Override
     public RenderedEmail render(String productCode) {
         return switch (productCode) {
-            case PaymentProduct.CODE_GUIDE -> new RenderedEmail(GUIDE_SUBJECT, EmailTemplate.getGuideEmail(guideUrl));
+            case PaymentProduct.CODE_GUIDE ->
+                    new RenderedEmail(GUIDE_SUBJECT, EmailTemplate.getGuideEmail(guideUrl, guideBonusUrl));
             case PaymentProduct.CODE_COURSE ->
                     new RenderedEmail(COURSE_SUBJECT, EmailTemplate.getCourseEmail(courseUrl));
             case PaymentProduct.CODE_COURSE_PERSONAL ->
