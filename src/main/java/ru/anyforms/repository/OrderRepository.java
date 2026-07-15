@@ -41,7 +41,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     """)
     List<Order> searchByContact(String q);
 
-    @Query("SELECT o FROM Order o WHERE o.isRetail = TRUE AND (o.tracker IS NULL OR o.tracker = '') order by o.purchaseDate")
+    /**
+     * Розница к отправке. Неоплаченные и возвращённые заказы не показываем;
+     * у АМО-заказов оплат на беке нет (paymentStatus = NONE) — они проходят фильтр.
+     */
+    @Query("""
+       SELECT o FROM Order o
+       WHERE o.isRetail = TRUE
+         AND (o.tracker IS NULL OR o.tracker = '')
+         AND o.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
+                                     ru.anyforms.model.OrderPaymentStatus.CANCELED)
+       ORDER BY o.purchaseDate
+       """)
     List<Order> findOrdersWithoutTracker();
 
     List<Order> findOrdersByDeliveryStatus(String deliveryStatus);
@@ -105,6 +116,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
        SELECT COUNT(o) FROM Order o
        WHERE o.isRetail = TRUE
          AND (o.tracker IS NULL OR o.tracker = '')
+         AND o.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
+                                     ru.anyforms.model.OrderPaymentStatus.CANCELED)
        """)
     long countRetailAwaitingShipment();
 

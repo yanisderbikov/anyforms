@@ -277,7 +277,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
         Order order = new Order();
         order.setSource(OrderSource.MARKETPLACE);
-        order.setRetail(false);
+        order.setRetail(true);
         order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
         order.setPublicId(generateUniquePublicId());
         order.setContactName(fullName);

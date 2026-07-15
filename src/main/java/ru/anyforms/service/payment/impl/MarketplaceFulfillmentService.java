@@ -54,7 +54,6 @@ class MarketplaceFulfillmentService {
         }
 
         order.setPaymentStatus(OrderPaymentStatus.PAID);
-        order.setRetail(true);
         order.setPurchaseDate(LocalDateTime.now());
         orderRepository.save(order);
         telegramNotificationQueue.enqueue(order.getId());
