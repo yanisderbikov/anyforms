@@ -81,6 +81,23 @@ class MarketplaceFulfillmentService {
         }
     }
 
+    /**
+     * Деньги вернули покупателю. Возврат бывает только после успешной оплаты,
+     * поэтому в отличие от cancel() перебиваем и статус PAID.
+     */
+    @Transactional
+    public void refund(PaymentTransaction transaction) {
+        Order order = findOrder(transaction);
+        if (order == null) {
+            return;
+        }
+        if (order.getPaymentStatus() != OrderPaymentStatus.REFUNDED) {
+            order.setPaymentStatus(OrderPaymentStatus.REFUNDED);
+            orderRepository.save(order);
+            log.info("Маркетплейс: возврат по платежу, заказ #{} помечен REFUNDED", order.getId());
+        }
+    }
+
     private void pushToAmo(Order order, PaymentTransaction transaction, List<OrderItem> items) {
         Long leadId;
         try {

@@ -27,8 +27,12 @@ public class PaymentStatusConverter {
                  "PAY_CHECKING", "AUTHORIZED", "CONFIRMING", "CHECKING", "CHECKED",
                  "COMPLETING" -> PaymentTransactionStatus.PENDING;
             case "CONFIRMED", "COMPLETED" -> PaymentTransactionStatus.SUCCEEDED;
-            case "CANCELED", "REVERSING", "REVERSED", "REFUNDING", "REFUNDED",
-                 "PARTIAL_REFUNDED", "DEADLINE_EXPIRED", "REJECTED", "AUTH_FAIL",
+            // Возвраты: деньги списывались и вернулись покупателю (REVERSED — отмена
+            // авторизации до списания, для покупателя это тот же возврат холда).
+            case "REVERSING", "REVERSED", "REFUNDING", "REFUNDED",
+                 "PARTIAL_REFUNDED" -> PaymentTransactionStatus.REFUNDED;
+            // Неуспешная оплата: деньги не списывались.
+            case "CANCELED", "DEADLINE_EXPIRED", "REJECTED", "AUTH_FAIL",
                  "ATTEMPTS_EXPIRED" -> PaymentTransactionStatus.CANCELED;
             default -> PaymentTransactionStatus.FAILED;
         };

@@ -40,4 +40,12 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
         }
         // Для курса/гайда при отмене ничего делать не нужно.
     }
+
+    @Override
+    public void refund(PaymentTransaction transaction) {
+        if (PaymentProduct.CODE_MARKETPLACE_CART.equals(transaction.getProductCode())) {
+            marketplaceFulfillmentService.refund(transaction);
+        }
+        // Для курса/гайда при возврате ничего делать не нужно.
+    }
 }

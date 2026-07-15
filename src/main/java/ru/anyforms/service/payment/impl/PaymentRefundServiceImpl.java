@@ -54,7 +54,7 @@ class PaymentRefundServiceImpl implements PaymentRefundService {
                     .paymentId(transaction.getExternalPaymentId())
                     .build());
 
-            transaction.setStatus(PaymentTransactionStatus.CANCELED);
+            transaction.setStatus(PaymentTransactionStatus.REFUNDED);
             saverTransaction.save(transaction);
             orderRepository.findById(orderId).ifPresent(order -> markRefunded(order));
 
@@ -86,7 +86,7 @@ class PaymentRefundServiceImpl implements PaymentRefundService {
     }
 
     private void markRefunded(Order order) {
-        order.setPaymentStatus(OrderPaymentStatus.CANCELED);
+        order.setPaymentStatus(OrderPaymentStatus.REFUNDED);
         orderRepository.save(order);
     }
 }

@@ -15,6 +15,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByPublicId(String publicId);
 
+    Optional<Order> findByPublicId(String publicId);
+
     /** Под-заказные сделки (без товаров из amo-каталога). */
     List<Order> findByIsRetailFalseOrderByCreatedAtDesc();
 
@@ -26,7 +28,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
        SELECT o FROM Order o
        WHERE o.isRetail = FALSE
          AND o.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
-                                     ru.anyforms.model.OrderPaymentStatus.CANCELED)
+                                     ru.anyforms.model.OrderPaymentStatus.CANCELED,
+                                     ru.anyforms.model.OrderPaymentStatus.REFUNDED)
        ORDER BY o.createdAt DESC
     """)
     List<Order> findWorkableCustomOrders();
@@ -50,7 +53,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
        WHERE o.isRetail = TRUE
          AND (o.tracker IS NULL OR o.tracker = '')
          AND o.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
-                                     ru.anyforms.model.OrderPaymentStatus.CANCELED)
+                                     ru.anyforms.model.OrderPaymentStatus.CANCELED,
+                                     ru.anyforms.model.OrderPaymentStatus.REFUNDED)
        ORDER BY o.purchaseDate
        """)
     List<Order> findOrdersWithoutTracker();
@@ -117,7 +121,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
        WHERE o.isRetail = TRUE
          AND (o.tracker IS NULL OR o.tracker = '')
          AND o.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
-                                     ru.anyforms.model.OrderPaymentStatus.CANCELED)
+                                     ru.anyforms.model.OrderPaymentStatus.CANCELED,
+                                     ru.anyforms.model.OrderPaymentStatus.REFUNDED)
        """)
     long countRetailAwaitingShipment();
 

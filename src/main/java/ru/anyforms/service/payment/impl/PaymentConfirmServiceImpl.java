@@ -71,9 +71,18 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
 
         if (newStatus == PaymentTransactionStatus.PENDING
                 && (lastStatus == PaymentTransactionStatus.SUCCEEDED
-                || lastStatus == PaymentTransactionStatus.CANCELED)) {
+                || lastStatus == PaymentTransactionStatus.CANCELED
+                || lastStatus == PaymentTransactionStatus.REFUNDED)) {
             log.debug("Игнорируем откат статуса {} -> {} для транзакции {}",
                     lastStatus, newStatus, transaction.getId());
+            return true;
+        }
+
+        // Возврат — терминальный статус: запоздавшие SUCCEEDED/CANCELED его не перебивают.
+        if (lastStatus == PaymentTransactionStatus.REFUNDED
+                && newStatus != PaymentTransactionStatus.REFUNDED) {
+            log.debug("Игнорируем статус {} после возврата для транзакции {}",
+                    newStatus, transaction.getId());
             return true;
         }
 
@@ -88,6 +97,11 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
         if (lastStatus != PaymentTransactionStatus.CANCELED
                 && newStatus == PaymentTransactionStatus.CANCELED) {
             paymentFulfillmentService.cancel(transaction);
+        }
+
+        if (lastStatus != PaymentTransactionStatus.REFUNDED
+                && newStatus == PaymentTransactionStatus.REFUNDED) {
+            paymentFulfillmentService.refund(transaction);
         }
 
         log.debug("Вебхук обработан: транзакция {} перешла {} -> {}",

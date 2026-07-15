@@ -180,8 +180,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .orderId(order.getPublicId())
                 .description(description)
                 .payType(TINKOFF_PAY_TYPE_SINGLE_STAGE)
-                .successURL(returnUrl)
-                .failURL(returnUrl)
+                .successURL(appendParam(returnUrl, "status", "success"))
+                .failURL(appendParam(returnUrl, "status", "fail"))
                 .notificationURL(blankToNull(tinkoffNotificationUrl))
                 .receipt(buildTinkoffReceipt(request, priced))
                 .build();
@@ -348,7 +348,11 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         if (orderPublicId == null || orderPublicId.isBlank()) {
             return url;
         }
-        return url + (url.contains("?") ? "&" : "?") + "order=" + orderPublicId;
+        return appendParam(url, "order", orderPublicId);
+    }
+
+    private String appendParam(String url, String name, String value) {
+        return url + (url.contains("?") ? "&" : "?") + name + "=" + value;
     }
 
     /** Уникальный публичный номер заказа (6 символов A-Z/0-9, заглавные). */

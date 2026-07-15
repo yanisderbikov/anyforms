@@ -28,7 +28,8 @@ public interface CustomProductItemRepository extends JpaRepository<CustomProduct
        SELECT i FROM CustomProductItem i
        WHERE i.status NOT IN :statuses
          AND i.order.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
-                                           ru.anyforms.model.OrderPaymentStatus.CANCELED)
+                                           ru.anyforms.model.OrderPaymentStatus.CANCELED,
+                                           ru.anyforms.model.OrderPaymentStatus.REFUNDED)
     """)
     List<CustomProductItem> findByStatusNotIn(Collection<CustomProductStatus> statuses, Sort sort);
 
@@ -43,7 +44,8 @@ public interface CustomProductItemRepository extends JpaRepository<CustomProduct
        SELECT i FROM CustomProductItem i
        WHERE i.status = :status
          AND i.order.paymentStatus NOT IN (ru.anyforms.model.OrderPaymentStatus.AWAITING_PAYMENT,
-                                           ru.anyforms.model.OrderPaymentStatus.CANCELED)
+                                           ru.anyforms.model.OrderPaymentStatus.CANCELED,
+                                           ru.anyforms.model.OrderPaymentStatus.REFUNDED)
     """)
     List<CustomProductItem> findByStatus(CustomProductStatus status);
 
