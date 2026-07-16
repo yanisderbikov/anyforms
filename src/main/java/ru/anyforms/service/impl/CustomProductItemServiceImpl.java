@@ -273,6 +273,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setModeler(item.getModeler());
         dto.setStatus(item.getStatus());
         dto.setStatusDescription(item.getStatus() != null ? item.getStatus().getDescription() : null);
+        dto.setStatusUpdatedAt(item.getStatusUpdatedAt());
         dto.setFiles(item.getFiles().stream()
                 .map(f -> new CustomProductFileDTO(f.getId(), s3FileStorage.presignedUrl(f.getS3Key()), f.getFilename()))
                 .toList());

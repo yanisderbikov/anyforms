@@ -35,6 +35,9 @@ public class CustomProductItemDTO {
     @Schema(description = "Человекочитаемый статус", example = "В производстве")
     private String statusDescription;
 
+    @Schema(description = "Время последней смены статуса")
+    private Instant statusUpdatedAt;
+
     private List<CustomProductFileDTO> files;
 
     private Instant createdAt;

@@ -50,6 +50,10 @@ public class CustomProductItem {
     private List<CustomProductFile> files = new ArrayList<>();
 
     @JdbcTypeCode(SqlTypes.TIMESTAMP)
+    @Column(name = "status_updated_at", nullable = false)
+    private Instant statusUpdatedAt;
+
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -57,10 +61,20 @@ public class CustomProductItem {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    public void setStatus(CustomProductStatus status) {
+        if (this.status != status) {
+            this.statusUpdatedAt = Instant.now();
+        }
+        this.status = status;
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
         updatedAt = Instant.now();
+        if (statusUpdatedAt == null) {
+            statusUpdatedAt = createdAt;
+        }
     }
 
     @PreUpdate
