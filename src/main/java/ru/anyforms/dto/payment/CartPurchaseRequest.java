@@ -42,6 +42,9 @@ public class CartPurchaseRequest {
     @Schema(description = "Согласие на рассылку")
     private Boolean marketingConsent;
 
+    @Schema(description = "Промокод (опционально)")
+    private String promoCode;
+
     @Schema(description = "URL страницы успеха (для возврата с Юкассы)")
     private String returnUrl;
 }

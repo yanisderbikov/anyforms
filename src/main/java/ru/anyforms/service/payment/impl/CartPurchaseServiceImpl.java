@@ -12,6 +12,7 @@ import ru.anyforms.dto.payment.Amount;
 import ru.anyforms.dto.payment.CartItemDTO;
 import ru.anyforms.dto.payment.CartPurchaseRequest;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
+import ru.anyforms.dto.payment.PromoCheckResponse;
 import ru.anyforms.dto.payment.YooKassaPaymentResponse;
 import ru.anyforms.dto.payment.tinkoff.TinkoffInitRequest;
 import ru.anyforms.dto.payment.tinkoff.TinkoffInitResponse;
@@ -33,10 +34,14 @@ import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
+import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.repository.GetterProduct;
+import ru.anyforms.repository.GetterPromoCode;
+import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverTransaction;
 import ru.anyforms.service.payment.CartPurchaseService;
+import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
@@ -49,6 +54,7 @@ import java.net.URI;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -79,6 +85,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final TinkoffService tinkoffService;
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
+    private final GetterPromoCode getterPromoCode;
+    private final GetterTransaction getterTransaction;
     private final OrderRepository orderRepository;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
@@ -115,6 +123,13 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     @Transactional
     public PaymentUrlResponse purchase(CartPurchaseRequest request) {
         List<PricedItem> priced = priceItems(request.getItems());
+        PromoCode promo = resolvePromo(request.getPromoCode(), request.getEmail(), request.getPhone());
+        if (promo != null) {
+            priced = priced.stream()
+                    .map(i -> new PricedItem(i.product(), i.quantity(),
+                            MoneyUtil.applyDiscountPercent(i.unitKopecks(), promo.getDiscountPercent())))
+                    .toList();
+        }
         long totalKopecks = priced.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).sum();
         long totalQty = priced.stream().mapToLong(PricedItem::quantity).sum();
 
@@ -132,14 +147,56 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         String returnUrl = buildReturnUrl(request.getReturnUrl(), order.getPublicId());
 
         if (PROVIDER_TINKOFF.equalsIgnoreCase(marketplaceProvider)) {
-            return purchaseViaTinkoff(request, order, priced, totalKopecks, description, returnUrl, amount);
+            return purchaseViaTinkoff(request, order, priced, totalKopecks, description, returnUrl, amount, promo);
         }
-        return purchaseViaYooKassa(request, order, priced, fullName, description, returnUrl, amount);
+        return purchaseViaYooKassa(request, order, priced, fullName, description, returnUrl, amount, promo);
+    }
+
+    @Override
+    public PromoCheckResponse checkPromo(String code, String email, String phone) {
+        Optional<PromoCode> found = getterPromoCode.getByCode(code);
+        if (found.isEmpty()) {
+            return new PromoCheckResponse(false, null, null, null, null, "Такого промокода нет.", null);
+        }
+        PromoCode promo = found.get();
+        if (!promo.isCurrentlyValid()) {
+            return new PromoCheckResponse(false, promo.getCode(), null, null, null, "Срок действия промокода истёк.", null);
+        }
+        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
+            return new PromoCheckResponse(false, promo.getCode(), null, null, null,
+                    "Этот промокод уже был использован.", null);
+        }
+        String validUntil = promo.getValidUntil() != null ? promo.getValidUntil().toString() : null;
+        return new PromoCheckResponse(true, promo.getCode(), promo.getDiscountPercent(), null, null, null, validUntil);
+    }
+
+    private PromoCode resolvePromo(String rawCode, String email, String phone) {
+        if (rawCode == null || rawCode.isBlank()) {
+            return null;
+        }
+        PromoCode promo = getterPromoCode.getByCode(rawCode)
+                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode)));
+        if (!promo.isCurrentlyValid()) {
+            throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
+        }
+        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
+            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже был использован.");
+        }
+        return promo;
+    }
+
+    private String phoneLast10(String phone) {
+        if (phone == null) {
+            return "";
+        }
+        String digits = phone.replaceAll("\\D", "");
+        return digits.length() >= 10 ? digits.substring(digits.length() - 10) : "";
     }
 
     private PaymentUrlResponse purchaseViaYooKassa(CartPurchaseRequest request, Order order,
                                                    List<PricedItem> priced, String fullName,
-                                                   String description, String returnUrl, Amount amount) {
+                                                   String description, String returnUrl, Amount amount,
+                                                   PromoCode promo) {
         CreatePaymentRequest paymentRequest = CreatePaymentRequest.builder()
                 .amount(amount)
                 .description(description)
@@ -163,6 +220,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
                 .status(resolveStatus(response.getStatus()))
                 .orderId(order.getId())
+                .promoCode(promo != null ? promo.getCode() : null)
+                .discountPercent(promo != null ? promo.getDiscountPercent() : null)
                 .build();
         saverTransaction.save(transaction);
 
@@ -174,7 +233,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     private PaymentUrlResponse purchaseViaTinkoff(CartPurchaseRequest request, Order order,
                                                   List<PricedItem> priced, long totalKopecks,
-                                                  String description, String returnUrl, Amount amount) {
+                                                  String description, String returnUrl, Amount amount,
+                                                  PromoCode promo) {
         TinkoffInitRequest initRequest = TinkoffInitRequest.builder()
                 .amount(totalKopecks)
                 .orderId(order.getPublicId())
@@ -199,6 +259,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
                 .status(resolveTinkoffStatus(response.getStatus()))
                 .orderId(order.getId())
+                .promoCode(promo != null ? promo.getCode() : null)
+                .discountPercent(promo != null ? promo.getDiscountPercent() : null)
                 .build();
         saverTransaction.save(transaction);
 

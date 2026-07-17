@@ -9,4 +9,6 @@ public interface GetterTransaction {
     Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId);
 
     List<PaymentTransaction> getByOrderId(Long orderId);
+
+    boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10);
 }

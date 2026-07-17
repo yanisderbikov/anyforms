@@ -79,6 +79,16 @@ public class PaymentController {
                 MoneyUtil.applyDiscountPercent(price, percent), null, validUntil));
     }
 
+    @Operation(summary = "Проверить промокод для корзины маркетплейса",
+            description = "Проверяет валидность промокода и не использовал ли клиент его раньше (по email или телефону)")
+    @GetMapping("/cart-promo-check")
+    public ResponseEntity<PromoCheckResponse> cartPromoCheck(
+            @RequestParam("code") String code,
+            @RequestParam("email") String email,
+            @RequestParam(value = "phone", required = false) String phone) {
+        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone));
+    }
+
     @ExceptionHandler(InvalidPromoCodeException.class)
     public ResponseEntity<Map<String, String>> handleInvalidPromo(InvalidPromoCodeException e) {
         return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));

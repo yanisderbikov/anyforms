@@ -38,6 +38,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10) {
+        try {
+            return transactionRepo.promoUsedByCustomer(promoCode, email, phoneLast10);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public PaymentTransaction save(PaymentTransaction transaction) {
         try {
             return transactionRepo.save(transaction);
