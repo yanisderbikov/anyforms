@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,6 +57,17 @@ public class ProductController {
             @PathVariable("id") UUID id,
             @RequestParam("files") List<MultipartFile> files) {
         return ResponseEntity.ok(productService.uploadPhotos(id, files));
+    }
+
+    @Operation(summary = "Удалить фото товара",
+            description = "Удаляет файл по имени из S3-папки товара",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @DeleteMapping("/{id}/photos")
+    public ResponseEntity<ProductDTO> deletePhoto(
+            @PathVariable("id") UUID id,
+            @RequestParam("file") String fileName) {
+        return ResponseEntity.ok(productService.deletePhoto(id, fileName));
     }
 
     @Operation(summary = "Создать или обновить продукт",

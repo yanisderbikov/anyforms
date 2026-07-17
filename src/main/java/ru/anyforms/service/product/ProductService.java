@@ -15,4 +15,6 @@ public interface ProductService {
     ProductDTO saveOrUpdate(ProductCreateUpdateRequestDTO request);
 
     ProductDTO uploadPhotos(UUID id, List<MultipartFile> files);
+
+    ProductDTO deletePhoto(UUID id, String fileName);
 }

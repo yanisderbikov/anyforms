@@ -65,6 +65,22 @@ class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public ProductDTO deletePhoto(UUID id, String fileName) {
+        Product product = getterProduct.getById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Товар не найден: " + id));
+        String folder = product.getS3PhotosFolderPath();
+        if (folder == null || folder.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "У товара нет папки с фото");
+        }
+        if (fileName == null || fileName.isBlank() || fileName.contains("/") || fileName.contains("..")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Некорректное имя файла: " + fileName);
+        }
+        s3FileStorage.delete(SHOP_PREFIX + folder + "/" + fileName);
+        getterPhotosFromS3Folder.invalidateFolder(folder);
+        return converterProducts.convert(product);
+    }
+
+    @Override
     public ProductDTO saveOrUpdate(ProductCreateUpdateRequestDTO request) {
         String oldFolder = null;
         Product product;
