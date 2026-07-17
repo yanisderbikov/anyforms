@@ -7,6 +7,8 @@ import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import ru.anyforms.util.converter.ConverterProducts;
 
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 class ConverterProductsImpl implements ConverterProducts {
@@ -15,7 +17,10 @@ class ConverterProductsImpl implements ConverterProducts {
 
     @Override
     public ProductDTO convert(Product product) {
-        var photos = getterPhotosFromS3Folder.getPhotos(product.getS3PhotosFolderPath());
+        String folder = product.getS3PhotosFolderPath();
+        var photos = folder == null || folder.isBlank()
+                ? List.<String>of()
+                : getterPhotosFromS3Folder.getPhotos(folder);
         return new ProductDTO(
                 product.getId(),
                 product.getName(),
@@ -26,7 +31,9 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getDiscountPercent(),
                 product.getTgLink(),
                 product.getAmoProductId(),
-                product.getAmoProductName()
+                product.getAmoProductName(),
+                product.getActive(),
+                product.getPreorder()
         );
     }
 }

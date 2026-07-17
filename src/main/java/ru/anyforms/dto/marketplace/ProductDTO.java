@@ -24,4 +24,6 @@ public class ProductDTO {
     private String tgLink;
     private Long amoProductId;
     private String amoProductName;
+    private Boolean active;
+    private Boolean preorder;
 }

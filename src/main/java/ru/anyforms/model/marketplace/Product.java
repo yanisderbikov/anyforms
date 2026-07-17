@@ -26,18 +26,20 @@ public class Product {
     @NonNull
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
-    @Column(nullable = false)
-    @NonNull
     private String s3PhotosFolderPath;
     @Column(nullable = false)
     @NonNull
     private String price;
     private String crossedPrice;
     private String discountPercent;
-    @Column(nullable = false)
-    @NonNull
     private String tgLink;
     private Integer orderNumber;
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean active = Boolean.TRUE;
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean preorder = Boolean.FALSE;
     /** ID элемента каталога товаров в AmoCRM (для привязки товара к сделке после оплаты). */
     @Column(name = "amo_product_id")
     private Long amoProductId;

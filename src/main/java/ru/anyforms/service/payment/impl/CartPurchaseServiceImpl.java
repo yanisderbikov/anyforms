@@ -312,6 +312,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             Product product = getterProduct.getById(cartItem.getProductId())
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.BAD_REQUEST, "Товар не найден: " + cartItem.getProductId()));
+            if (Boolean.FALSE.equals(product.getActive())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Товар недоступен для покупки: " + product.getName());
+            }
             int quantity = cartItem.getQuantity() == null ? 0 : cartItem.getQuantity();
             if (quantity < 1) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
