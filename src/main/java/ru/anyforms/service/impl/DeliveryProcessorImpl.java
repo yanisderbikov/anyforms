@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.integration.CdekTrackingGateway;
 import ru.anyforms.integration.GoogleSheetsGateway;
+import ru.anyforms.model.Order;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
@@ -45,6 +46,9 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     @Value("${amocrm.retail.pipeline.id}")
     private Long retailPipelineId;
 
+    @Value("${amocrm.status.ready.to.ship.id}")
+    private Long readyToShipStatusId;
+
     public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder, CustomProductItemService customProductItemService, DeliveryBotNotifier deliveryBotNotifier) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
@@ -69,6 +73,12 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
             }
             var order = optionalOrder.get();
             var leadId = order.getLeadId();
+            if (leadId == null) {
+                leadId = createLeadForOrder(order, trackerNumber);
+                if (leadId == null) {
+                    return;
+                }
+            }
             var currentStatus = CdekOrderStatus.fromCode(order.getDeliveryStatus());
             var statusFromCdek = webhookStatusCdek != null ? webhookStatusCdek : cdekTrackingGateway.getOrderStatus(trackerNumber);
 
@@ -77,7 +87,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
                 return;
             }
 
-            amoCrmService.updateLeadCustomField(order.getLeadId(), AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getCode());
+            amoCrmService.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getCode());
             if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT.getStatusId(), retailPipelineId);
                 deliveryBotNotifier.notifyShipped(leadId, trackerNumber);
@@ -95,6 +105,26 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
         } catch (Exception e) {
             log.error("Ошибка при обновлении статуса в таблице и AmoCRM для трекера {}: {}",
                     trackerNumber, e.getMessage(), e);
+        }
+    }
+
+    private Long createLeadForOrder(Order order, String trackerNumber) {
+        try {
+            var contactName = order.getContactName() != null ? order.getContactName() : "Клиент";
+            var leadId = amoCrmService.createLead("Маркетплейс — " + contactName, contactName,
+                    order.getContactPhone(), retailPipelineId, readyToShipStatusId);
+            if (leadId == null) {
+                log.error("АМО не вернула id сделки для заказа #{} (трекер {})", order.getId(), trackerNumber);
+                return null;
+            }
+            order.setLeadId(leadId);
+            saverOrder.save(order);
+            log.info("Создана сделка {} для заказа #{} без lead_id (трекер {})", leadId, order.getId(), trackerNumber);
+            return leadId;
+        } catch (Exception e) {
+            log.error("Не удалось создать сделку в АМО для заказа #{} (трекер {}): {}",
+                    order.getId(), trackerNumber, e.getMessage(), e);
+            return null;
         }
     }
 
