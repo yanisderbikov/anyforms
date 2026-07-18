@@ -97,8 +97,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     @Value("${payment.allowed-return-hosts}")
     private String allowedReturnHosts;
 
-    @Value("${payment.marketplace.vat-code}")
-    private Integer marketplaceVatCode;
+    @Value("${payment.yookassa.vat-code}")
+    private Integer yookassaVatCode;
 
     @Value("${payment.marketplace.provider}")
     private String marketplaceProvider;
@@ -334,7 +334,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                                 .value(MoneyUtil.kopecksToString(i.unitKopecks()))
                                 .currency(Currency.RUB.getCode())
                                 .build(),
-                        marketplaceVatCode,
+                        yookassaVatCode,
                         i.quantity()))
                 .collect(Collectors.toList());
         return new PaymentReceipt(new PaymentCustomer(fullName, email), receiptItems);
