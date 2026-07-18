@@ -42,9 +42,6 @@ public class PaymentProduct {
     @Column(name = "price_kopecks", nullable = false)
     private Long priceKopecks;
 
-    @Column(name = "vat_code", nullable = false)
-    private Integer vatCode;
-
     @Column(name = "success_url_path", nullable = false)
     private String successUrlPath;
 

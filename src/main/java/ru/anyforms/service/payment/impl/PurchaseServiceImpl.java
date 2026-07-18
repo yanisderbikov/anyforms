@@ -55,6 +55,9 @@ class PurchaseServiceImpl implements PurchaseService {
     @Value("${payment.allowed-return-hosts}")
     private String allowedReturnHosts;
 
+    @Value("${payment.yookassa.vat-code}")
+    private Integer yookassaVatCode;
+
     @Override
     public PaymentUrlResponse purchase(PurchaseRequest request) {
         PaymentProduct product = getterPaymentProduct.getByCode(request.getProductCode())
@@ -181,7 +184,7 @@ class PurchaseServiceImpl implements PurchaseService {
                 ? DEFAULT_FULL_NAME
                 : request.getFullName();
         PaymentCustomer customer = new PaymentCustomer(fullName, request.getEmail());
-        PaymentItem item = new PaymentItem(product.getDescription(), amount, product.getVatCode(), 1);
+        PaymentItem item = new PaymentItem(product.getDescription(), amount, yookassaVatCode, 1);
         return new PaymentReceipt(customer, List.of(item));
     }
 }
