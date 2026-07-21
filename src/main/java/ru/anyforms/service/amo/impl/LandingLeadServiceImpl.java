@@ -44,7 +44,7 @@ class LandingLeadServiceImpl implements LandingLeadService {
             amoCrmGateway.setNewTask(
                     AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
                     AmoTaskId.LOST_MESSAGE.getTaskId(),
-                    "Пришла заявка на печать с сайта",
+                    request.getLeadName(),
                     leadId,
                     10
             );
