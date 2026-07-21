@@ -41,10 +41,13 @@ class LandingLeadServiceImpl implements LandingLeadService {
 
         // Сделка уже создана — ошибка постановки задачи не должна ронять запрос в 400
         try {
+            String taskText = request.getLeadName() != null && !request.getLeadName().isBlank()
+                    ? request.getLeadName()
+                    : "Пришла заявка с сайта";
             amoCrmGateway.setNewTask(
                     AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
                     AmoTaskId.LOST_MESSAGE.getTaskId(),
-                    request.getLeadName(),
+                    taskText,
                     leadId,
                     10
             );
