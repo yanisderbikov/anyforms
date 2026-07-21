@@ -145,9 +145,13 @@ public interface AmoCrmGateway {
      * @param leadName название сделки
      * @param contactName имя контакта
      * @param phone номер телефона контакта
+     * @param pipelineId ID воронки; {@code null} — воронка лендинга по умолчанию
+     * @param statusId ID статуса; {@code null} — статус лендинга по умолчанию
+     * @param utmByFieldCode UTM-метки по кодам системных полей amo (UTM_SOURCE, UTM_MEDIUM…); может быть пустым
      * @return ID созданной сделки
      */
-    Long createLandingLead(String leadName, String contactName, String phone);
+    Long createLandingLead(String leadName, String contactName, String phone,
+                           Long pipelineId, Long statusId, Map<String, String> utmByFieldCode);
 
     /**
      * Создаёт сделку с вложенным контактом в заданной воронке и статусе

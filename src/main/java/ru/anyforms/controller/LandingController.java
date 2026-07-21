@@ -25,7 +25,7 @@ public class LandingController {
     @Operation(summary = "Создать заявку в amoCRM из имени и телефона")
     @PostMapping("/lead")
     public ResponseEntity<ApiResponseDTO> createLead(@Valid @RequestBody LandingLeadRequestDTO request) {
-        Long leadId = landingLeadService.createLead(request.getLeadName(), request.getName(), request.getPhone());
+        Long leadId = landingLeadService.createLead(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponseDTO(true, null, leadId, null, null));
     }

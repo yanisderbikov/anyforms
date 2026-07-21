@@ -1,5 +1,7 @@
 package ru.anyforms.service.amo;
 
+import ru.anyforms.dto.LandingLeadRequestDTO;
+
 public interface LandingLeadService {
-    Long createLead(String leadName, String name, String phone);
+    Long createLead(LandingLeadRequestDTO request);
 }

@@ -1018,12 +1018,21 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
-    public Long createLandingLead(String leadName, String contactName, String phone) {
-        return createLead(leadName, contactName, phone, landingPipelineId, landingStatusId);
+    public Long createLandingLead(String leadName, String contactName, String phone,
+                                  Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
+        return createLead(leadName, contactName, phone,
+                pipelineId != null ? pipelineId : landingPipelineId,
+                statusId != null ? statusId : landingStatusId,
+                utmByFieldCode);
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
+        return createLead(leadName, contactName, phone, pipelineId, statusId, Map.of());
+    }
+
+    private Long createLead(String leadName, String contactName, String phone,
+                            Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
         try {
             JsonObject phoneValue = new JsonObject();
             phoneValue.addProperty("value", phone);
@@ -1055,6 +1064,22 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             lead.addProperty("pipeline_id", pipelineId);
             lead.addProperty("status_id", statusId);
             lead.add("_embedded", embedded);
+
+            // UTM-метки — системные поля сделки amo, задаются по field_code (UTM_SOURCE и т.д.)
+            if (utmByFieldCode != null && !utmByFieldCode.isEmpty()) {
+                JsonArray leadCustomFields = new JsonArray();
+                for (Map.Entry<String, String> entry : utmByFieldCode.entrySet()) {
+                    JsonObject valueObj = new JsonObject();
+                    valueObj.addProperty("value", entry.getValue());
+                    JsonArray values = new JsonArray();
+                    values.add(valueObj);
+                    JsonObject field = new JsonObject();
+                    field.addProperty("field_code", entry.getKey());
+                    field.add("values", values);
+                    leadCustomFields.add(field);
+                }
+                lead.add("custom_fields_values", leadCustomFields);
+            }
 
             JsonArray requestBody = new JsonArray();
             requestBody.add(lead);

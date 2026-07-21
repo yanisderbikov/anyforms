@@ -179,9 +179,10 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
-    public Long createLandingLead(String leadName, String contactName, String phone) {
+    public Long createLandingLead(String leadName, String contactName, String phone,
+                                  Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
         acquireSlot();
-        return delegate.createLandingLead(leadName, contactName, phone);
+        return delegate.createLandingLead(leadName, contactName, phone, pipelineId, statusId, utmByFieldCode);
     }
 
     @Override

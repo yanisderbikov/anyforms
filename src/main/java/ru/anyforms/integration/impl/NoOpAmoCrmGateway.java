@@ -129,7 +129,8 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
-    public Long createLandingLead(String leadName, String contactName, String phone) {
+    public Long createLandingLead(String leadName, String contactName, String phone,
+                                  Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
         skip("createLandingLead");
         return null;
     }
