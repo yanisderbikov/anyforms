@@ -20,12 +20,12 @@ public class RegisterAdminRequestDTO {
     @Schema(description = "Пароль", required = true)
     private String password;
 
-    @NotBlank
+    @NotBlank(message = "Имя обязательно")
     @Size(min = 1, max = 255)
     @Schema(description = "Имя (для приветствия в админке)", required = true, example = "Юра")
     private String name;
 
-    @NotNull
+    @NotNull(message = "Роль обязательна: ADMIN, SALES_MANAGER, PROJECT_MANAGER или CLIENT")
     @Schema(description = "Роль пользователя", required = true, example = "ADMIN")
     private Role role;
 }
