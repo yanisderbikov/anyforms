@@ -4,3 +4,6 @@ target/
 .idea/
 .env.prod
 .env.prod-test
+
+*.dump
+restore-db.sh
