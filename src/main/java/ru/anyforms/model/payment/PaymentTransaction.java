@@ -46,13 +46,21 @@ public class PaymentTransaction {
     @Column(nullable = false)
     private Currency currency;
 
-    @Column(nullable = false)
     private String email;
 
     @Column(name = "marketing_consent")
     private Boolean marketingConsent;
 
     private String description;
+
+    @Column(name = "payment_url", columnDefinition = "TEXT")
+    private String paymentUrl;
+
+    @Column(name = "contact_name")
+    private String contactName;
+
+    @Column(name = "contact_phone", length = 64)
+    private String contactPhone;
 
     @Column(name = "order_id")
     private Long orderId;

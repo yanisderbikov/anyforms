@@ -2,6 +2,7 @@ package ru.anyforms.repository.impl;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.GetterTransaction;
@@ -31,6 +32,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     public List<PaymentTransaction> getByOrderId(Long orderId) {
         try {
             return transactionRepo.findByOrderId(orderId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<PaymentTransaction> getRecentByProductCode(String productCode, int limit) {
+        try {
+            return transactionRepo.findByProductCodeOrderByCreatedAtDesc(productCode, PageRequest.of(0, limit));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

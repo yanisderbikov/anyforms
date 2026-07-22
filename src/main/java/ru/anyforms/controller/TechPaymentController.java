@@ -28,8 +28,8 @@ public class TechPaymentController {
 
     private final PaymentRefundService paymentRefundService;
 
-    @Value("${telegram.pusher.token}")
-    private String techToken;
+    @Value("${service.auth.token}")
+    private String serviceToken;
 
     @Operation(summary = "Массовый возврат по заказам",
             description = "Делает полный возврат через Т-Кассу по каждому заказу из списка")
@@ -41,11 +41,11 @@ public class TechPaymentController {
     }
 
     private void checkToken(String token) {
-        if (techToken == null || techToken.isBlank()) {
-            log.warn("telegram.pusher.token не настроен — запрос возврата отклонён");
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "tech token is not configured");
+        if (serviceToken == null || serviceToken.isBlank()) {
+            log.warn("service.auth.token не настроен — запрос возврата отклонён");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "service token is not configured");
         }
-        if (!techToken.equals(token)) {
+        if (!serviceToken.equals(token)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "invalid auth token");
         }
     }

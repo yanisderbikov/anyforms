@@ -23,6 +23,7 @@ public class PaymentProduct {
     public static final String CODE_COURSE = "COURSE";
     public static final String CODE_COURSE_PERSONAL = "COURSE_PERSONAL";
     public static final String CODE_MARKETPLACE_CART = "MARKETPLACE_CART";
+    public static final String CODE_MANUAL_INVOICE = "MANUAL_INVOICE";
 
     @Id
     @GeneratedValue(generator = "UUID")

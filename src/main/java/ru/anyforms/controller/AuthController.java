@@ -1,7 +1,9 @@
 package ru.anyforms.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,24 +26,34 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @Value("${telegram.pusher.token}")
-    private String techToken;
+    @Value("${service.auth.token}")
+    private String serviceToken;
 
-    @Operation(summary = "Регистрация админа", description = "Только с техническим токеном в X-Auth-Token")
+    @Operation(summary = "Регистрация админа",
+            description = "Только с сервисным токеном (SERVICE_AUTH_TOKEN) в Authorization: Bearer",
+            security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/register-admin")
-    public ResponseEntity<Void> registerAdmin(@RequestHeader(value = "X-Auth-Token", required = false) String token,
-                                              @Valid @RequestBody RegisterAdminRequestDTO request) {
-        checkToken(token);
+    public ResponseEntity<Void> registerAdmin(@Valid @RequestBody RegisterAdminRequestDTO request,
+                                              HttpServletRequest httpRequest) {
+        checkToken(extractBearerToken(httpRequest.getHeader("Authorization")));
         authService.registerAdmin(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    private void checkToken(String token) {
-        if (techToken == null || techToken.isBlank()) {
-            log.warn("telegram.pusher.token не настроен — регистрация админа отклонена");
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "tech token is not configured");
+    private String extractBearerToken(String authorization) {
+        String prefix = "Bearer ";
+        if (authorization != null && authorization.startsWith(prefix)) {
+            return authorization.substring(prefix.length());
         }
-        if (!techToken.equals(token)) {
+        return null;
+    }
+
+    private void checkToken(String token) {
+        if (serviceToken == null || serviceToken.isBlank()) {
+            log.warn("service.auth.token не настроен — регистрация админа отклонена");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "service token is not configured");
+        }
+        if (!serviceToken.equals(token)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "invalid auth token");
         }
     }

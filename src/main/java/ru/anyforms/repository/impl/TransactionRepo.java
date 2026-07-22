@@ -1,5 +1,6 @@
 package ru.anyforms.repository.impl;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,8 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     Optional<PaymentTransaction> findByExternalPaymentId(String externalPaymentId);
 
     List<PaymentTransaction> findByOrderId(Long orderId);
+
+    List<PaymentTransaction> findByProductCodeOrderByCreatedAtDesc(String productCode, Pageable pageable);
 
     @Query(value = """
             SELECT EXISTS (

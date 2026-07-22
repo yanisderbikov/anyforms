@@ -10,5 +10,7 @@ public interface GetterTransaction {
 
     List<PaymentTransaction> getByOrderId(Long orderId);
 
+    List<PaymentTransaction> getRecentByProductCode(String productCode, int limit);
+
     boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10);
 }

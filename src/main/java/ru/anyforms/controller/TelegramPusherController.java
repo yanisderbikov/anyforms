@@ -24,8 +24,8 @@ public class TelegramPusherController {
 
     private final TelegramDigestService telegramDigestService;
 
-    @Value("${telegram.pusher.token}")
-    private String pusherToken;
+    @Value("${service.auth.token}")
+    private String serviceToken;
 
     @Operation(summary = "Дайджест неотправленных уведомлений (пустой orderIds — отправлять нечего)")
     @GetMapping("/pending")
@@ -43,11 +43,11 @@ public class TelegramPusherController {
     }
 
     private void checkToken(String token) {
-        if (pusherToken == null || pusherToken.isBlank()) {
-            log.warn("telegram.pusher.token не настроен — запрос пушера отклонён");
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "pusher token is not configured");
+        if (serviceToken == null || serviceToken.isBlank()) {
+            log.warn("service.auth.token не настроен — запрос пушера отклонён");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "service token is not configured");
         }
-        if (!pusherToken.equals(token)) {
+        if (!serviceToken.equals(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid auth token");
         }
     }

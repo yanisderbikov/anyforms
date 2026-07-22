@@ -23,6 +23,11 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
             marketplaceFulfillmentService.fulfill(transaction);
             return;
         }
+        if (PaymentProduct.CODE_MANUAL_INVOICE.equals(transaction.getProductCode())) {
+            log.info("Оплачен ручной счёт {} ({}, {} коп.)",
+                    transaction.getExternalPaymentId(), transaction.getContactName(), transaction.getAmount());
+            return;
+        }
 
         EmailTaskPayload payload = EmailTaskPayload.builder()
                 .to(transaction.getEmail())
