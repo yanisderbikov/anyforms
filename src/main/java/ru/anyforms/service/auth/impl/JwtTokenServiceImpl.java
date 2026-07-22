@@ -27,16 +27,18 @@ class JwtTokenServiceImpl implements JwtTokenService {
     }
 
     @Override
-    public String createToken(String username, Role role) {
+    public String createToken(String username, Role role, String name) {
         var now = new Date();
         var expiry = new Date(now.getTime() + expirationMs);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(username)
                 .claim("role", role.name())
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(key)
-                .compact();
+                .expiration(expiry);
+        if (name != null && !name.isBlank()) {
+            builder.claim("name", name.trim());
+        }
+        return builder.signWith(key).compact();
     }
 
     @Override

@@ -38,9 +38,9 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/api/public/**").permitAll()
-                    .requestMatchers("/api/orders/**").hasRole("ADMIN")
-                    .requestMatchers("/api/custom-product-items/**").hasRole("ADMIN")
-                    .requestMatchers("/api/custom-product-files/**").hasRole("ADMIN")
+                    .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
+                    .requestMatchers("/api/custom-product-items/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
+                    .requestMatchers("/api/custom-product-files/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/product/create").hasRole("ADMIN")
                     .requestMatchers("/api/product/all").hasRole("ADMIN")
                     .requestMatchers("/api/product/*/photos").hasRole("ADMIN")

@@ -7,7 +7,6 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.LoginRequestDTO;
 import ru.anyforms.dto.LoginResponseDTO;
 import ru.anyforms.dto.RegisterAdminRequestDTO;
-import ru.anyforms.model.Role;
 import ru.anyforms.model.User;
 import ru.anyforms.repository.UserRepository;
 import ru.anyforms.service.auth.AuthService;
@@ -30,7 +29,8 @@ class AuthServiceImpl implements AuthService {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.ADMIN);
+        user.setName(request.getName().trim());
+        user.setRole(request.getRole());
         userRepository.save(user);
     }
 
@@ -41,7 +41,7 @@ class AuthServiceImpl implements AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Неверный логин или пароль");
         }
-        String token = jwtTokenService.createToken(user.getUsername(), user.getRole());
+        String token = jwtTokenService.createToken(user.getUsername(), user.getRole(), user.getName());
         return new LoginResponseDTO(token);
     }
 }
