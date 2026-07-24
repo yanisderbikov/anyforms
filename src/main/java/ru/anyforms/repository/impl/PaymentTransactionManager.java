@@ -8,6 +8,7 @@ import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.SaverTransaction;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,6 +43,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     public List<PaymentTransaction> getRecentByProductCode(String productCode, int limit) {
         try {
             return transactionRepo.findByProductCodeOrderByCreatedAtDesc(productCode, PageRequest.of(0, limit));
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<PaymentTransaction> getRecentByProductCodes(Collection<String> productCodes, int limit) {
+        try {
+            return transactionRepo.findByProductCodeInOrderByCreatedAtDesc(productCodes, PageRequest.of(0, limit));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

@@ -104,6 +104,7 @@ class PurchaseServiceImpl implements PurchaseService {
                 .contactName(blankToNull(request.getFullName()))
                 .contactPhone(blankToNull(request.getPhone()))
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
+                .paymentUrl(response.getConfirmation() != null ? response.getConfirmation().getConfirmationUrl() : null)
                 .status(resolveStatus(response.getStatus()))
                 .promoCode(promo != null ? promo.getCode() : null)
                 .discountPercent(promo != null ? promo.getDiscountPercent() : null)
