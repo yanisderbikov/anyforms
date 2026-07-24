@@ -28,6 +28,7 @@ import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.PurchaseService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.util.MoneyUtil;
+import ru.anyforms.util.PhoneUtil;
 
 import java.net.URI;
 import java.util.List;
@@ -100,6 +101,8 @@ class PurchaseServiceImpl implements PurchaseService {
                 .currency(Currency.fromCode(response.getAmount().getCurrency()))
                 .description(response.getDescription())
                 .email(request.getEmail())
+                .contactName(blankToNull(request.getFullName()))
+                .contactPhone(blankToNull(request.getPhone()))
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
                 .status(resolveStatus(response.getStatus()))
                 .promoCode(promo != null ? promo.getCode() : null)
@@ -183,8 +186,12 @@ class PurchaseServiceImpl implements PurchaseService {
         String fullName = (request.getFullName() == null || request.getFullName().isBlank())
                 ? DEFAULT_FULL_NAME
                 : request.getFullName();
-        PaymentCustomer customer = new PaymentCustomer(fullName, request.getEmail());
+        PaymentCustomer customer = new PaymentCustomer(fullName, request.getEmail(), PhoneUtil.toE164(request.getPhone()));
         PaymentItem item = new PaymentItem(product.getDescription(), amount, yookassaVatCode, 1);
         return new PaymentReceipt(customer, List.of(item));
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

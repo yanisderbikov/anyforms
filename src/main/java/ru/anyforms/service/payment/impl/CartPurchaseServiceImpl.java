@@ -46,6 +46,7 @@ import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.util.MoneyUtil;
+import ru.anyforms.util.PhoneUtil;
 import ru.anyforms.util.PickupAddressDetector;
 
 import java.math.BigDecimal;
@@ -202,7 +203,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .description(description)
                 .capture(true)
                 .confirmation(new PaymentConfirmation(CONFIRMATION_REDIRECT, returnUrl))
-                .receipt(buildReceipt(fullName, request.getEmail(), priced))
+                .receipt(buildReceipt(fullName, request.getEmail(), request.getPhone(), priced))
                 .paymentMode(PAYMENT_MODE)
                 .paymentSubject(PAYMENT_SUBJECT)
                 .build();
@@ -326,7 +327,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         return priced;
     }
 
-    private PaymentReceipt buildReceipt(String fullName, String email, List<PricedItem> priced) {
+    private PaymentReceipt buildReceipt(String fullName, String email, String phone, List<PricedItem> priced) {
         List<PaymentItem> receiptItems = priced.stream()
                 .map(i -> new PaymentItem(
                         i.product().getName(),
@@ -337,7 +338,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                         yookassaVatCode,
                         i.quantity()))
                 .collect(Collectors.toList());
-        return new PaymentReceipt(new PaymentCustomer(fullName, email), receiptItems);
+        return new PaymentReceipt(new PaymentCustomer(fullName, email, PhoneUtil.toE164(phone)), receiptItems);
     }
 
     private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
