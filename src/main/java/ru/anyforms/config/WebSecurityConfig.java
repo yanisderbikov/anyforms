@@ -22,11 +22,13 @@ import java.util.List;
 public class WebSecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final ActuatorAuthFilter actuatorAuthFilter;
     @Value("${allowed.origins}")
     private List<String> allowedOrigins;
 
-    public WebSecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public WebSecurityConfig(JwtAuthFilter jwtAuthFilter, ActuatorAuthFilter actuatorAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.actuatorAuthFilter = actuatorAuthFilter;
     }
 
     @Bean
@@ -50,7 +52,8 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/**").permitAll()
                     .anyRequest().permitAll()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(actuatorAuthFilter, JwtAuthFilter.class);
 
         return http.build();
     }
