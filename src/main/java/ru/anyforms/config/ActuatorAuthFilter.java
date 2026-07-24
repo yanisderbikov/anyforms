@@ -23,7 +23,7 @@ public class ActuatorAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/actuator");
+        return !request.getRequestURI().startsWith("/api/actuator");
     }
 
     @Override
