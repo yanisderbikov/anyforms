@@ -2,12 +2,15 @@ package ru.anyforms.model.task;
 
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.dto.email.ReceiptEmailTaskPayload;
 
 public enum TaskType {
     /** Письмо о покупке курса/гайда. */
     EMAIL(EmailTaskPayload.class),
     /** Письмо-чек заказа маркетплейса. */
-    MARKETPLACE_ORDER_EMAIL(MarketplaceOrderEmailPayload.class);
+    MARKETPLACE_ORDER_EMAIL(MarketplaceOrderEmailPayload.class),
+    /** Письмо со ссылкой на чек Юкассы. */
+    RECEIPT_EMAIL(ReceiptEmailTaskPayload.class);
 
     private final Class<?> payloadClass;
 

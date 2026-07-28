@@ -13,4 +13,6 @@ import java.util.UUID;
 @Repository
 interface TaskRepo extends JpaRepository<Task, UUID> {
     List<Task> findByTypeAndStatusOrderByCreatedAtAsc(TaskType type, TaskStatus status, Pageable pageable);
+
+    List<Task> findByTypeOrderByCreatedAtDesc(TaskType type, Pageable pageable);
 }

@@ -25,6 +25,23 @@ public final class EmailTemplate {
         return load("templates/email-course-personal.html").replace("%LINK%", link);
     }
 
+    private static final String RECEIPT_PREVIEW_BLOCK = """
+                            <tr>
+                                <td class="pad" style="padding:0 40px 28px 40px;">
+                                    <a href="%LINK%"><img src="%PREVIEW_IMG%" alt="Чек" style="display:block; width:100%; max-width:480px; height:auto; border:1px solid #e5e3dc; border-radius:14px;"></a>
+                                </td>
+                            </tr>""";
+
+    /** Письмо со ссылкой на чек Юкассы; previewImageUrl — картинка-превью чека, может быть null. */
+    public static String getReceiptEmail(String link, String previewImageUrl) {
+        String preview = previewImageUrl == null
+                ? ""
+                : RECEIPT_PREVIEW_BLOCK.replace("%PREVIEW_IMG%", esc(previewImageUrl));
+        return load("templates/email-receipt.html")
+                .replace("%PREVIEW%", preview)
+                .replace("%LINK%", link);
+    }
+
     /**
      * Письмо-чек заказа маркетплейса: таблица позиций, итог, адрес ПВЗ, данные получателя.
      */

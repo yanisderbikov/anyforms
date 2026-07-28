@@ -5,7 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.model.payment.PaymentTransactionStatus;
 
 import java.util.Collection;
 import java.util.List;
@@ -21,6 +23,11 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     List<PaymentTransaction> findByProductCodeOrderByCreatedAtDesc(String productCode, Pageable pageable);
 
     List<PaymentTransaction> findByProductCodeInOrderByCreatedAtDesc(Collection<String> productCodes, Pageable pageable);
+
+    List<PaymentTransaction> findByProviderAndStatusAndProductCodeInOrderByCreatedAtDesc(PaymentProvider provider,
+                                                                                        PaymentTransactionStatus status,
+                                                                                        Collection<String> productCodes,
+                                                                                        Pageable pageable);
 
     @Query(value = """
             SELECT EXISTS (
