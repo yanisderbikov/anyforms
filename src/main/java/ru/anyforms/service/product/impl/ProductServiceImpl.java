@@ -8,9 +8,11 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.marketplace.ProductCreateUpdateRequestDTO;
 import ru.anyforms.dto.marketplace.ProductDTO;
 import ru.anyforms.model.marketplace.Product;
+import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.repository.GetterProduct;
 import ru.anyforms.repository.SaverProduct;
 import ru.anyforms.service.product.ProductService;
+import ru.anyforms.service.product.ShopService;
 import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.converter.ConverterProducts;
@@ -30,19 +32,32 @@ class ProductServiceImpl implements ProductService {
     private final ConverterProducts converterProducts;
     private final GetterPhotosFromS3Folder getterPhotosFromS3Folder;
     private final S3FileStorage s3FileStorage;
+    private final ShopService shopService;
 
     @Override
-    public List<ProductDTO> getAllProducts() {
-        var products = getterProduct.getAllProducts();
+    public List<ProductDTO> getAllProducts(String shopSlug) {
+        var products = getterProduct.getAllProducts().stream()
+                .filter(p -> matchesShop(p, shopSlug))
+                .toList();
         return converterProducts.convert(products);
     }
 
     @Override
-    public List<ProductDTO> getActiveProducts() {
+    public List<ProductDTO> getActiveProducts(String shopSlug) {
         var products = getterProduct.getAllProducts().stream()
                 .filter(p -> !Boolean.FALSE.equals(p.getActive()))
+                .filter(p -> p.getShop() == null || !Boolean.FALSE.equals(p.getShop().getActive()))
+                .filter(p -> matchesShop(p, shopSlug))
                 .toList();
         return converterProducts.convert(products);
+    }
+
+    /** Пустой slug — товары всех магазинов (общая витрина и общий список админки). */
+    private boolean matchesShop(Product product, String shopSlug) {
+        if (shopSlug == null || shopSlug.isBlank()) {
+            return true;
+        }
+        return product.getShop() != null && product.getShop().getSlug().equals(shopSlug.trim());
     }
 
     @Override
@@ -106,7 +121,10 @@ class ProductServiceImpl implements ProductService {
     }
 
     private Product newProductFromRequest(ProductCreateUpdateRequestDTO request) {
+        // Магазин по умолчанию (anyforms), если в запросе не указан.
+        Shop shop = shopService.resolveBySlug(request.getShopSlug());
         return Product.builder()
+                .shop(shop)
                 .name(request.getName())
                 .description(request.getDescription())
                 .s3PhotosFolderPath(blankToNull(request.getFolder()))
@@ -158,6 +176,9 @@ class ProductServiceImpl implements ProductService {
         }
         if (request.getPreorder() != null) {
             product.setPreorder(request.getPreorder());
+        }
+        if (request.getShopSlug() != null && !request.getShopSlug().isBlank()) {
+            product.setShop(shopService.resolveBySlug(request.getShopSlug()));
         }
         return product;
     }

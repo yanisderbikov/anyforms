@@ -31,20 +31,24 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @Operation(summary = "Получить продукты витрины", description = "Только активные товары — публичный список для магазина")
+    @Operation(summary = "Получить продукты витрины",
+            description = "Только активные товары. Без параметра shop — общая витрина (товары всех магазинов), "
+                    + "с shop=<slug> — только товары этого магазина")
     @GetMapping()
-    public ResponseEntity<List<ProductDTO>> getAllProducts() {
-        var products = productService.getActiveProducts();
+    public ResponseEntity<List<ProductDTO>> getAllProducts(
+            @RequestParam(value = "shop", required = false) String shopSlug) {
+        var products = productService.getActiveProducts(shopSlug);
         return ResponseEntity.ok(products);
     }
 
     @Operation(summary = "Получить все продукты для админки",
-            description = "Все товары, включая выключенные из продажи",
+            description = "Все товары, включая выключенные из продажи. shop=<slug> — фильтр по магазину",
             security = @SecurityRequirement(name = "Bearer")
     )
     @GetMapping("/all")
-    public ResponseEntity<List<ProductDTO>> getAllProductsAdmin() {
-        var products = productService.getAllProducts();
+    public ResponseEntity<List<ProductDTO>> getAllProductsAdmin(
+            @RequestParam(value = "shop", required = false) String shopSlug) {
+        var products = productService.getAllProducts(shopSlug);
         return ResponseEntity.ok(products);
     }
 

@@ -46,4 +46,9 @@ public class ProductCreateUpdateRequestDTO {
      * Товар продаётся по предзаказу (плашка и пояснение на витрине). null при обновлении — не менять.
      */
     private Boolean preorder;
+    /**
+     * Slug магазина-владельца товара (anyforms, af_pastry). При создании пустое значение —
+     * товар уходит в магазин по умолчанию (anyforms). При обновлении null — не менять.
+     */
+    private String shopSlug;
 }

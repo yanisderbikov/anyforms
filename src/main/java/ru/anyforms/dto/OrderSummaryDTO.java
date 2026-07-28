@@ -50,5 +50,8 @@ public class OrderSummaryDTO {
 
     @Schema(description = "Кол-во кастомных позиций под-заказа", example = "0")
     private Long customItemsCount;
+
+    @Schema(description = "Витрина, с которой оформлен заказ", example = "af_pastry")
+    private String shopSlug;
 }
 
