@@ -29,6 +29,7 @@ import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.marketplace.Product;
+import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentProvider;
@@ -45,6 +46,7 @@ import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
+import ru.anyforms.service.product.ShopService;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 import ru.anyforms.util.PickupAddressDetector;
@@ -91,6 +93,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final OrderRepository orderRepository;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
+    private final ShopService shopService;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -342,7 +345,9 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     }
 
     private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
+        Shop shop = resolveShop(request.getShopSlug(), priced);
         Order order = new Order();
+        order.setShop(shop);
         order.setSource(OrderSource.MARKETPLACE);
         order.setRetail(true);
         order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
@@ -369,6 +374,26 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             order.addItem(orderItem);
         }
         return orderRepository.save(order);
+    }
+
+    /**
+     * Витрина заказа: с неё считается выручка магазина. На общей витрине (anyforms) можно
+     * купить и партнёрский товар — такая продажа засчитывается anyforms. На витрине партнёра
+     * в заказе могут быть только его товары.
+     */
+    private Shop resolveShop(String shopSlug, List<PricedItem> priced) {
+        Shop shop = shopService.resolveBySlug(shopSlug);
+        if (Shop.DEFAULT_SLUG.equals(shop.getSlug())) {
+            return shop;
+        }
+        for (PricedItem item : priced) {
+            Shop productShop = item.product().getShop();
+            if (productShop == null || !productShop.getSlug().equals(shop.getSlug())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Товар не продаётся в магазине " + shop.getSlug() + ": " + item.product().getName());
+            }
+        }
+        return shop;
     }
 
     /** Цена товара — строка рублей ("890", "1 190", "1190,50"). Приводим к копейкам. */

@@ -26,4 +26,7 @@ public class ProductDTO {
     private String amoProductName;
     private Boolean active;
     private Boolean preorder;
+    /** Магазин-владелец товара. */
+    private String shopSlug;
+    private String shopName;
 }

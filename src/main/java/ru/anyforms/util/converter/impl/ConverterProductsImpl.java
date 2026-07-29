@@ -33,7 +33,9 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getAmoProductId(),
                 product.getAmoProductName(),
                 product.getActive(),
-                product.getPreorder()
+                product.getPreorder(),
+                product.getShop() == null ? null : product.getShop().getSlug(),
+                product.getShop() == null ? null : product.getShop().getName()
         );
     }
 }

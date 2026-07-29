@@ -46,4 +46,8 @@ public class Product {
     /** Имя товара в каталоге АМО (чтобы позиции заказа назывались как в АМО). */
     @Column(name = "amo_product_name")
     private String amoProductName;
+    /** Магазин-владелец товара. Товар показывается на своей витрине /shop/{slug} и на общей /shop. */
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "shop_id", nullable = false)
+    private Shop shop;
 }
