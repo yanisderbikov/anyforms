@@ -8,8 +8,10 @@ import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.repository.GetterTransaction;
+import ru.anyforms.repository.ProductSalesRow;
 import ru.anyforms.repository.SaverTransaction;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -69,6 +71,19 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
         try {
             return transactionRepo.findByProviderAndStatusAndProductCodeInOrderByCreatedAtDesc(
                     provider, status, productCodes, PageRequest.of(0, limit));
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<ProductSalesRow> getSalesByProductCodes(PaymentTransactionStatus status,
+                                                        Collection<String> productCodes,
+                                                        Instant from,
+                                                        Instant to) {
+        try {
+            return transactionRepo.aggregateByProductCode(status, productCodes, from, to);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

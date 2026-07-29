@@ -8,7 +8,9 @@ import org.springframework.stereotype.Repository;
 import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
+import ru.anyforms.repository.ProductSalesRow;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +30,22 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
                                                                                         PaymentTransactionStatus status,
                                                                                         Collection<String> productCodes,
                                                                                         Pageable pageable);
+
+    @Query("""
+            SELECT t.productCode AS productCode,
+                   COUNT(t) AS quantity,
+                   SUM(t.amount) AS amountKopecks
+            FROM PaymentTransaction t
+            WHERE t.status = :status
+              AND t.productCode IN :productCodes
+              AND t.updatedAt >= :from
+              AND t.updatedAt < :to
+            GROUP BY t.productCode
+            """)
+    List<ProductSalesRow> aggregateByProductCode(@Param("status") PaymentTransactionStatus status,
+                                                 @Param("productCodes") Collection<String> productCodes,
+                                                 @Param("from") Instant from,
+                                                 @Param("to") Instant to);
 
     @Query(value = """
             SELECT EXISTS (
