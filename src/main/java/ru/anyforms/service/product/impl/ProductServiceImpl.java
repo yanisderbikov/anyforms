@@ -7,7 +7,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.marketplace.ProductCreateUpdateRequestDTO;
 import ru.anyforms.dto.marketplace.ProductDTO;
+import ru.anyforms.dto.marketplace.ProductVariantRequestDTO;
 import ru.anyforms.model.marketplace.Product;
+import ru.anyforms.model.marketplace.ProductVariant;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.repository.GetterProduct;
 import ru.anyforms.repository.SaverProduct;
@@ -17,9 +19,14 @@ import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.converter.ConverterProducts;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -37,27 +44,30 @@ class ProductServiceImpl implements ProductService {
     @Override
     public List<ProductDTO> getAllProducts(String shopSlug) {
         var products = getterProduct.getAllProducts().stream()
-                .filter(p -> matchesShop(p, shopSlug))
+                .filter(p -> shopSlug == null || shopSlug.isBlank() || isInShop(p, shopSlug.trim()))
                 .toList();
         return converterProducts.convert(products);
     }
 
     @Override
     public List<ProductDTO> getActiveProducts(String shopSlug) {
+        String slug = shopSlug == null || shopSlug.isBlank() ? Shop.DEFAULT_SLUG : shopSlug.trim();
         var products = getterProduct.getAllProducts().stream()
                 .filter(p -> !Boolean.FALSE.equals(p.getActive()))
-                .filter(p -> p.getShop() == null || !Boolean.FALSE.equals(p.getShop().getActive()))
-                .filter(p -> matchesShop(p, shopSlug))
+                .filter(p -> isVisibleInShop(p, slug))
                 .toList();
         return converterProducts.convert(products);
     }
 
-    /** Пустой slug — товары всех магазинов (общая витрина и общий список админки). */
-    private boolean matchesShop(Product product, String shopSlug) {
-        if (shopSlug == null || shopSlug.isBlank()) {
-            return true;
-        }
-        return product.getShop() != null && product.getShop().getSlug().equals(shopSlug.trim());
+    private boolean isInShop(Product product, String slug) {
+        return product.getShops() != null
+                && product.getShops().stream().anyMatch(s -> s.getSlug().equals(slug));
+    }
+
+    private boolean isVisibleInShop(Product product, String slug) {
+        return product.getShops() != null
+                && product.getShops().stream()
+                .anyMatch(s -> s.getSlug().equals(slug) && !Boolean.FALSE.equals(s.getActive()));
     }
 
     @Override
@@ -121,10 +131,11 @@ class ProductServiceImpl implements ProductService {
     }
 
     private Product newProductFromRequest(ProductCreateUpdateRequestDTO request) {
-        // Магазин по умолчанию (anyforms), если в запросе не указан.
-        Shop shop = shopService.resolveBySlug(request.getShopSlug());
-        return Product.builder()
-                .shop(shop)
+        Set<Shop> shops = request.getShopSlugs() == null
+                ? Set.of(shopService.resolveBySlug(null))
+                : resolveShops(request.getShopSlugs());
+        Product product = Product.builder()
+                .shops(shops)
                 .name(request.getName())
                 .description(request.getDescription())
                 .s3PhotosFolderPath(blankToNull(request.getFolder()))
@@ -138,6 +149,10 @@ class ProductServiceImpl implements ProductService {
                 .active(request.getActive() == null || request.getActive())
                 .preorder(Boolean.TRUE.equals(request.getPreorder()))
                 .build();
+        if (request.getVariants() != null) {
+            applyVariants(product, request.getVariants());
+        }
+        return product;
     }
 
     private Product mapRequestOntoProduct(ProductCreateUpdateRequestDTO request, Product product) {
@@ -177,10 +192,46 @@ class ProductServiceImpl implements ProductService {
         if (request.getPreorder() != null) {
             product.setPreorder(request.getPreorder());
         }
-        if (request.getShopSlug() != null && !request.getShopSlug().isBlank()) {
-            product.setShop(shopService.resolveBySlug(request.getShopSlug()));
+        if (request.getShopSlugs() != null) {
+            product.setShops(resolveShops(request.getShopSlugs()));
+        }
+        if (request.getVariants() != null) {
+            applyVariants(product, request.getVariants());
         }
         return product;
+    }
+
+    private Set<Shop> resolveShops(List<String> slugs) {
+        return slugs.stream()
+                .filter(slug -> slug != null && !slug.isBlank())
+                .map(shopService::resolveBySlug)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private void applyVariants(Product product, List<ProductVariantRequestDTO> requested) {
+        Map<UUID, ProductVariant> existing = product.getVariants().stream()
+                .filter(v -> v.getId() != null)
+                .collect(Collectors.toMap(ProductVariant::getId, v -> v));
+        List<ProductVariant> result = new ArrayList<>();
+        int position = 0;
+        for (ProductVariantRequestDTO dto : requested) {
+            if (dto.getLabel() == null || dto.getLabel().isBlank()
+                    || dto.getPrice() == null || dto.getPrice().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "У варианта товара должны быть заполнены название и цена");
+            }
+            ProductVariant variant = dto.getId() == null ? null : existing.get(dto.getId());
+            if (variant == null) {
+                variant = new ProductVariant();
+                variant.setProduct(product);
+            }
+            variant.setLabel(dto.getLabel().trim());
+            variant.setPrice(dto.getPrice().trim());
+            variant.setOrderNumber(position++);
+            result.add(variant);
+        }
+        product.getVariants().clear();
+        product.getVariants().addAll(result);
     }
 
     private String blankToNull(String value) {

@@ -16,6 +16,10 @@ public class CartItemDTO {
     @Schema(description = "ID товара (marketplace product)")
     private UUID productId;
 
+    /** Обязателен, если у товара есть варианты; цена берётся из варианта. */
+    @Schema(description = "ID варианта товара (размера/объёма)")
+    private UUID variantId;
+
     @NotNull
     @Min(1)
     @Schema(description = "Количество")

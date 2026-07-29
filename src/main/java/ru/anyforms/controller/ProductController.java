@@ -32,8 +32,8 @@ public class ProductController {
     private final ProductService productService;
 
     @Operation(summary = "Получить продукты витрины",
-            description = "Только активные товары. Без параметра shop — общая витрина (товары всех магазинов), "
-                    + "с shop=<slug> — только товары этого магазина")
+            description = "Только активные товары, продающиеся в магазине. Без параметра shop — витрина по умолчанию (anyforms), "
+                    + "с shop=<slug> — витрина этого магазина")
     @GetMapping()
     public ResponseEntity<List<ProductDTO>> getAllProducts(
             @RequestParam(value = "shop", required = false) String shopSlug) {
@@ -42,7 +42,7 @@ public class ProductController {
     }
 
     @Operation(summary = "Получить все продукты для админки",
-            description = "Все товары, включая выключенные из продажи. shop=<slug> — фильтр по магазину",
+            description = "Все товары всех магазинов, включая выключенные из продажи. shop=<slug> — только товары, продающиеся в этом магазине",
             security = @SecurityRequirement(name = "Bearer")
     )
     @GetMapping("/all")

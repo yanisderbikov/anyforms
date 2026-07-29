@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -47,8 +48,14 @@ public class ProductCreateUpdateRequestDTO {
      */
     private Boolean preorder;
     /**
-     * Slug магазина-владельца товара (anyforms, af_pastry). При создании пустое значение —
-     * товар уходит в магазин по умолчанию (anyforms). При обновлении null — не менять.
+     * Slug'и магазинов, в которых продаётся товар (anyforms, af_pastry). Набор заменяется целиком:
+     * пустой список снимает товар со всех витрин. null при создании — магазин по умолчанию (anyforms),
+     * null при обновлении — не менять.
      */
-    private String shopSlug;
+    private List<String> shopSlugs;
+    /**
+     * Варианты товара (размер/объём — цена). Набор заменяется целиком: пустой список удаляет
+     * все варианты, null при обновлении — не менять. Вариант с id обновляется, без id — создаётся.
+     */
+    private List<ProductVariantRequestDTO> variants;
 }

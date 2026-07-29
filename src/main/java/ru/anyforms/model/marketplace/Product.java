@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.GenericGenerator;
 
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -46,8 +49,15 @@ public class Product {
     /** Имя товара в каталоге АМО (чтобы позиции заказа назывались как в АМО). */
     @Column(name = "amo_product_name")
     private String amoProductName;
-    /** Магазин-владелец товара. Товар показывается на своей витрине /shop/{slug} и на общей /shop. */
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "shop_id", nullable = false)
-    private Shop shop;
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "product_shop",
+            joinColumns = @JoinColumn(name = "product_id"),
+            inverseJoinColumns = @JoinColumn(name = "shop_id"))
+    private Set<Shop> shops = new HashSet<>();
+    @Builder.Default
+    @ToString.Exclude
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orderNumber ASC")
+    private Set<ProductVariant> variants = new LinkedHashSet<>();
 }
