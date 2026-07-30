@@ -40,6 +40,8 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getAmoProductName(),
                 product.getActive(),
                 product.getPreorder(),
+                product.getOrderNumber(),
+                folder,
                 convertShops(product.getShops()),
                 convertVariants(product.getVariants())
         );
