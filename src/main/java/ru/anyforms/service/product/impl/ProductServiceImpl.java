@@ -17,6 +17,7 @@ import ru.anyforms.service.product.ProductService;
 import ru.anyforms.service.product.ShopService;
 import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import ru.anyforms.service.s3.S3FileStorage;
+import ru.anyforms.util.PhotoOrderUtil;
 import ru.anyforms.util.converter.ConverterProducts;
 
 import java.util.ArrayList;
@@ -102,6 +103,33 @@ class ProductServiceImpl implements ProductService {
         }
         s3FileStorage.delete(SHOP_PREFIX + folder + "/" + fileName);
         getterPhotosFromS3Folder.invalidateFolder(folder);
+        List<String> keptOrder = PhotoOrderUtil.parse(product.getPhotoOrder()).stream()
+                .filter(name -> !name.equals(fileName))
+                .toList();
+        product.setPhotoOrder(PhotoOrderUtil.join(keptOrder));
+        return converterProducts.convert(saverProduct.save(product));
+    }
+
+    @Override
+    public ProductDTO reorderPhotos(UUID id, List<String> fileNames) {
+        Product product = getterProduct.getById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Товар не найден: " + id));
+        if (fileNames == null || fileNames.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Порядок фото не передан");
+        }
+        for (String name : fileNames) {
+            if (name == null || name.isBlank() || name.contains("/") || name.contains("..")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Некорректное имя файла: " + name);
+            }
+        }
+        product.setPhotoOrder(PhotoOrderUtil.join(fileNames));
+        return converterProducts.convert(saverProduct.save(product));
+    }
+
+    @Override
+    public ProductDTO getById(UUID id) {
+        Product product = getterProduct.getById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Товар не найден: " + id));
         return converterProducts.convert(product);
     }
 

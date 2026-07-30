@@ -9,6 +9,7 @@ import ru.anyforms.model.marketplace.Product;
 import ru.anyforms.model.marketplace.ProductVariant;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
+import ru.anyforms.util.PhotoOrderUtil;
 import ru.anyforms.util.converter.ConverterProducts;
 
 import java.util.Comparator;
@@ -26,7 +27,7 @@ class ConverterProductsImpl implements ConverterProducts {
         String folder = product.getS3PhotosFolderPath();
         var photos = folder == null || folder.isBlank()
                 ? List.<String>of()
-                : getterPhotosFromS3Folder.getPhotos(folder);
+                : PhotoOrderUtil.applyOrder(getterPhotosFromS3Folder.getPhotos(folder), product.getPhotoOrder());
         return new ProductDTO(
                 product.getId(),
                 product.getName(),

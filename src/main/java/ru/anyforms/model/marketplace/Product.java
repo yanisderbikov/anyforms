@@ -30,6 +30,8 @@ public class Product {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
     private String s3PhotosFolderPath;
+    @Column(name = "photo_order", columnDefinition = "TEXT")
+    private String photoOrder;
     @Column(nullable = false)
     @NonNull
     private String price;

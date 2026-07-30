@@ -22,4 +22,9 @@ public interface ProductService {
     ProductDTO uploadPhotos(UUID id, List<MultipartFile> files);
 
     ProductDTO deletePhoto(UUID id, String fileName);
+
+    /** Порядок фото товара на витрине: имена файлов из папки товара в нужном порядке. */
+    ProductDTO reorderPhotos(UUID id, List<String> fileNames);
+
+    ProductDTO getById(UUID id);
 }
