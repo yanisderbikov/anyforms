@@ -47,4 +47,8 @@ public class CartPurchaseRequest {
 
     @Schema(description = "URL страницы успеха (для возврата с Юкассы)")
     private String returnUrl;
+
+    @Schema(description = "Slug витрины, с которой оформлен заказ (anyforms, af_pastry). "
+            + "Пусто — общая витрина anyforms")
+    private String shopSlug;
 }

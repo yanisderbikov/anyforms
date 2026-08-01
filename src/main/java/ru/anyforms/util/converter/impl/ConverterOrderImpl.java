@@ -31,6 +31,7 @@ class ConverterOrderImpl implements ConverterOrder {
         dto.setTracker(order.getTracker());
         dto.setDeliveryMethod(order.getDeliveryMethod());
         dto.setDeliveryStatus(dtoStatus);
+        dto.setShopSlug(order.getShop() == null ? null : order.getShop().getSlug());
         dto.setItems(order.getItems().stream()
                 .map(this::convertToOrderItemDTO)
                 .collect(Collectors.toList()));

@@ -3,6 +3,8 @@ package ru.anyforms.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
+import ru.anyforms.model.marketplace.Shop;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -11,7 +13,7 @@ import java.util.List;
 @Entity
 @Table(name = "orders")
 @Data
-@EqualsAndHashCode(exclude = "items")
+@EqualsAndHashCode(exclude = {"items", "shop"})
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -74,6 +76,15 @@ public class Order {
 
     @Column(name = "comment")
     private String comment;
+
+    /**
+     * Витрина, с которой оформлен заказ (а не владелец товара): покупка партнёрского товара
+     * на общей витрине /shop засчитывается магазину anyforms. Null у заказов до появления магазинов.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shop_id")
+    @ToString.Exclude
+    private Shop shop;
 
     @PrePersist
     protected void onCreate() {

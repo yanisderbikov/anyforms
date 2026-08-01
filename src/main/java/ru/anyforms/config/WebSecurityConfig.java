@@ -46,6 +46,8 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/product/create").hasRole("ADMIN")
                     .requestMatchers("/api/product/all").hasRole("ADMIN")
                     .requestMatchers("/api/product/*/photos").hasRole("ADMIN")
+                    .requestMatchers("/api/product/*/photos/**").hasRole("ADMIN")
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/product/*").hasRole("ADMIN")
                     .requestMatchers("/api/amo/**").hasRole("ADMIN")
                     .requestMatchers("/api/invoice/**").hasRole("ADMIN")
                     .requestMatchers("/api/training-invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")

@@ -29,6 +29,8 @@ import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.marketplace.Product;
+import ru.anyforms.model.marketplace.ProductVariant;
+import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.Currency;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentProvider;
@@ -45,6 +47,7 @@ import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
+import ru.anyforms.service.product.ShopService;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 import ru.anyforms.util.PickupAddressDetector;
@@ -56,6 +59,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -91,6 +95,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final OrderRepository orderRepository;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
+    private final ShopService shopService;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -116,8 +121,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     @Value("${amocrm.products.catalog.id}")
     private Long productsCatalogId;
 
-    /** Позиция корзины после серверной валидации и прайсинга. */
-    private record PricedItem(Product product, int quantity, long unitKopecks) {
+    /** Позиция корзины после серверной валидации и прайсинга; variant задан, если товар с вариантами. */
+    private record PricedItem(Product product, ProductVariant variant, int quantity, long unitKopecks) {
     }
 
     @Override
@@ -127,7 +132,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         PromoCode promo = resolvePromo(request.getPromoCode(), request.getEmail(), request.getPhone());
         if (promo != null) {
             priced = priced.stream()
-                    .map(i -> new PricedItem(i.product(), i.quantity(),
+                    .map(i -> new PricedItem(i.product(), i.variant(), i.quantity(),
                             MoneyUtil.applyDiscountPercent(i.unitKopecks(), promo.getDiscountPercent())))
                     .toList();
         }
@@ -271,7 +276,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private TinkoffReceipt buildTinkoffReceipt(CartPurchaseRequest request, List<PricedItem> priced) {
         List<TinkoffReceiptItem> items = priced.stream()
                 .map(i -> TinkoffReceiptItem.builder()
-                        .name(truncate(i.product().getName(), TINKOFF_ITEM_NAME_MAX_LENGTH))
+                        .name(truncate(displayName(i.product(), i.variant()), TINKOFF_ITEM_NAME_MAX_LENGTH))
                         .price(i.unitKopecks())
                         .quantity(i.quantity())
                         .amount(i.unitKopecks() * i.quantity())
@@ -322,15 +327,41 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Некорректное количество для товара " + product.getName());
             }
-            priced.add(new PricedItem(product, quantity, parsePriceToKopecks(product.getPrice(), product.getName())));
+            ProductVariant variant = resolveVariant(product, cartItem.getVariantId());
+            String price = variant != null ? variant.getPrice() : product.getPrice();
+            priced.add(new PricedItem(product, variant, quantity, parsePriceToKopecks(price, displayName(product, variant))));
         }
         return priced;
+    }
+
+    private ProductVariant resolveVariant(Product product, UUID variantId) {
+        boolean hasVariants = product.getVariants() != null && !product.getVariants().isEmpty();
+        if (variantId == null) {
+            if (hasVariants) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Для товара нужно выбрать вариант: " + product.getName());
+            }
+            return null;
+        }
+        if (!hasVariants) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Вариант товара не найден: " + product.getName());
+        }
+        return product.getVariants().stream()
+                .filter(v -> variantId.equals(v.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Вариант товара не найден: " + product.getName()));
+    }
+
+    private String displayName(Product product, ProductVariant variant) {
+        return variant == null ? product.getName() : product.getName() + " " + variant.getLabel();
     }
 
     private PaymentReceipt buildReceipt(String fullName, String email, String phone, List<PricedItem> priced) {
         List<PaymentItem> receiptItems = priced.stream()
                 .map(i -> new PaymentItem(
-                        i.product().getName(),
+                        displayName(i.product(), i.variant()),
                         Amount.builder()
                                 .value(MoneyUtil.kopecksToString(i.unitKopecks()))
                                 .currency(Currency.RUB.getCode())
@@ -342,7 +373,9 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     }
 
     private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
+        Shop shop = resolveShop(request.getShopSlug(), priced);
         Order order = new Order();
+        order.setShop(shop);
         order.setSource(OrderSource.MARKETPLACE);
         order.setRetail(true);
         order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
@@ -357,9 +390,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
         for (PricedItem item : priced) {
             Product product = item.product();
-            String itemName = product.getAmoProductName() != null && !product.getAmoProductName().isBlank()
+            String baseName = product.getAmoProductName() != null && !product.getAmoProductName().isBlank()
                     ? product.getAmoProductName()
                     : product.getName();
+            String itemName = item.variant() == null ? baseName : baseName + " " + item.variant().getLabel();
             OrderItem orderItem = new OrderItem();
             orderItem.setProductName(itemName);
             orderItem.setQuantity(item.quantity());
@@ -369,6 +403,19 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             order.addItem(orderItem);
         }
         return orderRepository.save(order);
+    }
+
+    private Shop resolveShop(String shopSlug, List<PricedItem> priced) {
+        Shop shop = shopService.resolveBySlug(shopSlug);
+        for (PricedItem item : priced) {
+            boolean soldInShop = item.product().getShops() != null && item.product().getShops().stream()
+                    .anyMatch(s -> s.getSlug().equals(shop.getSlug()));
+            if (!soldInShop) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Товар не продаётся в магазине " + shop.getSlug() + ": " + item.product().getName());
+            }
+        }
+        return shop;
     }
 
     /** Цена товара — строка рублей ("890", "1 190", "1190,50"). Приводим к копейкам. */

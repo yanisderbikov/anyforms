@@ -26,4 +26,8 @@ public class ProductDTO {
     private String amoProductName;
     private Boolean active;
     private Boolean preorder;
+    private Integer orderNumber;
+    private String folder;
+    private List<ShopDTO> shops;
+    private List<ProductVariantDTO> variants;
 }
