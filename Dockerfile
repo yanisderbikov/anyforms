@@ -15,6 +15,10 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+COPY certs/russian_trusted_root_ca.crt /tmp/russian_trusted_root_ca.crt
+RUN keytool -importcert -cacerts -storepass changeit -noprompt -alias russian-trusted-root-ca -file /tmp/russian_trusted_root_ca.crt && \
+    rm /tmp/russian_trusted_root_ca.crt
+
 COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8090
