@@ -230,6 +230,7 @@ class MarketplaceFulfillmentService {
                         .priceRub(i.getPriceKopecks() != null ? MoneyUtil.kopecksToString(i.getPriceKopecks()) : "")
                         .build())
                 .collect(Collectors.toList());
+        Shop shop = order.getShop();
         return MarketplaceOrderEmailPayload.builder()
                 .to(transaction.getEmail())
                 .orderPublicId(order.getPublicId())
@@ -237,9 +238,9 @@ class MarketplaceFulfillmentService {
                 .pvzCity(order.getPvzSdekCity())
                 .pvzStreet(order.getPvzSdekStreet())
                 .totalRub(MoneyUtil.kopecksToString(transaction.getAmount()))
-                .supportTelegram(order.getShop() != null
-                        ? order.getShop().getSupportTelegram()
-                        : Shop.DEFAULT_SUPPORT_TELEGRAM)
+                .supportTelegram(shop != null ? shop.getSupportTelegram() : Shop.DEFAULT_SUPPORT_TELEGRAM)
+                .shopSlug(shop != null ? shop.getSlug() : Shop.DEFAULT_SLUG)
+                .shopName(shop != null ? shop.getName() : Shop.DEFAULT_SLUG)
                 .items(emailItems)
                 .build();
     }

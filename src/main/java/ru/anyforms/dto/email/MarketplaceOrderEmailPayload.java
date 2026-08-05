@@ -24,6 +24,8 @@ public class MarketplaceOrderEmailPayload {
     private String pvzStreet;
     private String totalRub;
     private String supportTelegram;
+    private String shopSlug;
+    private String shopName;
     private List<Item> items;
 
     @Data

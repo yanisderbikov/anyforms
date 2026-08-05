@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.task.Task;
 import ru.anyforms.model.task.TaskStatus;
 import ru.anyforms.model.task.TaskType;
@@ -14,12 +15,14 @@ import ru.anyforms.service.email.EmailTemplate;
 
 import java.util.List;
 
-/** Раннер писем-чеков заказа маркетплейса (таски {@link TaskType#MARKETPLACE_ORDER_EMAIL}). */
+/**
+ * Раннер писем-чеков заказа маркетплейса (таски {@link TaskType#MARKETPLACE_ORDER_EMAIL}).
+ * Тема, отправитель и шаблон зависят от магазина заказа: у партнёрского магазина
+ * письмо уходит под его брендом («Команда af_pastry»), у anyforms — как раньше.
+ */
 @Slf4j
 @Component
 class MarketplaceOrderEmailTaskRunner extends AbstractRunnableTask {
-
-    private static final String SUBJECT = "Ваш заказ anyforms оформлен";
 
     private final GetterTaskByStatus getterTaskByStatus;
     private final EmailService emailService;
@@ -42,6 +45,13 @@ class MarketplaceOrderEmailTaskRunner extends AbstractRunnableTask {
     protected void process(Task task) {
         MarketplaceOrderEmailPayload payload = gson.fromJson(task.getPayload(), MarketplaceOrderEmailPayload.class);
         String html = EmailTemplate.getMarketplaceOrderEmail(payload);
-        emailService.sendEmail(payload.getTo(), SUBJECT, html);
+        boolean partnerShop = payload.getShopSlug() != null
+                && !payload.getShopSlug().isBlank()
+                && !Shop.DEFAULT_SLUG.equals(payload.getShopSlug());
+        String shopName = partnerShop && payload.getShopName() != null && !payload.getShopName().isBlank()
+                ? payload.getShopName()
+                : Shop.DEFAULT_SLUG;
+        String fromName = partnerShop ? "Команда " + shopName : null;
+        emailService.sendEmail(payload.getTo(), "Ваш заказ " + shopName + " оформлен", html, fromName);
     }
 }

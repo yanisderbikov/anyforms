@@ -4,6 +4,7 @@ import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.model.marketplace.Shop;
 
 import java.util.List;
+import java.util.Map;
 
 public final class EmailTemplate {
 
@@ -45,22 +46,48 @@ public final class EmailTemplate {
 
     /**
      * Письмо-чек заказа маркетплейса: таблица позиций, итог, адрес ПВЗ, данные получателя.
-     * Ссылка поддержки — бот магазина заказа; старые таски без поля получают бота по умолчанию.
+     * Партнёрский магазин со своим шаблоном templates/email-marketplace-order-{slug}.html
+     * получает письмо в своём стиле, остальные — общий шаблон anyforms.
+     * Ссылка поддержки — бот магазина заказа; старые таски без полей получают вариант anyforms.
      */
     public static String getMarketplaceOrderEmail(MarketplaceOrderEmailPayload payload) {
         String supportTelegram = payload.getSupportTelegram() == null || payload.getSupportTelegram().isBlank()
                 ? Shop.DEFAULT_SUPPORT_TELEGRAM
                 : payload.getSupportTelegram();
-        return load("templates/email-marketplace-order.html")
+        String slug = normalizeSlug(payload.getShopSlug());
+        return loadMarketplaceOrderTemplate(slug)
                 .replace("%ORDER%", esc(payload.getOrderPublicId() == null ? "" : payload.getOrderPublicId()))
-                .replace("%ROWS%", buildRows(payload.getItems()))
+                .replace("%ROWS%", buildRows(payload.getItems(), SHOP_ROW_STYLES.getOrDefault(slug, DEFAULT_ROW_STYLE)))
                 .replace("%TOTAL%", formatRub(payload.getTotalRub()))
                 .replace("%PVZ%", esc(buildPvz(payload)))
                 .replace("%CUSTOMER%", esc(payload.getCustomerName() == null ? "" : payload.getCustomerName()))
                 .replace("%SUPPORT_TG%", esc(supportTelegram));
     }
 
-    private static String buildRows(List<MarketplaceOrderEmailPayload.Item> items) {
+    /** Цвета строк чека: строки собираются в коде, поэтому палитра задаётся здесь, а не в шаблоне. */
+    private record RowStyle(String border, String name, String qty, String price) {
+    }
+
+    private static final RowStyle DEFAULT_ROW_STYLE = new RowStyle("#ececec", "#111111", "#8c8c8c", "#111111");
+
+    private static final Map<String, RowStyle> SHOP_ROW_STYLES = Map.of(
+            "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35"));
+
+    private static String normalizeSlug(String slug) {
+        return slug != null && slug.matches("[a-z0-9_-]+") ? slug : Shop.DEFAULT_SLUG;
+    }
+
+    private static String loadMarketplaceOrderTemplate(String slug) {
+        if (!Shop.DEFAULT_SLUG.equals(slug)) {
+            String shopTemplate = loadOptional("templates/email-marketplace-order-" + slug + ".html");
+            if (shopTemplate != null) {
+                return shopTemplate;
+            }
+        }
+        return load("templates/email-marketplace-order.html");
+    }
+
+    private static String buildRows(List<MarketplaceOrderEmailPayload.Item> items, RowStyle style) {
         if (items == null || items.isEmpty()) {
             return "";
         }
@@ -68,11 +95,14 @@ public final class EmailTemplate {
         for (MarketplaceOrderEmailPayload.Item item : items) {
             int qty = item.getQuantity() == null ? 1 : item.getQuantity();
             sb.append("<tr>")
-                    .append("<td class=\"font\" style=\"padding:12px 22px; font-size:15px; line-height:1.4; color:#111111; border-top:1px solid #ececec;\">")
+                    .append("<td class=\"font\" style=\"padding:12px 22px; font-size:15px; line-height:1.4; color:")
+                    .append(style.name()).append("; border-top:1px solid ").append(style.border()).append(";\">")
                     .append(esc(item.getName())).append("</td>")
-                    .append("<td class=\"font\" align=\"center\" style=\"padding:12px 10px; font-size:15px; color:#8c8c8c; border-top:1px solid #ececec; white-space:nowrap;\">×")
+                    .append("<td class=\"font\" align=\"center\" style=\"padding:12px 10px; font-size:15px; color:")
+                    .append(style.qty()).append("; border-top:1px solid ").append(style.border()).append("; white-space:nowrap;\">×")
                     .append(qty).append("</td>")
-                    .append("<td class=\"font\" align=\"right\" style=\"padding:12px 22px; font-size:15px; color:#111111; border-top:1px solid #ececec; white-space:nowrap;\">")
+                    .append("<td class=\"font\" align=\"right\" style=\"padding:12px 22px; font-size:15px; color:")
+                    .append(style.price()).append("; border-top:1px solid ").append(style.border()).append("; white-space:nowrap;\">")
                     .append(formatRub(item.getPriceRub())).append("&nbsp;&#8381;</td>")
                     .append("</tr>");
         }
@@ -112,9 +142,17 @@ public final class EmailTemplate {
     }
 
     private static String load(String templatePath) {
+        String template = loadOptional(templatePath);
+        if (template == null) {
+            throw new IllegalStateException("Шаблон письма не найден: " + templatePath);
+        }
+        return template;
+    }
+
+    private static String loadOptional(String templatePath) {
         try (var stream = EmailTemplate.class.getClassLoader().getResourceAsStream(templatePath)) {
             if (stream == null) {
-                throw new IllegalStateException("Шаблон письма не найден: " + templatePath);
+                return null;
             }
             return new String(stream.readAllBytes());
         } catch (Exception e) {
