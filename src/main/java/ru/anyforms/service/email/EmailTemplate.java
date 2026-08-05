@@ -1,6 +1,7 @@
 package ru.anyforms.service.email;
 
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.model.marketplace.Shop;
 
 import java.util.List;
 
@@ -44,14 +45,19 @@ public final class EmailTemplate {
 
     /**
      * Письмо-чек заказа маркетплейса: таблица позиций, итог, адрес ПВЗ, данные получателя.
+     * Ссылка поддержки — бот магазина заказа; старые таски без поля получают бота по умолчанию.
      */
     public static String getMarketplaceOrderEmail(MarketplaceOrderEmailPayload payload) {
+        String supportTelegram = payload.getSupportTelegram() == null || payload.getSupportTelegram().isBlank()
+                ? Shop.DEFAULT_SUPPORT_TELEGRAM
+                : payload.getSupportTelegram();
         return load("templates/email-marketplace-order.html")
                 .replace("%ORDER%", esc(payload.getOrderPublicId() == null ? "" : payload.getOrderPublicId()))
                 .replace("%ROWS%", buildRows(payload.getItems()))
                 .replace("%TOTAL%", formatRub(payload.getTotalRub()))
                 .replace("%PVZ%", esc(buildPvz(payload)))
-                .replace("%CUSTOMER%", esc(payload.getCustomerName() == null ? "" : payload.getCustomerName()));
+                .replace("%CUSTOMER%", esc(payload.getCustomerName() == null ? "" : payload.getCustomerName()))
+                .replace("%SUPPORT_TG%", esc(supportTelegram));
     }
 
     private static String buildRows(List<MarketplaceOrderEmailPayload.Item> items) {

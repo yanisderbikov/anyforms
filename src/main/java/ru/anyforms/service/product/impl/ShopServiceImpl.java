@@ -20,7 +20,8 @@ class ShopServiceImpl implements ShopService {
     @Override
     public List<ShopDTO> getActiveShops() {
         return getterShop.getActiveShops().stream()
-                .map(shop -> new ShopDTO(shop.getId(), shop.getSlug(), shop.getName(), shop.getActive()))
+                .map(shop -> new ShopDTO(shop.getId(), shop.getSlug(), shop.getName(), shop.getActive(),
+                        shop.getSupportTelegram()))
                 .toList();
     }
 

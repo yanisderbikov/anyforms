@@ -64,7 +64,8 @@ class ConverterProductsImpl implements ConverterProducts {
         }
         return shops.stream()
                 .sorted(Comparator.comparing(Shop::getName))
-                .map(shop -> new ShopDTO(shop.getId(), shop.getSlug(), shop.getName(), shop.getActive()))
+                .map(shop -> new ShopDTO(shop.getId(), shop.getSlug(), shop.getName(), shop.getActive(),
+                        shop.getSupportTelegram()))
                 .toList();
     }
 }

@@ -11,6 +11,7 @@ import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.amo.AmoCrmFieldId;
+import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.OrderService;
@@ -236,6 +237,9 @@ class MarketplaceFulfillmentService {
                 .pvzCity(order.getPvzSdekCity())
                 .pvzStreet(order.getPvzSdekStreet())
                 .totalRub(MoneyUtil.kopecksToString(transaction.getAmount()))
+                .supportTelegram(order.getShop() != null
+                        ? order.getShop().getSupportTelegram()
+                        : Shop.DEFAULT_SUPPORT_TELEGRAM)
                 .items(emailItems)
                 .build();
     }
