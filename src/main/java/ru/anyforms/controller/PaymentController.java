@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.payment.CartPurchaseRequest;
 import ru.anyforms.dto.payment.PaymentProductDTO;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
@@ -92,6 +93,12 @@ public class PaymentController {
     @ExceptionHandler(InvalidPromoCodeException.class)
     public ResponseEntity<Map<String, String>> handleInvalidPromo(InvalidPromoCodeException e) {
         return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatus(ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode())
+                .body(Map.of("message", e.getReason() == null ? "Не удалось создать платёж" : e.getReason()));
     }
 
     @Operation(summary = "Купить продукт", description = "Создаёт платёж в Юкассе и возвращает ссылку на оплату")

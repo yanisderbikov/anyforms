@@ -24,6 +24,9 @@ public class Shop {
     /** Магазин по умолчанию: общая витрина /shop и владелец товаров без явного магазина. */
     public static final String DEFAULT_SLUG = "anyforms";
 
+    /** Бот поддержки по умолчанию — для anyforms и заказов без магазина. */
+    public static final String DEFAULT_SUPPORT_TELEGRAM = "AnyFormsBot";
+
     @Id
     @GeneratedValue(generator = "UUID")
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
@@ -41,6 +44,11 @@ public class Shop {
     @Builder.Default
     @Column(nullable = false)
     private Boolean active = Boolean.TRUE;
+
+    /** Username телеграм-бота поддержки магазина, без @. */
+    @Builder.Default
+    @Column(name = "support_telegram", nullable = false, length = 64)
+    private String supportTelegram = DEFAULT_SUPPORT_TELEGRAM;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

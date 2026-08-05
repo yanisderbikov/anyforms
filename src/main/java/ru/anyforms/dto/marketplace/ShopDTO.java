@@ -17,4 +17,5 @@ public class ShopDTO {
     private String slug;
     private String name;
     private Boolean active;
+    private String supportTelegram;
 }

@@ -44,6 +44,12 @@ class NotiSendEmailService implements EmailService {
     }
 
     @Override
+    public void sendEmail(String to, String subject, String body, String overrideFromName) {
+        String from = overrideFromName == null || overrideFromName.isBlank() ? fromName : overrideFromName;
+        send(new NotisendEmailRequest(emailAddress, from, to, subject, body, null));
+    }
+
+    @Override
     public void sendEmailWithReplyTo(String to, String subject, String body, @NonNull String replyTo) {
         send(new NotisendEmailRequest(emailAddress, fromName, to, subject, body, Map.of("Reply-To", replyTo)));
     }
