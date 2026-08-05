@@ -53,34 +53,28 @@
                         Здравствуйте, %CUSTOMER%! Спасибо за&nbsp;заказ в&nbsp;af_pastry. Оплата получена — ниже предварительный чек. Мы&nbsp;соберём заказ и&nbsp;отправим его в&nbsp;выбранный пункт выдачи СДЭК.
                     </td>
                 </tr>
-                <!-- чек: таблица позиций -->
+                <!-- чек: позиции без рамки, только тонкие линейки между строками -->
                 <tr>
-                    <td class="pad" style="padding:0 40px 8px 40px;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f9f4e9; border:1px solid #e6dcc9; border-radius:12px;">
+                    <td class="pad" style="padding:0 40px 6px 40px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                                <td colspan="3" class="font" style="padding:18px 22px 10px 22px; font-size:12px; line-height:1.5; color:#6f7a52; text-transform:lowercase; letter-spacing:0.08em;">предварительный чек</td>
+                                <td colspan="3" class="font" style="padding:0 0 10px 0; font-size:12px; line-height:1.5; color:#6f7a52; text-transform:lowercase; letter-spacing:0.08em;">предварительный чек</td>
                             </tr>
                             %ROWS%
                             <tr>
-                                <td class="font" style="padding:16px 22px; font-size:15px; font-weight:700; color:#572631; border-top:2px solid #d9c9ae;">Итого</td>
+                                <td class="font" style="padding:16px 0; font-size:15px; font-weight:700; color:#572631; border-top:2px solid #d9c9ae;">Итого</td>
                                 <td style="border-top:2px solid #d9c9ae;"></td>
-                                <td class="font" align="right" style="padding:16px 22px; font-size:16px; font-weight:800; color:#572631; border-top:2px solid #d9c9ae; white-space:nowrap;">%TOTAL%&nbsp;&#8381;</td>
+                                <td class="font" align="right" style="padding:16px 0; font-size:16px; font-weight:800; color:#572631; border-top:2px solid #d9c9ae; white-space:nowrap;">%TOTAL%&nbsp;&#8381;</td>
                             </tr>
                         </table>
                     </td>
                 </tr>
-                <!-- доставка / ПВЗ -->
+                <!-- доставка / ПВЗ: подпись и адрес без рамки -->
                 <tr>
-                    <td class="pad" style="padding:12px 40px 8px 40px;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f9f4e9; border:1px solid #e6dcc9; border-radius:12px;">
-                            <tr>
-                                <td class="font" style="padding:18px 22px 6px 22px; font-size:12px; line-height:1.5; color:#6f7a52; text-transform:lowercase; letter-spacing:0.08em;">пункт выдачи СДЭК</td>
-                            </tr>
-                            <tr>
-                                <td class="font" style="padding:0 22px 18px 22px; font-size:16px; line-height:1.5; font-weight:600; color:#4a2e35;">%PVZ%</td>
-                            </tr>
-                        </table>
-                    </td>
+                    <td class="pad font" style="padding:10px 40px 0 40px; font-size:12px; line-height:1.5; color:#6f7a52; text-transform:lowercase; letter-spacing:0.08em;">пункт выдачи СДЭК</td>
+                </tr>
+                <tr>
+                    <td class="pad font" style="padding:6px 40px 2px 40px; font-size:16px; line-height:1.5; font-weight:600; color:#4a2e35;">%PVZ%</td>
                 </tr>
                 <!-- что дальше -->
                 <tr>

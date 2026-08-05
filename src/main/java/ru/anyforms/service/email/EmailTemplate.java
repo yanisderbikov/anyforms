@@ -64,14 +64,18 @@ public final class EmailTemplate {
                 .replace("%SUPPORT_TG%", esc(supportTelegram));
     }
 
-    /** Цвета строк чека: строки собираются в коде, поэтому палитра задаётся здесь, а не в шаблоне. */
-    private record RowStyle(String border, String name, String qty, String price) {
+    /**
+     * Оформление строк чека: строки собираются в коде, поэтому палитра и отступы
+     * задаются здесь, а не в шаблоне. У anyforms строки живут в серой рамке-плашке
+     * (боковой отступ 22px), у af_pastry — лежат на карточке без рамки, в край.
+     */
+    private record RowStyle(String border, String name, String qty, String price, String sidePadding) {
     }
 
-    private static final RowStyle DEFAULT_ROW_STYLE = new RowStyle("#ececec", "#111111", "#8c8c8c", "#111111");
+    private static final RowStyle DEFAULT_ROW_STYLE = new RowStyle("#ececec", "#111111", "#8c8c8c", "#111111", "22px");
 
     private static final Map<String, RowStyle> SHOP_ROW_STYLES = Map.of(
-            "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35"));
+            "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35", "0"));
 
     private static String normalizeSlug(String slug) {
         return slug != null && slug.matches("[a-z0-9_-]+") ? slug : Shop.DEFAULT_SLUG;
@@ -95,13 +99,15 @@ public final class EmailTemplate {
         for (MarketplaceOrderEmailPayload.Item item : items) {
             int qty = item.getQuantity() == null ? 1 : item.getQuantity();
             sb.append("<tr>")
-                    .append("<td class=\"font\" style=\"padding:12px 22px; font-size:15px; line-height:1.4; color:")
+                    .append("<td class=\"font\" style=\"padding:12px ").append(style.sidePadding())
+                    .append("; font-size:15px; line-height:1.4; color:")
                     .append(style.name()).append("; border-top:1px solid ").append(style.border()).append(";\">")
                     .append(esc(item.getName())).append("</td>")
                     .append("<td class=\"font\" align=\"center\" style=\"padding:12px 10px; font-size:15px; color:")
                     .append(style.qty()).append("; border-top:1px solid ").append(style.border()).append("; white-space:nowrap;\">×")
                     .append(qty).append("</td>")
-                    .append("<td class=\"font\" align=\"right\" style=\"padding:12px 22px; font-size:15px; color:")
+                    .append("<td class=\"font\" align=\"right\" style=\"padding:12px ").append(style.sidePadding())
+                    .append("; font-size:15px; color:")
                     .append(style.price()).append("; border-top:1px solid ").append(style.border()).append("; white-space:nowrap;\">")
                     .append(formatRub(item.getPriceRub())).append("&nbsp;&#8381;</td>")
                     .append("</tr>");
