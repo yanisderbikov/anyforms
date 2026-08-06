@@ -1020,7 +1020,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     @Override
     public Long createLandingLead(String leadName, String contactName, String phone,
                                   Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
-        return createLead(leadName, contactName, phone,
+        return createLead(leadName, contactName, phone, null,
                 pipelineId != null ? pipelineId : landingPipelineId,
                 statusId != null ? statusId : landingStatusId,
                 utmByFieldCode);
@@ -1028,42 +1028,19 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, pipelineId, statusId, Map.of());
+        return createLead(leadName, contactName, phone, null, pipelineId, statusId, Map.of());
     }
 
-    private Long createLead(String leadName, String contactName, String phone,
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId) {
+        return createLead(leadName, contactName, phone, email, pipelineId, statusId, Map.of());
+    }
+
+    private Long createLead(String leadName, String contactName, String phone, String email,
                             Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
         try {
-            JsonObject phoneValue = new JsonObject();
-            phoneValue.addProperty("value", phone);
-            phoneValue.addProperty("enum_code", "WORK");
-
-            JsonArray phoneValues = new JsonArray();
-            phoneValues.add(phoneValue);
-
-            JsonObject phoneField = new JsonObject();
-            phoneField.addProperty("field_code", "PHONE");
-            phoneField.add("values", phoneValues);
-
-            JsonArray contactCustomFields = new JsonArray();
-            contactCustomFields.add(phoneField);
-
-            JsonObject contact = new JsonObject();
-            contact.addProperty("name", contactName);
-            contact.add("custom_fields_values", contactCustomFields);
-
-            JsonArray contacts = new JsonArray();
-            contacts.add(contact);
-
-            JsonObject embedded = new JsonObject();
-            embedded.add("contacts", contacts);
-
-            JsonObject lead = new JsonObject();
-            lead.addProperty("name", leadName);
-            lead.addProperty("responsible_user_id", landingResponsibleUserId);
-            lead.addProperty("pipeline_id", pipelineId);
-            lead.addProperty("status_id", statusId);
-            lead.add("_embedded", embedded);
+            JsonObject lead = newLeadJson(leadName, pipelineId, statusId, resolveContact(contactName, phone, email));
 
             // UTM-метки — системные поля сделки amo, задаются по field_code (UTM_SOURCE и т.д.)
             if (utmByFieldCode != null && !utmByFieldCode.isEmpty()) {
@@ -1081,53 +1058,264 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                 lead.add("custom_fields_values", leadCustomFields);
             }
 
-            JsonArray requestBody = new JsonArray();
-            requestBody.add(lead);
+            return postComplexLead(lead);
+        } catch (Exception e) {
+            log.error("Failed to create lead in amoCRM (pipeline={}, status={})", pipelineId, statusId, e);
+            throw new RuntimeException("Failed to create lead in amoCRM", e);
+        }
+    }
 
-            String response = webClient.post()
-                    .uri("/api/v4/leads/complex")
+    private JsonObject resolveContact(String contactName, String phone, String email) {
+        Long existingContactId = findExistingContactId(email, phone);
+        if (existingContactId != null) {
+            log.info("Contact {} already exists in amoCRM, attaching it to the new lead", existingContactId);
+            JsonObject existingContact = new JsonObject();
+            existingContact.addProperty("id", existingContactId);
+            return existingContact;
+        }
+
+        JsonArray contactCustomFields = new JsonArray();
+        if (phone != null && !phone.isBlank()) {
+            contactCustomFields.add(contactSystemField("PHONE", phone));
+        }
+        if (email != null && !email.isBlank()) {
+            contactCustomFields.add(contactSystemField("EMAIL", email));
+        }
+
+        JsonObject contact = new JsonObject();
+        contact.addProperty("name", contactName);
+        if (!contactCustomFields.isEmpty()) {
+            contact.add("custom_fields_values", contactCustomFields);
+        }
+        return contact;
+    }
+
+    private Long findExistingContactId(String email, String phone) {
+        if (email != null && !email.isBlank()) {
+            Long byEmail = findContactIdByQuery(email);
+            if (byEmail != null) {
+                return byEmail;
+            }
+        }
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        String phoneDigits = phone.replaceAll("\\D", "");
+        return phoneDigits.isBlank() ? null : findContactIdByQuery(phoneDigits);
+    }
+
+    @Override
+    public Long findContactIdByQuery(String query) {
+        try {
+            String response = webClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/api/v4/contacts")
+                            .queryParam("query", "{query}")
+                            .queryParam("limit", 1)
+                            .build(query))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new RuntimeException(
+                                            "AmoCRM contacts API " + clientResponse.statusCode() + ": " + body))))
+                    .bodyToMono(String.class)
+                    .block();
+
+            if (response == null || response.isEmpty()) {
+                return null;
+            }
+
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+            if (!json.has("_embedded")) {
+                return null;
+            }
+            JsonArray contacts = json.getAsJsonObject("_embedded").getAsJsonArray("contacts");
+            if (contacts == null || contacts.isEmpty()) {
+                return null;
+            }
+            JsonObject found = contacts.get(0).getAsJsonObject();
+            if (found.has("id") && !found.get("id").isJsonNull()) {
+                return found.get("id").getAsLong();
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to find contact by query in amoCRM", e);
+            throw new RuntimeException("Failed to find contact in amoCRM", e);
+        }
+    }
+
+    @Override
+    public List<Long> getLeadIdsByContact(Long contactId) {
+        try {
+            String response = webClient.get()
+                    .uri("/api/v4/contacts/" + contactId + "?with=leads")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new RuntimeException(
+                                            "AmoCRM contacts API " + clientResponse.statusCode() + ": " + body))))
+                    .bodyToMono(String.class)
+                    .block();
+
+            if (response == null || response.isEmpty()) {
+                return List.of();
+            }
+
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+            if (!json.has("_embedded") || !json.getAsJsonObject("_embedded").has("leads")) {
+                return List.of();
+            }
+            JsonArray leads = json.getAsJsonObject("_embedded").getAsJsonArray("leads");
+            List<Long> result = new java.util.ArrayList<>();
+            for (int i = 0; i < leads.size(); i++) {
+                JsonObject lead = leads.get(i).getAsJsonObject();
+                if (lead.has("id") && !lead.get("id").isJsonNull()) {
+                    result.add(lead.get("id").getAsLong());
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("Failed to get leads of contact {} from amoCRM", contactId, e);
+            throw new RuntimeException("Failed to get leads of contact from amoCRM", e);
+        }
+    }
+
+    @Override
+    public boolean addTagToLead(Long leadId, String tagName) {
+        try {
+            String response = webClient.get()
+                    .uri("/api/v4/leads/" + leadId)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            JsonArray tags = new JsonArray();
+            if (response != null && !response.isEmpty()) {
+                JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+                if (json.has("_embedded") && json.getAsJsonObject("_embedded").has("tags")) {
+                    JsonArray currentTags = json.getAsJsonObject("_embedded").getAsJsonArray("tags");
+                    for (int i = 0; i < currentTags.size(); i++) {
+                        JsonObject currentTag = currentTags.get(i).getAsJsonObject();
+                        if (currentTag.has("name") && tagName.equals(currentTag.get("name").getAsString())) {
+                            return true;
+                        }
+                        JsonObject keptTag = new JsonObject();
+                        keptTag.addProperty("id", currentTag.get("id").getAsLong());
+                        tags.add(keptTag);
+                    }
+                }
+            }
+
+            JsonObject newTag = new JsonObject();
+            newTag.addProperty("name", tagName);
+            tags.add(newTag);
+
+            JsonObject embedded = new JsonObject();
+            embedded.add("tags", tags);
+
+            JsonObject leadUpdate = new JsonObject();
+            leadUpdate.addProperty("id", leadId);
+            leadUpdate.add("_embedded", embedded);
+
+            JsonArray requestBody = new JsonArray();
+            requestBody.add(leadUpdate);
+
+            webClient.patch()
+                    .uri("/api/v4/leads")
                     .header("Authorization", "Bearer " + accessToken)
                     .bodyValue(requestBody.toString())
                     .retrieve()
                     .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
                             clientResponse -> clientResponse.bodyToMono(String.class)
                                     .flatMap(body -> Mono.error(new RuntimeException(
-                                            "AmoCRM leads/complex API " + clientResponse.statusCode() + ": " + body))))
+                                            "AmoCRM leads API " + clientResponse.statusCode() + ": " + body))))
                     .bodyToMono(String.class)
                     .block();
 
-            JsonElement parsedResponse = JsonParser.parseString(response);
-
-            // /api/v4/leads/complex может вернуть массив созданных сущностей.
-            if (parsedResponse.isJsonArray()) {
-                JsonArray createdLeads = parsedResponse.getAsJsonArray();
-                if (!createdLeads.isEmpty()) {
-                    JsonObject createdLead = createdLeads.get(0).getAsJsonObject();
-                    if (createdLead.has("id") && !createdLead.get("id").isJsonNull()) {
-                        return createdLead.get("id").getAsLong();
-                    }
-                }
-            }
-
-            // На некоторых эндпоинтах amoCRM возвращает объект с _embedded.
-            if (parsedResponse.isJsonObject()) {
-                JsonObject jsonResponse = parsedResponse.getAsJsonObject();
-                if (jsonResponse.has("_embedded")
-                        && jsonResponse.getAsJsonObject("_embedded").has("leads")
-                        && jsonResponse.getAsJsonObject("_embedded").getAsJsonArray("leads").size() > 0) {
-                    JsonObject createdLead = jsonResponse.getAsJsonObject("_embedded").getAsJsonArray("leads")
-                            .get(0).getAsJsonObject();
-                    if (createdLead.has("id") && !createdLead.get("id").isJsonNull()) {
-                        return createdLead.get("id").getAsLong();
-                    }
-                }
-            }
-
-            throw new RuntimeException("AmoCRM did not return created lead id");
+            log.info("Added tag '{}' to lead {}", tagName, leadId);
+            return true;
         } catch (Exception e) {
-            log.error("Failed to create lead in amoCRM (pipeline={}, status={})", pipelineId, statusId, e);
-            throw new RuntimeException("Failed to create lead in amoCRM", e);
+            log.error("Failed to add tag '{}' to lead {}", tagName, leadId, e);
+            return false;
         }
+    }
+
+    private JsonObject newLeadJson(String leadName, Long pipelineId, Long statusId, JsonObject contact) {
+        JsonArray contacts = new JsonArray();
+        contacts.add(contact);
+
+        JsonObject embedded = new JsonObject();
+        embedded.add("contacts", contacts);
+
+        JsonObject lead = new JsonObject();
+        lead.addProperty("name", leadName);
+        lead.addProperty("responsible_user_id", landingResponsibleUserId);
+        lead.addProperty("pipeline_id", pipelineId);
+        lead.addProperty("status_id", statusId);
+        lead.add("_embedded", embedded);
+        return lead;
+    }
+
+    private Long postComplexLead(JsonObject lead) {
+        JsonArray requestBody = new JsonArray();
+        requestBody.add(lead);
+
+        String response = webClient.post()
+                .uri("/api/v4/leads/complex")
+                .header("Authorization", "Bearer " + accessToken)
+                .bodyValue(requestBody.toString())
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(new RuntimeException(
+                                        "AmoCRM leads/complex API " + clientResponse.statusCode() + ": " + body))))
+                .bodyToMono(String.class)
+                .block();
+
+        JsonElement parsedResponse = JsonParser.parseString(response);
+
+        // /api/v4/leads/complex может вернуть массив созданных сущностей.
+        if (parsedResponse.isJsonArray()) {
+            JsonArray createdLeads = parsedResponse.getAsJsonArray();
+            if (!createdLeads.isEmpty()) {
+                JsonObject createdLead = createdLeads.get(0).getAsJsonObject();
+                if (createdLead.has("id") && !createdLead.get("id").isJsonNull()) {
+                    return createdLead.get("id").getAsLong();
+                }
+            }
+        }
+
+        // На некоторых эндпоинтах amoCRM возвращает объект с _embedded.
+        if (parsedResponse.isJsonObject()) {
+            JsonObject jsonResponse = parsedResponse.getAsJsonObject();
+            if (jsonResponse.has("_embedded")
+                    && jsonResponse.getAsJsonObject("_embedded").has("leads")
+                    && jsonResponse.getAsJsonObject("_embedded").getAsJsonArray("leads").size() > 0) {
+                JsonObject createdLead = jsonResponse.getAsJsonObject("_embedded").getAsJsonArray("leads")
+                        .get(0).getAsJsonObject();
+                if (createdLead.has("id") && !createdLead.get("id").isJsonNull()) {
+                    return createdLead.get("id").getAsLong();
+                }
+            }
+        }
+
+        throw new RuntimeException("AmoCRM did not return created lead id");
+    }
+
+    private JsonObject contactSystemField(String fieldCode, String value) {
+        JsonObject valueObj = new JsonObject();
+        valueObj.addProperty("value", value);
+        valueObj.addProperty("enum_code", "WORK");
+
+        JsonArray values = new JsonArray();
+        values.add(valueObj);
+
+        JsonObject field = new JsonObject();
+        field.addProperty("field_code", fieldCode);
+        field.add("values", values);
+        return field;
     }
 
     @Override

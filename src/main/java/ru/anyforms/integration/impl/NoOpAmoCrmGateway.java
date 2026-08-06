@@ -142,6 +142,30 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public Long createLead(String leadName, String contactName, String phone, String email, Long pipelineId, Long statusId) {
+        skip("createLead");
+        return null;
+    }
+
+    @Override
+    public Long findContactIdByQuery(String query) {
+        skip("findContactIdByQuery");
+        return null;
+    }
+
+    @Override
+    public List<Long> getLeadIdsByContact(Long contactId) {
+        skip("getLeadIdsByContact");
+        return List.of();
+    }
+
+    @Override
+    public boolean addTagToLead(Long leadId, String tagName) {
+        skip("addTagToLead");
+        return true;
+    }
+
+    @Override
     public boolean linkCatalogElementsToLead(Long leadId, Long catalogId, Map<Long, Integer> elementIdToQuantity) {
         skip("linkCatalogElementsToLead");
         return true;

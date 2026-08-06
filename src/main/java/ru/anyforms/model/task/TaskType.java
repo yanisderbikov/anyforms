@@ -1,5 +1,7 @@
 package ru.anyforms.model.task;
 
+import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
+import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.dto.email.ReceiptEmailTaskPayload;
@@ -10,7 +12,9 @@ public enum TaskType {
     /** Письмо-чек заказа маркетплейса. */
     MARKETPLACE_ORDER_EMAIL(MarketplaceOrderEmailPayload.class),
     /** Письмо со ссылкой на чек Юкассы. */
-    RECEIPT_EMAIL(ReceiptEmailTaskPayload.class);
+    RECEIPT_EMAIL(ReceiptEmailTaskPayload.class),
+    AMO_GUIDE_LEAD(GuideAmoLeadTaskPayload.class),
+    AMO_COURSE_BOUGHT(CourseAmoLeadTaskPayload.class);
 
     private final Class<?> payloadClass;
 

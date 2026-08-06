@@ -192,6 +192,30 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public Long createLead(String leadName, String contactName, String phone, String email, Long pipelineId, Long statusId) {
+        acquireSlot();
+        return delegate.createLead(leadName, contactName, phone, email, pipelineId, statusId);
+    }
+
+    @Override
+    public Long findContactIdByQuery(String query) {
+        acquireSlot();
+        return delegate.findContactIdByQuery(query);
+    }
+
+    @Override
+    public List<Long> getLeadIdsByContact(Long contactId) {
+        acquireSlot();
+        return delegate.getLeadIdsByContact(contactId);
+    }
+
+    @Override
+    public boolean addTagToLead(Long leadId, String tagName) {
+        acquireSlot();
+        return delegate.addTagToLead(leadId, tagName);
+    }
+
+    @Override
     public boolean linkCatalogElementsToLead(Long leadId, Long catalogId, Map<Long, Integer> elementIdToQuantity) {
         acquireSlot();
         return delegate.linkCatalogElementsToLead(leadId, catalogId, elementIdToQuantity);

@@ -3,6 +3,8 @@ package ru.anyforms.service.payment.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
+import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
@@ -36,6 +38,21 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
         taskAdder.addTask(payload);
         log.info("Поставлена таска на письмо о покупке продукта {} на {} (транзакция {})",
                 transaction.getProductCode(), transaction.getEmail(), transaction.getId());
+
+        switch (transaction.getProductCode()) {
+            case PaymentProduct.CODE_GUIDE -> {
+                taskAdder.addTask(GuideAmoLeadTaskPayload.builder()
+                        .transactionId(transaction.getId())
+                        .build());
+                log.info("Поставлена таска на сделку АМО по гайду (транзакция {})", transaction.getId());
+            }
+            case PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL -> {
+                taskAdder.addTask(CourseAmoLeadTaskPayload.builder()
+                        .transactionId(transaction.getId())
+                        .build());
+                log.info("Поставлена таска на закрытие сделки АМО по курсу (транзакция {})", transaction.getId());
+            }
+        }
     }
 
     @Override
