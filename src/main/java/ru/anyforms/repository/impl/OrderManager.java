@@ -29,14 +29,14 @@ class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder, Ord
 
             if (normalizedTracker == null
                     || normalizedTracker.isBlank()
-                    || normalizedTracker.chars().noneMatch(Character::isDigit)
+                    || normalizedTracker.chars().filter(Character::isDigit).count() < 8
                     || READY_KEYWORDS.contains(normalizedTracker)) {
 
                 log.info("impossible update this tracker, returning Optional Empty : {}", tracker);
                 return Optional.empty();
             }
 
-            return orderRepository.findOrderByTracker(normalizedTracker);
+            return orderRepository.findFirstByTrackerOrderByIdDesc(normalizedTracker);
         } catch (Exception e) {
             log.error("fail find order with tracker {}", tracker, e);
             throw new RuntimeException("Database exception", e);

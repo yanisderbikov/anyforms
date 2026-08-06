@@ -23,4 +23,4 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8090
 
-ENTRYPOINT ["java", "-Xms256m", "-Xmx384m", "-XX:MetaspaceSize=128m", "-XX:MaxMetaspaceSize=256m", "-XX:+ExitOnOutOfMemoryError", "-Xlog:gc+metaspace=info", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Xms256m", "-Xmx384m", "-XX:MetaspaceSize=128m", "-XX:MaxMetaspaceSize=256m", "-XX:+ExitOnOutOfMemoryError", "-XX:+UnlockExperimentalVMOptions", "-XX:G1MaxNewSizePercent=25", "-XX:G1PeriodicGCInterval=900000", "-Xlog:gc=info,gc+metaspace=info", "-jar", "app.jar"]

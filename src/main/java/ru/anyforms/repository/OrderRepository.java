@@ -75,7 +75,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findOrdersFilledTrackerExceptDeliveryStatus(String notDeliveryStatus, String notDeliveryStatus2);
 
 
-    Optional<Order> findOrderByTracker(String tracker);
+    Optional<Order> findFirstByTrackerOrderByIdDesc(String tracker);
 
     @Query("""
        SELECT o FROM Order o
