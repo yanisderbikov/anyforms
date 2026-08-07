@@ -49,7 +49,7 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/product/*/photos/**").hasRole("ADMIN")
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/product/*").hasRole("ADMIN")
                     .requestMatchers("/api/amo/**").hasRole("ADMIN")
-                    .requestMatchers("/api/invoice/**").hasRole("ADMIN")
+                    .requestMatchers("/api/invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/training-invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/receipt/**").hasRole("ADMIN")
                     .requestMatchers("/webhook/**").permitAll()
