@@ -5,13 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
-import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.service.payment.GuideAmoLeadService;
-
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +68,7 @@ class GuideAmoLeadServiceImpl implements GuideAmoLeadService {
     private Long createLeadWithNewContact(PaymentTransaction transaction) {
         Long leadId = createLead(transaction);
         if (leadId != null) {
-            fillContactFio(leadId, transaction);
+            amoContactFinder.fillContactFio(leadId, transaction.getContactName());
         }
         return leadId;
     }
@@ -80,18 +77,5 @@ class GuideAmoLeadServiceImpl implements GuideAmoLeadService {
         String name = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
         return amoCrmGateway.createLead(LEAD_NAME, name, transaction.getContactPhone(),
                 transaction.getEmail(), educationPipelineId, guideBoughtStatusId);
-    }
-
-    private void fillContactFio(Long leadId, PaymentTransaction transaction) {
-        if (transaction.getContactName() == null) {
-            return;
-        }
-        Long contactId = amoCrmGateway.getContactIdFromLead(leadId);
-        if (contactId == null) {
-            log.warn("Гайд: у сделки {} нет контакта — ФИО не заполнено", leadId);
-            return;
-        }
-        amoCrmGateway.updateContactCustomField(contactId,
-                Map.of(AmoCrmFieldId.FIO_CONTACT.getId(), transaction.getContactName()));
     }
 }

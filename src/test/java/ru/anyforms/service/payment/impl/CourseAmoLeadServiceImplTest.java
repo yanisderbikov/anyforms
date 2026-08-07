@@ -112,30 +112,54 @@ class CourseAmoLeadServiceImplTest {
     }
 
     @Test
-    void failsWhenContactNotFound() {
+    void createsRealizedLeadWhenClientNotFoundInAmo() {
         when(amoCrmGateway.findContactIdByQuery(anyString())).thenReturn(null);
+        when(amoCrmGateway.createLead(CourseAmoLeadServiceImpl.LEAD_NAME, "Клиент", "+79001234567",
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, REALIZED_STATUS_ID)).thenReturn(50L);
+        amoUpdatesSucceed();
 
-        IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> service.pushCoursePurchase(transaction("COURSE", 990000L)));
+        service.pushCoursePurchase(transaction("COURSE", 990000L));
 
-        assertTrue(e.getMessage().contains("не найден"));
-        verify(amoCrmGateway, never()).getLeadIdsByContact(anyLong());
+        InOrder inOrder = inOrder(amoCrmGateway);
+        inOrder.verify(amoCrmGateway).createLead(CourseAmoLeadServiceImpl.LEAD_NAME, "Клиент", "+79001234567",
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, REALIZED_STATUS_ID);
+        inOrder.verify(amoCrmGateway).updateLeadFields(50L, 9900L, Map.of());
+        inOrder.verify(amoCrmGateway).addTagToLead(50L, CourseAmoLeadServiceImpl.TAG);
+        inOrder.verify(amoCrmGateway).addNoteToLead(anyLong(), anyString());
         verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong());
     }
 
     @Test
-    void failsWhenNoActiveLeadInEducationPipeline() {
+    void createsRealizedLeadWhenNoActiveLeadInEducationPipeline() {
         when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(CONTACT_ID);
         when(amoCrmGateway.getLeadIdsByContact(CONTACT_ID)).thenReturn(List.of(10L, 20L));
         when(amoCrmGateway.getLead(10L)).thenReturn(lead(EDUCATION_PIPELINE_ID, REALIZED_STATUS_ID));
         when(amoCrmGateway.getLead(20L)).thenReturn(lead(9999999L, 85479838L));
+        when(amoCrmGateway.createLead(CourseAmoLeadServiceImpl.LEAD_NAME, "Клиент", "+79001234567",
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, REALIZED_STATUS_ID)).thenReturn(50L);
+        amoUpdatesSucceed();
 
-        IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> service.pushCoursePurchase(transaction("COURSE", 990000L)));
+        service.pushCoursePurchase(transaction("COURSE", 990000L));
 
-        assertTrue(e.getMessage().contains("нет активной сделки"));
-        verify(amoCrmGateway, never()).updateLeadFields(anyLong(), anyLong(), any());
+        verify(amoCrmGateway).createLead(CourseAmoLeadServiceImpl.LEAD_NAME, "Клиент", "+79001234567",
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, REALIZED_STATUS_ID);
+        verify(amoCrmGateway).updateLeadFields(50L, 9900L, Map.of());
+        verify(amoCrmGateway).addTagToLead(50L, CourseAmoLeadServiceImpl.TAG);
+        verify(amoCrmGateway, never()).updateContactCustomField(anyLong(), any());
         verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void doesNothingWhenAmoDisabled() {
+        when(amoCrmGateway.findContactIdByQuery(anyString())).thenReturn(null);
+        when(amoCrmGateway.createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong()))
+                .thenReturn(null);
+
+        service.pushCoursePurchase(transaction("COURSE", 990000L));
+
+        verify(amoCrmGateway, never()).updateLeadFields(anyLong(), any(), any());
+        verify(amoCrmGateway, never()).addTagToLead(anyLong(), anyString());
+        verify(amoCrmGateway, never()).addNoteToLead(anyLong(), anyString());
     }
 
     @Test

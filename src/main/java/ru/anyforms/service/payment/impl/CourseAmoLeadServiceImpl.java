@@ -17,6 +17,7 @@ import java.util.Map;
 @Slf4j
 class CourseAmoLeadServiceImpl implements CourseAmoLeadService {
 
+    static final String LEAD_NAME = "Обучение - Курс куплен";
     static final String TAG = "Курс куплен";
 
     private final AmoCrmGateway amoCrmGateway;
@@ -30,15 +31,11 @@ class CourseAmoLeadServiceImpl implements CourseAmoLeadService {
     public void pushCoursePurchase(PaymentTransaction transaction) {
         Long contactId = amoContactFinder.findByEmailOrPhone(
                 transaction.getEmail(), transaction.getContactPhone());
-        if (contactId == null) {
-            throw new IllegalStateException("Клиент не найден в АМО по почте " + transaction.getEmail()
-                    + " и телефону " + transaction.getContactPhone());
-        }
-
-        Long leadId = educationLeadFinder.findLatestActiveLead(contactId);
+        Long existingLeadId = contactId == null ? null : educationLeadFinder.findLatestActiveLead(contactId);
+        Long leadId = existingLeadId != null ? existingLeadId : createRealizedLead(transaction, contactId);
         if (leadId == null) {
-            throw new IllegalStateException("У контакта " + contactId
-                    + " нет активной сделки в воронке курса (" + educationPipelineId + ")");
+            log.info("Курс: АМО выключена — сделка по транзакции {} не создана", transaction.getId());
+            return;
         }
 
         Long priceRub = transaction.getAmount() == null ? null : transaction.getAmount() / 100;
@@ -51,11 +48,24 @@ class CourseAmoLeadServiceImpl implements CourseAmoLeadService {
         if (!amoCrmGateway.addNoteToLead(leadId, noteText(transaction))) {
             throw new IllegalStateException("Не удалось добавить примечание сделке " + leadId);
         }
-        if (!amoCrmGateway.updateLeadStatus(leadId, AmoLeadStatus.REALIZED.getStatusId(), educationPipelineId)) {
+        if (existingLeadId != null
+                && !amoCrmGateway.updateLeadStatus(leadId, AmoLeadStatus.REALIZED.getStatusId(), educationPipelineId)) {
             throw new IllegalStateException("Не удалось перевести сделку " + leadId + " в «Реализовано»");
         }
         log.info("Курс: сделка {} закрыта в «Реализовано» с бюджетом {} ₽ и тегом «{}» (транзакция {})",
                 leadId, priceRub, TAG, transaction.getId());
+    }
+
+    private Long createRealizedLead(PaymentTransaction transaction, Long contactId) {
+        log.info("Курс: активной сделки в воронке {} нет (контакт {}) — создаём новую (транзакция {})",
+                educationPipelineId, contactId, transaction.getId());
+        String name = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
+        Long leadId = amoCrmGateway.createLead(LEAD_NAME, name, transaction.getContactPhone(),
+                transaction.getEmail(), educationPipelineId, AmoLeadStatus.REALIZED.getStatusId());
+        if (leadId != null && contactId == null) {
+            amoContactFinder.fillContactFio(leadId, transaction.getContactName());
+        }
+        return leadId;
     }
 
     private static String noteText(PaymentTransaction transaction) {
