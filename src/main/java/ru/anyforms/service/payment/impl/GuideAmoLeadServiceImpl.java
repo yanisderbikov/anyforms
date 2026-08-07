@@ -59,7 +59,8 @@ class GuideAmoLeadServiceImpl implements GuideAmoLeadService {
     private Long moveLeadToGuideBought(Long leadId, PaymentTransaction transaction) {
         log.info("Гайд: у клиента уже есть активная сделка {} в воронке обучения — переводим в «Гайд куплен» (транзакция {})",
                 leadId, transaction.getId());
-        if (!amoCrmGateway.updateLeadStatus(leadId, guideBoughtStatusId, educationPipelineId)) {
+        if (!amoCrmGateway.updateLeadStatus(leadId, guideBoughtStatusId, educationPipelineId,
+                AmoTaskResponsibleUser.IRINA.getResponsibleUserId())) {
             throw new IllegalStateException("Не удалось перевести сделку " + leadId + " в статус «Гайд куплен»");
         }
         return leadId;
@@ -76,6 +77,7 @@ class GuideAmoLeadServiceImpl implements GuideAmoLeadService {
     private Long createLead(PaymentTransaction transaction) {
         String name = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
         return amoCrmGateway.createLead(LEAD_NAME, name, transaction.getContactPhone(),
-                transaction.getEmail(), educationPipelineId, guideBoughtStatusId);
+                transaction.getEmail(), educationPipelineId, guideBoughtStatusId,
+                AmoTaskResponsibleUser.IRINA.getResponsibleUserId());
     }
 }

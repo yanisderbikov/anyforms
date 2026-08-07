@@ -235,6 +235,11 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId) {
+        return updateLeadStatus(leadId, statusId, pipelineId, null);
+    }
+
+    @Override
+    public boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId, Long responsibleUserId) {
         try {
             // Если pipelineId не указан, получаем текущую воронку сделки
             if (pipelineId == null) {
@@ -252,6 +257,9 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
             leadUpdate.addProperty("status_id", statusId);
             if (pipelineId != null) {
                 leadUpdate.addProperty("pipeline_id", pipelineId);
+            }
+            if (responsibleUserId != null) {
+                leadUpdate.addProperty("responsible_user_id", responsibleUserId);
             }
 
             JsonArray leadsArray = new JsonArray();
@@ -1023,24 +1031,33 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         return createLead(leadName, contactName, phone, null,
                 pipelineId != null ? pipelineId : landingPipelineId,
                 statusId != null ? statusId : landingStatusId,
+                null,
                 utmByFieldCode);
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, null, pipelineId, statusId, Map.of());
+        return createLead(leadName, contactName, phone, null, pipelineId, statusId, null, Map.of());
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, String email,
                            Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, email, pipelineId, statusId, Map.of());
+        return createLead(leadName, contactName, phone, email, pipelineId, statusId, null, Map.of());
+    }
+
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId, Long responsibleUserId) {
+        return createLead(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId, Map.of());
     }
 
     private Long createLead(String leadName, String contactName, String phone, String email,
-                            Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
+                            Long pipelineId, Long statusId, Long responsibleUserId,
+                            Map<String, String> utmByFieldCode) {
         try {
-            JsonObject lead = newLeadJson(leadName, pipelineId, statusId, resolveContact(contactName, phone, email));
+            JsonObject lead = newLeadJson(leadName, pipelineId, statusId, responsibleUserId,
+                    resolveContact(contactName, phone, email));
 
             // UTM-метки — системные поля сделки amo, задаются по field_code (UTM_SOURCE и т.д.)
             if (utmByFieldCode != null && !utmByFieldCode.isEmpty()) {
@@ -1242,7 +1259,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         }
     }
 
-    private JsonObject newLeadJson(String leadName, Long pipelineId, Long statusId, JsonObject contact) {
+    private JsonObject newLeadJson(String leadName, Long pipelineId, Long statusId,
+                                   Long responsibleUserId, JsonObject contact) {
         JsonArray contacts = new JsonArray();
         contacts.add(contact);
 
@@ -1251,7 +1269,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
         JsonObject lead = new JsonObject();
         lead.addProperty("name", leadName);
-        lead.addProperty("responsible_user_id", landingResponsibleUserId);
+        lead.addProperty("responsible_user_id",
+                responsibleUserId != null ? responsibleUserId : landingResponsibleUserId);
         lead.addProperty("pipeline_id", pipelineId);
         lead.addProperty("status_id", statusId);
         lead.add("_embedded", embedded);

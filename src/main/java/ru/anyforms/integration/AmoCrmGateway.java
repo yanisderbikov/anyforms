@@ -59,6 +59,8 @@ public interface AmoCrmGateway {
      */
     boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId);
 
+    boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId, Long responsibleUserId);
+
     boolean updateLeadStatus(List<Long> leadIds, Long statusId, Long pipelineId);
 
     /**
@@ -162,6 +164,9 @@ public interface AmoCrmGateway {
     Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId);
 
     Long createLead(String leadName, String contactName, String phone, String email, Long pipelineId, Long statusId);
+
+    Long createLead(String leadName, String contactName, String phone, String email,
+                    Long pipelineId, Long statusId, Long responsibleUserId);
 
     Long findContactIdByQuery(String query);
 

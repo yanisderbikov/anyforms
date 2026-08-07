@@ -119,6 +119,12 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId, Long responsibleUserId) {
+        acquireSlot();
+        return delegate.updateLeadStatus(leadId, statusId, pipelineId, responsibleUserId);
+    }
+
+    @Override
     public boolean updateLeadStatus(List<Long> leadIds, Long statusId, Long pipelineId) {
         acquireSlot();
         return delegate.updateLeadStatus(leadIds, statusId, pipelineId);
@@ -195,6 +201,13 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     public Long createLead(String leadName, String contactName, String phone, String email, Long pipelineId, Long statusId) {
         acquireSlot();
         return delegate.createLead(leadName, contactName, phone, email, pipelineId, statusId);
+    }
+
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId, Long responsibleUserId) {
+        acquireSlot();
+        return delegate.createLead(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId);
     }
 
     @Override

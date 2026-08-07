@@ -66,13 +66,13 @@ class GuideAmoLeadServiceImplTest {
     void createsLeadWithContactDataAndReachOutTask() {
         noExistingContactInAmo();
         when(amoCrmGateway.createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID)).thenReturn(555L);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID)).thenReturn(555L);
         when(amoCrmGateway.getContactIdFromLead(555L)).thenReturn(777L);
 
         service.pushGuidePurchase(transaction("Иванов Иван", "+79001234567", "buyer@mail.ru"));
 
         verify(amoCrmGateway).createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID);
         verify(amoCrmGateway).updateContactCustomField(777L,
                 Map.of(AmoCrmFieldId.FIO_CONTACT.getId(), "Иванов Иван"));
         verify(amoCrmGateway).setNewTask(IRINA_ID, REACH_OUT_TASK_TYPE_ID,
@@ -83,7 +83,7 @@ class GuideAmoLeadServiceImplTest {
     void usesFallbackContactNameAndSkipsFioWhenNameMissing() {
         noExistingContactInAmo();
         when(amoCrmGateway.createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Клиент", null,
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID)).thenReturn(555L);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID)).thenReturn(555L);
 
         service.pushGuidePurchase(transaction(null, null, "buyer@mail.ru"));
 
@@ -95,7 +95,7 @@ class GuideAmoLeadServiceImplTest {
     @Test
     void skipsFioButCreatesTaskWhenLeadHasNoContact() {
         noExistingContactInAmo();
-        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong()))
+        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
                 .thenReturn(555L);
         when(amoCrmGateway.getContactIdFromLead(555L)).thenReturn(null);
 
@@ -110,12 +110,12 @@ class GuideAmoLeadServiceImplTest {
     void attachesLeadToExistingContactWithoutTouchingContactData() {
         when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
         when(amoCrmGateway.createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID)).thenReturn(555L);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID)).thenReturn(555L);
 
         service.pushGuidePurchase(transaction("Иванов Иван", "+79001234567", "buyer@mail.ru"));
 
         verify(amoCrmGateway).createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID);
         verify(amoCrmGateway, never()).updateContactCustomField(anyLong(), any());
         verify(amoCrmGateway).setNewTask(IRINA_ID, REACH_OUT_TASK_TYPE_ID,
                 GuideAmoLeadServiceImpl.TASK_TEXT, 555L, THREE_DAYS_MINUTES);
@@ -126,13 +126,13 @@ class GuideAmoLeadServiceImplTest {
         when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(null);
         when(amoCrmGateway.findContactIdByQuery("79001234567")).thenReturn(777L);
         when(amoCrmGateway.createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+7 (900) 123-45-67",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID)).thenReturn(555L);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID)).thenReturn(555L);
 
         service.pushGuidePurchase(transaction("Иванов Иван", "+7 (900) 123-45-67", "buyer@mail.ru"));
 
         verify(amoCrmGateway).findContactIdByQuery("79001234567");
         verify(amoCrmGateway).createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+7 (900) 123-45-67",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID);
         verify(amoCrmGateway, never()).updateContactCustomField(anyLong(), any());
     }
 
@@ -142,12 +142,12 @@ class GuideAmoLeadServiceImplTest {
         when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(10L, 30L));
         when(amoCrmGateway.getLead(10L)).thenReturn(lead(EDUCATION_PIPELINE_ID, 77900786L));
         when(amoCrmGateway.getLead(30L)).thenReturn(lead(EDUCATION_PIPELINE_ID, 142L));
-        when(amoCrmGateway.updateLeadStatus(10L, GUIDE_BOUGHT_STATUS_ID, EDUCATION_PIPELINE_ID)).thenReturn(true);
+        when(amoCrmGateway.updateLeadStatus(10L, GUIDE_BOUGHT_STATUS_ID, EDUCATION_PIPELINE_ID, IRINA_ID)).thenReturn(true);
 
         service.pushGuidePurchase(transaction("Иванов Иван", "+79001234567", "buyer@mail.ru"));
 
-        verify(amoCrmGateway).updateLeadStatus(10L, GUIDE_BOUGHT_STATUS_ID, EDUCATION_PIPELINE_ID);
-        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong());
+        verify(amoCrmGateway).updateLeadStatus(10L, GUIDE_BOUGHT_STATUS_ID, EDUCATION_PIPELINE_ID, IRINA_ID);
+        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway).setNewTask(IRINA_ID, REACH_OUT_TASK_TYPE_ID,
                 GuideAmoLeadServiceImpl.TASK_TEXT, 10L, THREE_DAYS_MINUTES);
     }
@@ -159,13 +159,13 @@ class GuideAmoLeadServiceImplTest {
         when(amoCrmGateway.getLead(30L)).thenReturn(lead(EDUCATION_PIPELINE_ID, 142L));
         when(amoCrmGateway.getLead(40L)).thenReturn(lead(9999999L, 77900786L));
         when(amoCrmGateway.createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID)).thenReturn(555L);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID)).thenReturn(555L);
 
         service.pushGuidePurchase(transaction("Иванов Иван", "+79001234567", "buyer@mail.ru"));
 
         verify(amoCrmGateway).createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID);
-        verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong());
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID);
+        verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway, never()).updateContactCustomField(anyLong(), any());
         verify(amoCrmGateway).setNewTask(IRINA_ID, REACH_OUT_TASK_TYPE_ID,
                 GuideAmoLeadServiceImpl.TASK_TEXT, 555L, THREE_DAYS_MINUTES);
@@ -176,7 +176,7 @@ class GuideAmoLeadServiceImplTest {
         when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
         when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(10L));
         when(amoCrmGateway.getLead(10L)).thenReturn(lead(EDUCATION_PIPELINE_ID, 77900786L));
-        when(amoCrmGateway.updateLeadStatus(10L, GUIDE_BOUGHT_STATUS_ID, EDUCATION_PIPELINE_ID)).thenReturn(false);
+        when(amoCrmGateway.updateLeadStatus(10L, GUIDE_BOUGHT_STATUS_ID, EDUCATION_PIPELINE_ID, IRINA_ID)).thenReturn(false);
 
         assertThrows(IllegalStateException.class,
                 () -> service.pushGuidePurchase(transaction("Иванов Иван", "+79001234567", "buyer@mail.ru")));
@@ -188,7 +188,7 @@ class GuideAmoLeadServiceImplTest {
     void createsNewContactWhenNothingFoundBySearch() {
         noExistingContactInAmo();
         when(amoCrmGateway.createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID)).thenReturn(555L);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID)).thenReturn(555L);
         when(amoCrmGateway.getContactIdFromLead(555L)).thenReturn(777L);
 
         service.pushGuidePurchase(transaction("Иванов Иван", "+79001234567", "buyer@mail.ru"));
@@ -196,7 +196,7 @@ class GuideAmoLeadServiceImplTest {
         verify(amoCrmGateway).findContactIdByQuery("buyer@mail.ru");
         verify(amoCrmGateway).findContactIdByQuery("79001234567");
         verify(amoCrmGateway).createLead(GuideAmoLeadServiceImpl.LEAD_NAME, "Иванов Иван", "+79001234567",
-                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID);
+                "buyer@mail.ru", EDUCATION_PIPELINE_ID, GUIDE_BOUGHT_STATUS_ID, IRINA_ID);
     }
 
     @Test
@@ -207,14 +207,14 @@ class GuideAmoLeadServiceImplTest {
         assertThrows(RuntimeException.class,
                 () -> service.pushGuidePurchase(transaction("Иванов Иван", null, "buyer@mail.ru")));
 
-        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong());
+        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), anyLong(), anyInt());
     }
 
     @Test
     void doesNothingElseWhenAmoDisabled() {
         noExistingContactInAmo();
-        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong()))
+        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
                 .thenReturn(null);
 
         service.pushGuidePurchase(transaction("Иванов Иван", null, "buyer@mail.ru"));
@@ -226,7 +226,7 @@ class GuideAmoLeadServiceImplTest {
     @Test
     void propagatesLeadCreationFailure() {
         noExistingContactInAmo();
-        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong()))
+        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
                 .thenThrow(new RuntimeException("amo down"));
 
         assertThrows(RuntimeException.class,

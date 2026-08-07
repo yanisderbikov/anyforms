@@ -69,6 +69,12 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId, Long responsibleUserId) {
+        skip("updateLeadStatus");
+        return true;
+    }
+
+    @Override
     public boolean updateLeadStatus(List<Long> leadIds, Long statusId, Long pipelineId) {
         skip("updateLeadStatus");
         return true;
@@ -143,6 +149,13 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, String email, Long pipelineId, Long statusId) {
+        skip("createLead");
+        return null;
+    }
+
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId, Long responsibleUserId) {
         skip("createLead");
         return null;
     }
