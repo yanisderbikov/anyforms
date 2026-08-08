@@ -8,6 +8,7 @@ import java.time.Instant;
 public record ReceiptTaskDTO(
         String email,
         String link,
+        @Schema(description = "GUIDE / COURSE / COURSE_PERSONAL") String productCode,
         @Schema(description = "NEW / RUNNING / DONE / FAILED") String status,
         @Schema(description = "Текст ошибки при FAILED") String comment,
         Instant createdAt

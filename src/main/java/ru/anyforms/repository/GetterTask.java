@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface GetterTask {
     List<Task> getRecentByType(TaskType type, int limit);
+
+    List<Task> getAllByType(TaskType type);
 }
