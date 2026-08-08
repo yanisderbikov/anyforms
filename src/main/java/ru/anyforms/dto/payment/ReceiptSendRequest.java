@@ -23,4 +23,7 @@ public class ReceiptSendRequest {
     @NotBlank
     @Schema(description = "Ссылка на чек")
     private String link;
+
+    @Schema(description = "Код продукта, за который отправляется чек: GUIDE / COURSE / COURSE_PERSONAL")
+    private String productCode;
 }

@@ -14,13 +14,20 @@ import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.task.Task;
+import ru.anyforms.model.task.TaskStatus;
 import ru.anyforms.model.task.TaskType;
+import ru.anyforms.repository.GetterPaymentProduct;
 import ru.anyforms.repository.GetterTask;
 import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.service.payment.ReceiptService;
 import ru.anyforms.service.task.TaskAdder;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +41,7 @@ class ReceiptServiceImpl implements ReceiptService {
 
     private final GetterTransaction getterTransaction;
     private final GetterTask getterTask;
+    private final GetterPaymentProduct getterPaymentProduct;
     private final TaskAdder taskAdder;
     private final Gson gson = new Gson();
 
@@ -43,9 +51,13 @@ class ReceiptServiceImpl implements ReceiptService {
         if (!link.startsWith("http://") && !link.startsWith("https://")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ссылка на чек должна начинаться с http(s)://");
         }
+        String productCode = request.getProductCode() == null || request.getProductCode().isBlank()
+                ? null
+                : request.getProductCode().trim();
         taskAdder.addTask(ReceiptEmailTaskPayload.builder()
                 .to(request.getEmail().trim())
                 .link(link)
+                .productCode(productCode)
                 .build());
         log.info("Чек поставлен в очередь на отправку: {}", request.getEmail());
     }
@@ -59,11 +71,51 @@ class ReceiptServiceImpl implements ReceiptService {
 
     @Override
     public List<ReceiptTransactionDTO> paidTransactions(int limit) {
+        Map<String, String> titlesByCode = productTitlesByCode();
+        Set<String> sentEmailProductPairs = new HashSet<>();
+        Set<String> sentLegacyEmails = new HashSet<>();
+        collectSentReceipts(sentEmailProductPairs, sentLegacyEmails);
         return getterTransaction.getRecentByProviderStatusAndProductCodes(
                         PaymentProvider.YOOKASSA, PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES, limit)
                 .stream()
-                .map(ReceiptTransactionDTO::from)
+                .map(t -> ReceiptTransactionDTO.from(
+                        t,
+                        titlesByCode.get(t.getProductCode()),
+                        receiptSent(sentEmailProductPairs, sentLegacyEmails, t.getEmail(), t.getProductCode())))
                 .toList();
+    }
+
+    private void collectSentReceipts(Set<String> emailProductPairs, Set<String> legacyEmails) {
+        for (Task task : getterTask.getAllByType(TaskType.RECEIPT_EMAIL)) {
+            if (task.getStatus() == TaskStatus.FAILED) {
+                continue;
+            }
+            ReceiptEmailTaskPayload payload = parsePayload(task.getPayload());
+            if (payload == null || payload.getTo() == null || payload.getTo().isBlank()) {
+                continue;
+            }
+            String email = payload.getTo().trim().toLowerCase();
+            if (payload.getProductCode() == null || payload.getProductCode().isBlank()) {
+                legacyEmails.add(email);
+            } else {
+                emailProductPairs.add(email + "|" + payload.getProductCode().trim());
+            }
+        }
+    }
+
+    private boolean receiptSent(Set<String> emailProductPairs, Set<String> legacyEmails, String email, String productCode) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        String normalized = email.trim().toLowerCase();
+        return emailProductPairs.contains(normalized + "|" + productCode) || legacyEmails.contains(normalized);
+    }
+
+    private Map<String, String> productTitlesByCode() {
+        return TRAINING_PRODUCT_CODES.stream()
+                .map(getterPaymentProduct::getByCode)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toMap(PaymentProduct::getCode, PaymentProduct::getTitle));
     }
 
     private ReceiptTaskDTO toDto(Task task) {
@@ -71,6 +123,7 @@ class ReceiptServiceImpl implements ReceiptService {
         return new ReceiptTaskDTO(
                 payload != null ? payload.getTo() : null,
                 payload != null ? payload.getLink() : null,
+                payload != null ? payload.getProductCode() : null,
                 task.getStatus() != null ? task.getStatus().name() : null,
                 task.getComment(),
                 task.getCreatedAt());

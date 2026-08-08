@@ -15,4 +15,6 @@ interface TaskRepo extends JpaRepository<Task, UUID> {
     List<Task> findByTypeAndStatusOrderByCreatedAtAsc(TaskType type, TaskStatus status, Pageable pageable);
 
     List<Task> findByTypeOrderByCreatedAtDesc(TaskType type, Pageable pageable);
+
+    List<Task> findByType(TaskType type);
 }

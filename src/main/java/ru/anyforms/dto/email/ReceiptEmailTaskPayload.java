@@ -16,4 +16,5 @@ import lombok.NoArgsConstructor;
 public class ReceiptEmailTaskPayload {
     private String to;
     private String link;
+    private String productCode;
 }
