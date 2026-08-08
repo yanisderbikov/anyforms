@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @AllArgsConstructor
@@ -22,6 +23,16 @@ import java.util.Optional;
 class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
 
     private final TransactionRepo transactionRepo;
+
+    @Override
+    public Optional<PaymentTransaction> getById(UUID id) {
+        try {
+            return transactionRepo.findById(id);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
 
     @Override
     public Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId) {

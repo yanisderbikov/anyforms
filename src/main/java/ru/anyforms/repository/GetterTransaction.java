@@ -8,8 +8,11 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface GetterTransaction {
+    Optional<PaymentTransaction> getById(UUID id);
+
     Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId);
 
     List<PaymentTransaction> getByOrderId(Long orderId);
