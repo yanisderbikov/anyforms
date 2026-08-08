@@ -67,7 +67,7 @@ public final class EmailTemplate {
     /**
      * Оформление строк чека: строки собираются в коде, поэтому палитра и отступы
      * задаются здесь, а не в шаблоне. У anyforms строки живут в серой рамке-плашке
-     * (боковой отступ 22px), у af_pastry — лежат на карточке без рамки, в край.
+     * (боковой отступ 22px), у партнёрских (af_pastry, di_gips) — лежат на карточке без рамки, в край.
      */
     private record RowStyle(String border, String name, String qty, String price, String sidePadding) {
     }
@@ -75,7 +75,8 @@ public final class EmailTemplate {
     private static final RowStyle DEFAULT_ROW_STYLE = new RowStyle("#ececec", "#111111", "#8c8c8c", "#111111", "22px");
 
     private static final Map<String, RowStyle> SHOP_ROW_STYLES = Map.of(
-            "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35", "0"));
+            "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35", "0"),
+            "di_gips", new RowStyle("#f2dfe6", "#5f4c45", "#b39a8f", "#b44e70", "0"));
 
     private static String normalizeSlug(String slug) {
         return slug != null && slug.matches("[a-z0-9_-]+") ? slug : Shop.DEFAULT_SLUG;

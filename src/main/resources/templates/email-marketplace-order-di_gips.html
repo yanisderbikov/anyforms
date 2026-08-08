@@ -1,0 +1,128 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="https://www.w3.org/1999/xhtml" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light only">
+    <title>Заказ di_gips оформлен</title>
+    <style>
+        body { margin:0; padding:0; width:100% !important; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+        table { border-collapse:collapse; mso-table-lspace:0; mso-table-rspace:0; }
+        img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; }
+        a { text-decoration:none; }
+        .font { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Helvetica Neue',Arial,sans-serif; }
+        .round { font-family:'Arial Rounded MT Bold','Trebuchet MS','Segoe UI',Arial,sans-serif; }
+        @media (max-width:600px){
+            .card { width:100% !important; }
+            .pad { padding-left:24px !important; padding-right:24px !important; }
+        }
+    </style>
+</head>
+<body class="font" style="margin:0; padding:0; background-color:#faf3e6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Helvetica Neue',Arial,sans-serif; color:#6b5750;">
+
+<!-- preheader: показывается в превью, скрыт в теле -->
+<div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#faf3e6; opacity:0;">
+    Заказ #%ORDER% оформлен и оплачен. Ниже — предварительный чек и адрес пункта выдачи СДЭК.
+    &#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#faf3e6;">
+    <tr>
+        <td align="center" style="padding:32px 12px;">
+
+            <!-- основная карточка -->
+            <table role="presentation" width="560" class="card" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px; background-color:#fffcf6; border:1px solid #efe2cc; border-radius:16px; overflow:hidden;">
+                <!-- бренд: тёмно-ягодный текстовый логотип на плашке цвета «пыльная роза», как в шапке витрины -->
+                <tr>
+                    <td align="center" class="round" style="padding:28px 40px 26px 40px; background-color:#d78da1; font-family:'Arial Rounded MT Bold','Trebuchet MS','Segoe UI',Arial,sans-serif; font-size:30px; font-weight:700; letter-spacing:0.04em; color:#7c2b45;">
+                        di_gips
+                    </td>
+                </tr>
+                <!-- заголовок -->
+                <tr>
+                    <td class="pad round" style="padding:34px 40px 0 40px;">
+                        <h1 class="round" style="margin:0; font-family:'Arial Rounded MT Bold','Trebuchet MS','Segoe UI',Arial,sans-serif; font-size:26px; line-height:1.2; font-weight:700; color:#b44e70;">Заказ&nbsp;#%ORDER% оформлен</h1>
+                    </td>
+                </tr>
+                <!-- интро -->
+                <tr>
+                    <td class="pad font" style="padding:14px 40px 24px 40px; font-size:16px; line-height:1.6; color:#6b5750;">
+                        Здравствуйте, %CUSTOMER%! Спасибо за&nbsp;заказ в&nbsp;di_gips. Оплата получена — ниже предварительный чек. Мы&nbsp;соберём заказ и&nbsp;отправим его в&nbsp;выбранный пункт выдачи СДЭК.
+                    </td>
+                </tr>
+                <!-- чек: позиции без рамки, только тонкие линейки между строками -->
+                <tr>
+                    <td class="pad" style="padding:0 40px 6px 40px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td colspan="3" class="font" style="padding:0 0 10px 0; font-size:12px; line-height:1.5; color:#86904c; text-transform:lowercase; letter-spacing:0.08em;">предварительный чек</td>
+                            </tr>
+                            %ROWS%
+                            <tr>
+                                <td class="font" style="padding:16px 0; font-size:15px; font-weight:700; color:#b44e70; border-top:2px solid #eed3dd;">Итого</td>
+                                <td style="border-top:2px solid #eed3dd;"></td>
+                                <td class="font" align="right" style="padding:16px 0; font-size:16px; font-weight:800; color:#b44e70; border-top:2px solid #eed3dd; white-space:nowrap;">%TOTAL%&nbsp;&#8381;</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <!-- доставка / ПВЗ: подпись и адрес без рамки -->
+                <tr>
+                    <td class="pad font" style="padding:10px 40px 0 40px; font-size:12px; line-height:1.5; color:#86904c; text-transform:lowercase; letter-spacing:0.08em;">пункт выдачи СДЭК</td>
+                </tr>
+                <tr>
+                    <td class="pad font" style="padding:6px 40px 2px 40px; font-size:16px; line-height:1.5; font-weight:600; color:#5f4c45;">%PVZ%</td>
+                </tr>
+                <!-- что дальше -->
+                <tr>
+                    <td class="pad font" style="padding:20px 40px 24px 40px; font-size:16px; line-height:1.6; color:#6b5750;">
+                        Доставка до&nbsp;пункта выдачи оплачивается при&nbsp;получении. Когда заказ будет передан в&nbsp;СДЭК, мы&nbsp;пришлём трек-номер для&nbsp;отслеживания.
+                    </td>
+                </tr>
+                <!-- CTA-пилюля -->
+                <tr>
+                    <td class="pad" style="padding:0 40px 32px 40px;">
+                        <a href="https://anyforms.ru/shop/di_gips" class="font" style="display:inline-block; background-color:#b44e70; color:#fdf5ea; font-size:15px; font-weight:700; padding:14px 26px; border-radius:999px;">Перейти в магазин</a>
+                    </td>
+                </tr>
+                <!-- поддержка -->
+                <tr>
+                    <td class="pad font" style="padding:0 40px 32px 40px; font-size:14px; line-height:1.6; color:#6b5750; border-top:1px solid #f2e4d4;">
+                        <div style="padding-top:24px;">Есть вопросы по&nbsp;заказу? Напишите нам в&nbsp;Telegram&nbsp;<a href="https://t.me/%SUPPORT_TG%" style="color:#b44e70; font-weight:700; text-decoration:underline;">@%SUPPORT_TG%</a> и&nbsp;укажите номер заказа <strong style="color:#5f4c45;">#%ORDER%</strong> — поможем.</div>
+                    </td>
+                </tr>
+                <!-- подпись бренда -->
+                <tr>
+                    <td align="center" class="font" style="padding:24px 40px 30px 40px; border-top:1px solid #f2e4d4; font-size:14px; letter-spacing:0.06em; color:#b39a8f;">
+                        di_gips · творчество, которое вдохновляет и объединяет
+                    </td>
+                </tr>
+            </table>
+
+            <!-- футер -->
+            <table role="presentation" width="560" class="card" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px;">
+                <tr>
+                    <td class="font" style="padding:20px 40px 8px 40px; font-size:12px; line-height:1.6; color:#b39a8f; text-align:center;">
+                        Вы получили это письмо, потому что оформили заказ в&nbsp;магазине di_gips на&nbsp;<a href="https://anyforms.ru/shop/di_gips" style="color:#b39a8f; text-decoration:underline;">anyforms.ru</a>.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font" style="padding:0 40px 8px 40px; font-size:12px; line-height:1.6; color:#b39a8f; text-align:center;">
+                        © di_gips · ИП Суворов Дмитрий Игоревич, ИНН 590699241510
+                    </td>
+                </tr>
+                <tr>
+                    <td align="center" style="padding:4px 40px 24px 40px;">
+                        <a href="[%unsubscribe_link%]" class="font" style="font-size:12px; color:#b39a8f; text-decoration:underline;">Отписаться от рассылки</a>
+                    </td>
+                </tr>
+            </table>
+
+        </td>
+    </tr>
+</table>
+</body>
+</html>
