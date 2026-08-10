@@ -941,6 +941,15 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId) {
+        return collectLeadIdsByStatus(pipelineId, statusId, null);
+    }
+
+    @Override
+    public List<Long> getLeadIdsByStatusAndTag(Long pipelineId, Long statusId, String tagName) {
+        return collectLeadIdsByStatus(pipelineId, statusId, tagName);
+    }
+
+    private List<Long> collectLeadIdsByStatus(Long pipelineId, Long statusId, String tagName) {
         // amoCRM фильтрует по статусу ТОЛЬКО через массив filter[statuses][N][...].
         // Плоский filter[status_id] не работает (возвращает пусто).
         // Пагинация: limit=250 (максимум amo), идём по page=1..N, пока страницы заполнены.
@@ -976,7 +985,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
                 for (int i = 0; i < leads.size(); i++) {
                     JsonObject lead = leads.get(i).getAsJsonObject();
-                    if (lead.has("id") && !lead.get("id").isJsonNull()) {
+                    if (lead.has("id") && !lead.get("id").isJsonNull()
+                            && (tagName == null || leadHasTag(lead, tagName))) {
                         result.add(lead.get("id").getAsLong());
                     }
                 }
@@ -991,8 +1001,28 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                 break;
             }
         }
-        log.info("getLeadIdsByStatus: pipeline={}, status={} -> {} lead(s)", pipelineId, statusId, result.size());
+        log.info("getLeadIdsByStatus: pipeline={}, status={}, tag={} -> {} lead(s)",
+                pipelineId, statusId, tagName, result.size());
         return result;
+    }
+
+    private boolean leadHasTag(JsonObject lead, String tagName) {
+        if (!lead.has("_embedded")) {
+            return false;
+        }
+        JsonObject embedded = lead.getAsJsonObject("_embedded");
+        if (!embedded.has("tags") || !embedded.get("tags").isJsonArray()) {
+            return false;
+        }
+        JsonArray tags = embedded.getAsJsonArray("tags");
+        for (int i = 0; i < tags.size(); i++) {
+            JsonObject tag = tags.get(i).getAsJsonObject();
+            if (tag.has("name") && !tag.get("name").isJsonNull()
+                    && tagName.equalsIgnoreCase(tag.get("name").getAsString().trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

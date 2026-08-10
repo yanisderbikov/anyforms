@@ -18,4 +18,8 @@ public class RunSalesbotBatchRequestDTO {
     @NotNull
     @Schema(description = "ID бота SalesBot для запуска", required = true, example = "1234")
     private Long botId;
+
+    @Schema(description = "Имя тега в amoCRM: если задано, бот запускается только для лидов с этим тегом "
+            + "(сравнение без учёта регистра)", example = "лошадка")
+    private String tagName;
 }

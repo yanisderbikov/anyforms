@@ -179,6 +179,12 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public List<Long> getLeadIdsByStatusAndTag(Long pipelineId, Long statusId, String tagName) {
+        acquireSlot();
+        return delegate.getLeadIdsByStatusAndTag(pipelineId, statusId, tagName);
+    }
+
+    @Override
     public boolean runSalesbot(Long leadId, Long botId) {
         acquireSlot();
         return delegate.runSalesbot(leadId, botId);

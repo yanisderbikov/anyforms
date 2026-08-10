@@ -21,12 +21,17 @@ public class SalesbotBatchController {
     @Operation(
             summary = "Запустить SalesBot для всех лидов в заданной воронке/статусе (в фоне)",
             description = "Возвращает 202 сразу, прогон идёт асинхронно. Лиды, которым этот бот "
-                    + "уже успешно запускался (есть SUCCESS в bot_execution_log), пропускаются.",
+                    + "уже успешно запускался (есть SUCCESS в bot_execution_log), пропускаются. "
+                    + "Если задан tagName — запуск только для лидов с этим тегом.",
             security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/run-batch")
     public ResponseEntity<String> runBatch(@Valid @RequestBody RunSalesbotBatchRequestDTO request) {
-        batchRunner.runBatch(request.getPipelineId(), request.getStatusId(), request.getBotId());
+        String tagName = request.getTagName() == null || request.getTagName().isBlank()
+                ? null
+                : request.getTagName().trim();
+        batchRunner.runBatch(request.getPipelineId(), request.getStatusId(), request.getBotId(), tagName);
         return ResponseEntity.accepted()
-                .body("accepted: запуск SalesBot " + request.getBotId() + " запущен в фоне");
+                .body("accepted: запуск SalesBot " + request.getBotId() + " запущен в фоне"
+                        + (tagName == null ? "" : " (только лиды с тегом '" + tagName + "')"));
     }
 }
