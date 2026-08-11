@@ -78,7 +78,7 @@ public final class EmailTemplate {
     private static final Map<String, RowStyle> SHOP_ROW_STYLES = Map.of(
             "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35", "0"),
             "di_gips", new RowStyle("#f2dfe6", "#5f4c45", "#b39a8f", "#b44e70", "0"),
-            "lunasvecha", new RowStyle("#e7e0d2", "#4a3c32", "#a89c90", "#46392f", "0"));
+            "lunasvecha", new RowStyle("#e7e0d2", "#4a3c32", "#a89c90", "#4a3423", "0"));
 
     private static String normalizeSlug(String slug) {
         return slug != null && slug.matches("[a-z0-9_-]+") ? slug : Shop.DEFAULT_SLUG;
