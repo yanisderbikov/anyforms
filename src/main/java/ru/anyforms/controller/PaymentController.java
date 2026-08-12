@@ -65,29 +65,48 @@ public class PaymentController {
                 .orElseThrow(() -> new RuntimeException("Продукт не найден: " + productCode));
         Long price = product.getPriceKopecks();
 
-        Optional<PromoCode> promo = getterPromoCode.getByCode(code);
-        if (promo.isEmpty()) {
-            return ResponseEntity.ok(new PromoCheckResponse(false, null, null, price, null, "Такого промокода нет.", null));
+        Optional<PromoCode> found = getterPromoCode.getByCode(code);
+        if (found.isEmpty()) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .priceKopecks(price).message("Такого промокода нет.").build());
         }
-        if (!promo.get().isCurrentlyValid()) {
-            return ResponseEntity.ok(new PromoCheckResponse(
-                    false, promo.get().getCode(), null, price, null, "Срок действия промокода истёк.", null));
+        PromoCode promo = found.get();
+        if (!promo.isCurrentlyValid()) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .code(promo.getCode()).priceKopecks(price)
+                    .message("Срок действия промокода истёк.").build());
         }
-        int percent = promo.get().getDiscountPercent();
-        String validUntil = promo.get().getValidUntil() != null ? promo.get().getValidUntil().toString() : null;
-        return ResponseEntity.ok(new PromoCheckResponse(
-                true, promo.get().getCode(), percent, price,
-                MoneyUtil.applyDiscountPercent(price, percent), null, validUntil));
+        if (!promo.meetsMinOrder(price)) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .code(promo.getCode()).priceKopecks(price)
+                    .minOrderKopecks(promo.getMinOrderKopecks())
+                    .message("Промокод действует для заказов от "
+                            + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".")
+                    .build());
+        }
+        return ResponseEntity.ok(PromoCheckResponse.builder()
+                .valid(true)
+                .code(promo.getCode())
+                .discountPercent(promo.getDiscountPercent())
+                .discountAmountKopecks(promo.getDiscountAmountKopecks())
+                .minOrderKopecks(promo.getMinOrderKopecks())
+                .priceKopecks(price)
+                .discountedPriceKopecks(MoneyUtil.applyPromoDiscount(
+                        price, promo.getDiscountPercent(), promo.getDiscountAmountKopecks()))
+                .validUntil(promo.getValidUntil() != null ? promo.getValidUntil().toString() : null)
+                .build());
     }
 
     @Operation(summary = "Проверить промокод для корзины маркетплейса",
-            description = "Проверяет валидность промокода и не использовал ли клиент его раньше (по email или телефону)")
+            description = "Проверяет валидность промокода, не использовал ли клиент его раньше (по email или телефону) "
+                    + "и достигнута ли минимальная сумма заказа (totalKopecks — сумма корзины клиента, необязательна)")
     @GetMapping("/cart-promo-check")
     public ResponseEntity<PromoCheckResponse> cartPromoCheck(
             @RequestParam("code") String code,
             @RequestParam("email") String email,
-            @RequestParam(value = "phone", required = false) String phone) {
-        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone));
+            @RequestParam(value = "phone", required = false) String phone,
+            @RequestParam(value = "totalKopecks", required = false) Long totalKopecks) {
+        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone, totalKopecks));
     }
 
     @ExceptionHandler(InvalidPromoCodeException.class)

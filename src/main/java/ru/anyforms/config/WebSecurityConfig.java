@@ -52,6 +52,7 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/training-invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/receipt/**").hasRole("ADMIN")
+                    .requestMatchers("/api/promo-code/**").hasRole("ADMIN")
                     .requestMatchers("/webhook/**").permitAll()
                     .requestMatchers("/api/**").permitAll()
                     .anyRequest().permitAll()
