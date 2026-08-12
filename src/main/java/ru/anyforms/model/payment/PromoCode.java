@@ -30,8 +30,17 @@ public class PromoCode {
     @Column(nullable = false, unique = true, length = 64)
     private String code;
 
+    /** Скидка в процентах, 0–100; 0 — промокод только на фиксированную сумму. */
     @Column(name = "discount_percent", nullable = false)
     private Integer discountPercent;
+
+    /** Фиксированная скидка в копейках, применяется после процента; null — не задана. */
+    @Column(name = "discount_amount_kopecks")
+    private Long discountAmountKopecks;
+
+    /** Минимальная сумма заказа (до скидок) в копейках; null — без порога. */
+    @Column(name = "min_order_kopecks")
+    private Long minOrderKopecks;
 
     @Column(nullable = false)
     private Boolean active;
@@ -62,5 +71,14 @@ public class PromoCode {
         return Boolean.TRUE.equals(active)
                 && (validFrom == null || !now.isBefore(validFrom))
                 && (validUntil == null || now.isBefore(validUntil));
+    }
+
+    public boolean hasAmountDiscount() {
+        return discountAmountKopecks != null && discountAmountKopecks > 0;
+    }
+
+    /** Порог считается по сумме заказа до применения скидок. */
+    public boolean meetsMinOrder(long orderTotalKopecks) {
+        return minOrderKopecks == null || orderTotalKopecks >= minOrderKopecks;
     }
 }

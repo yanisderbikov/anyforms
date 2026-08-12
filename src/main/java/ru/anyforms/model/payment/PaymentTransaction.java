@@ -71,6 +71,10 @@ public class PaymentTransaction {
     @Column(name = "discount_percent")
     private Integer discountPercent;
 
+    /** Применённая фиксированная скидка промокода, в копейках. */
+    @Column(name = "discount_amount_kopecks")
+    private Long discountAmountKopecks;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

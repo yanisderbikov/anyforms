@@ -67,9 +67,10 @@ class PurchaseServiceImpl implements PurchaseService {
             throw new RuntimeException("Продукт неактивен: " + product.getCode());
         }
 
-        PromoCode promo = resolvePromo(request.getPromoCode());
+        PromoCode promo = resolvePromo(request.getPromoCode(), product.getPriceKopecks());
         long priceKopecks = promo != null
-                ? MoneyUtil.applyDiscountPercent(product.getPriceKopecks(), promo.getDiscountPercent())
+                ? MoneyUtil.applyPromoDiscount(product.getPriceKopecks(), promo.getDiscountPercent(),
+                        promo.getDiscountAmountKopecks())
                 : product.getPriceKopecks();
 
         Amount amount = Amount.builder()
@@ -108,6 +109,7 @@ class PurchaseServiceImpl implements PurchaseService {
                 .status(resolveStatus(response.getStatus()))
                 .promoCode(promo != null ? promo.getCode() : null)
                 .discountPercent(promo != null ? promo.getDiscountPercent() : null)
+                .discountAmountKopecks(promo != null ? promo.getDiscountAmountKopecks() : null)
                 .build();
         saverTransaction.save(transaction);
 
@@ -119,7 +121,7 @@ class PurchaseServiceImpl implements PurchaseService {
     }
 
     /** Null, если код не передан; исключение, если передан, но невалиден — молча игнорировать нельзя. */
-    private PromoCode resolvePromo(String rawCode) {
+    private PromoCode resolvePromo(String rawCode, long priceKopecks) {
         if (rawCode == null || rawCode.isBlank()) {
             return null;
         }
@@ -127,6 +129,10 @@ class PurchaseServiceImpl implements PurchaseService {
                 .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode)));
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
+        }
+        if (!promo.meetsMinOrder(priceKopecks)) {
+            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует для заказов от "
+                    + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".");
         }
         return promo;
     }

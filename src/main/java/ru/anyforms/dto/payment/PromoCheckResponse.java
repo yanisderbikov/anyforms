@@ -2,10 +2,12 @@ package ru.anyforms.dto.payment;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class PromoCheckResponse {
@@ -19,6 +21,14 @@ public class PromoCheckResponse {
 
     @JsonProperty("discountPercent")
     private Integer discountPercent;
+
+    /** Фиксированная скидка в копейках поверх процента; null — её нет. */
+    @JsonProperty("discountAmountKopecks")
+    private Long discountAmountKopecks;
+
+    /** Минимальная сумма заказа (до скидок) в копейках; null — без порога. */
+    @JsonProperty("minOrderKopecks")
+    private Long minOrderKopecks;
 
     /** Цена продукта без скидки, в копейках. */
     @JsonProperty("priceKopecks")

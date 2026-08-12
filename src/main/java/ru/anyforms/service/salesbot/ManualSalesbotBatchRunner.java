@@ -19,8 +19,10 @@ public class ManualSalesbotBatchRunner {
     private final BotExecutionRecorder executionRecorder;
 
     @Async
-    public void runBatch(Long pipelineId, Long statusId, Long botId) {
-        List<Long> leads = amoCrmGateway.getLeadIdsByStatus(pipelineId, statusId);
+    public void runBatch(Long pipelineId, Long statusId, Long botId, String tagName) {
+        List<Long> leads = tagName == null
+                ? amoCrmGateway.getLeadIdsByStatus(pipelineId, statusId)
+                : amoCrmGateway.getLeadIdsByStatusAndTag(pipelineId, statusId, tagName);
         BotStep step = new BotStep(botId, 0);
         int sent = 0;
         int skipped = 0;
@@ -40,7 +42,7 @@ public class ManualSalesbotBatchRunner {
                 log.error("Manual batch: failed lead {} bot {}", leadId, botId, e);
             }
         }
-        log.info("Manual batch done: pipeline={} status={} bot={} -> sent={}, skipped(already)={}, total={}",
-                pipelineId, statusId, botId, sent, skipped, leads.size());
+        log.info("Manual batch done: pipeline={} status={} bot={} tag={} -> sent={}, skipped(already)={}, total={}",
+                pipelineId, statusId, botId, tagName, sent, skipped, leads.size());
     }
 }

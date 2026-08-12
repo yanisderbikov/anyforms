@@ -129,6 +129,12 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public List<Long> getLeadIdsByStatusAndTag(Long pipelineId, Long statusId, String tagName) {
+        skip("getLeadIdsByStatusAndTag");
+        return List.of();
+    }
+
+    @Override
     public boolean runSalesbot(Long leadId, Long botId) {
         skip("runSalesbot");
         return true;

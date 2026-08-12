@@ -131,6 +131,17 @@ public interface AmoCrmGateway {
     List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId);
 
     /**
+     * То же, что {@link #getLeadIdsByStatus(Long, Long)}, но возвращает только лидов,
+     * у которых есть тег с заданным именем (сравнение без учёта регистра).
+     *
+     * @param pipelineId ID воронки
+     * @param statusId   ID статуса
+     * @param tagName    имя тега в amoCRM
+     * @return список lead_id (может быть пустым)
+     */
+    List<Long> getLeadIdsByStatusAndTag(Long pipelineId, Long statusId, String tagName);
+
+    /**
      * Запрос №2 дрип-кампании: запустить SalesBot для сделки (fire-and-forget).
      * <p>
      * TODO: уточнить точный формат запроса запуска SalesBot в amoCRM (endpoint и тело).

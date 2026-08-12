@@ -129,12 +129,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     @Transactional
     public PaymentUrlResponse purchase(CartPurchaseRequest request) {
         List<PricedItem> priced = priceItems(request.getItems());
-        PromoCode promo = resolvePromo(request.getPromoCode(), request.getEmail(), request.getPhone());
+        long subtotalKopecks = priced.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).sum();
+        PromoCode promo = resolvePromo(request.getPromoCode(), request.getEmail(), request.getPhone(), subtotalKopecks);
         if (promo != null) {
-            priced = priced.stream()
-                    .map(i -> new PricedItem(i.product(), i.variant(), i.quantity(),
-                            MoneyUtil.applyDiscountPercent(i.unitKopecks(), promo.getDiscountPercent())))
-                    .toList();
+            priced = applyPromoToItems(priced, promo);
         }
         long totalKopecks = priced.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).sum();
         long totalQty = priced.stream().mapToLong(PricedItem::quantity).sum();
@@ -159,24 +157,40 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     }
 
     @Override
-    public PromoCheckResponse checkPromo(String code, String email, String phone) {
+    public PromoCheckResponse checkPromo(String code, String email, String phone, Long totalKopecks) {
         Optional<PromoCode> found = getterPromoCode.getByCode(code);
         if (found.isEmpty()) {
-            return new PromoCheckResponse(false, null, null, null, null, "Такого промокода нет.", null);
+            return PromoCheckResponse.builder().message("Такого промокода нет.").build();
         }
         PromoCode promo = found.get();
         if (!promo.isCurrentlyValid()) {
-            return new PromoCheckResponse(false, promo.getCode(), null, null, null, "Срок действия промокода истёк.", null);
+            return PromoCheckResponse.builder()
+                    .code(promo.getCode()).message("Срок действия промокода истёк.").build();
         }
         if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
-            return new PromoCheckResponse(false, promo.getCode(), null, null, null,
-                    "Этот промокод уже был использован.", null);
+            return PromoCheckResponse.builder()
+                    .code(promo.getCode()).message("Этот промокод уже был использован.").build();
         }
-        String validUntil = promo.getValidUntil() != null ? promo.getValidUntil().toString() : null;
-        return new PromoCheckResponse(true, promo.getCode(), promo.getDiscountPercent(), null, null, null, validUntil);
+        // totalKopecks приходит с клиента и только для ранней подсказки:
+        // при оформлении порог проверяется заново по серверным ценам.
+        if (totalKopecks != null && !promo.meetsMinOrder(totalKopecks)) {
+            return PromoCheckResponse.builder()
+                    .code(promo.getCode())
+                    .minOrderKopecks(promo.getMinOrderKopecks())
+                    .message(minOrderMessage(promo))
+                    .build();
+        }
+        return PromoCheckResponse.builder()
+                .valid(true)
+                .code(promo.getCode())
+                .discountPercent(promo.getDiscountPercent())
+                .discountAmountKopecks(promo.getDiscountAmountKopecks())
+                .minOrderKopecks(promo.getMinOrderKopecks())
+                .validUntil(promo.getValidUntil() != null ? promo.getValidUntil().toString() : null)
+                .build();
     }
 
-    private PromoCode resolvePromo(String rawCode, String email, String phone) {
+    private PromoCode resolvePromo(String rawCode, String email, String phone, long subtotalKopecks) {
         if (rawCode == null || rawCode.isBlank()) {
             return null;
         }
@@ -188,7 +202,53 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже был использован.");
         }
+        if (!promo.meetsMinOrder(subtotalKopecks)) {
+            throw new InvalidPromoCodeException(minOrderMessage(promo));
+        }
         return promo;
+    }
+
+    private String minOrderMessage(PromoCode promo) {
+        return "Промокод " + promo.getCode() + " действует для заказов от "
+                + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".";
+    }
+
+    /**
+     * Применяет промокод к позициям: процент — с каждой единицы (HALF_UP до копейки),
+     * затем фиксированная сумма распределяется по позициям пропорционально их стоимости.
+     * Позиция с «неделимым» остатком расщепляется на две строки с ценами, отличающимися
+     * на копейку, — чек у провайдера (цена × количество) обязан сходиться с платежом.
+     * Итог не опускается ниже {@link MoneyUtil#MIN_PAYABLE_KOPECKS}.
+     */
+    private List<PricedItem> applyPromoToItems(List<PricedItem> priced, PromoCode promo) {
+        List<PricedItem> discounted = priced.stream()
+                .map(i -> new PricedItem(i.product(), i.variant(), i.quantity(),
+                        MoneyUtil.applyDiscountPercent(i.unitKopecks(), promo.getDiscountPercent())))
+                .toList();
+        if (!promo.hasAmountDiscount()) {
+            return discounted;
+        }
+        long afterPercent = discounted.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).sum();
+        long reduction = Math.min(promo.getDiscountAmountKopecks(),
+                Math.max(0, afterPercent - MoneyUtil.MIN_PAYABLE_KOPECKS));
+        if (reduction == 0) {
+            return discounted;
+        }
+        long[] lineTotals = discounted.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).toArray();
+        long[] shares = MoneyUtil.distributeReduction(lineTotals, reduction);
+        List<PricedItem> result = new ArrayList<>();
+        for (int i = 0; i < discounted.size(); i++) {
+            PricedItem item = discounted.get(i);
+            long perUnit = shares[i] / item.quantity();
+            int extraKopeckUnits = (int) (shares[i] % item.quantity());
+            result.add(new PricedItem(item.product(), item.variant(),
+                    item.quantity() - extraKopeckUnits, item.unitKopecks() - perUnit));
+            if (extraKopeckUnits > 0) {
+                result.add(new PricedItem(item.product(), item.variant(),
+                        extraKopeckUnits, item.unitKopecks() - perUnit - 1));
+            }
+        }
+        return result;
     }
 
     private String phoneLast10(String phone) {
@@ -228,6 +288,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .orderId(order.getId())
                 .promoCode(promo != null ? promo.getCode() : null)
                 .discountPercent(promo != null ? promo.getDiscountPercent() : null)
+                .discountAmountKopecks(promo != null ? promo.getDiscountAmountKopecks() : null)
                 .build();
         saverTransaction.save(transaction);
 
@@ -267,6 +328,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .orderId(order.getId())
                 .promoCode(promo != null ? promo.getCode() : null)
                 .discountPercent(promo != null ? promo.getDiscountPercent() : null)
+                .discountAmountKopecks(promo != null ? promo.getDiscountAmountKopecks() : null)
                 .build();
         saverTransaction.save(transaction);
 
