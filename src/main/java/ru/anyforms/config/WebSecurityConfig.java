@@ -43,7 +43,7 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/api/public/**").permitAll()
-                    // ── Межсервисные ручки: общий секрет SERVICE_AUTH_TOKEN ──
+                    // ── Межсервисные ручки: общий секрет SERVICE_JWT_TOKEN ──
                     .requestMatchers("/api/actuator/**").hasRole("SERVICE")
                     .requestMatchers("/api/tech/**").hasRole("SERVICE")
                     .requestMatchers("/api/pusher/**").hasRole("SERVICE")

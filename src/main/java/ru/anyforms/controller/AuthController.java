@@ -29,7 +29,6 @@ public class AuthController {
     private final AuthService authService;
 
     @Operation(summary = "Регистрация админа",
-            description = "Только с сервисным токеном (SERVICE_AUTH_TOKEN) в Authorization: Bearer",
             security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/register-admin")
     public ResponseEntity<Void> registerAdmin(@Valid @RequestBody RegisterAdminRequestDTO request) {

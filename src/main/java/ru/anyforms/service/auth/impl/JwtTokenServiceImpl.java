@@ -23,7 +23,7 @@ class JwtTokenServiceImpl implements JwtTokenService {
     JwtTokenServiceImpl(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration.seconds}") long expirationSeconds,
-            @Value("${service.auth.token}") String serviceToken) {
+            @Value("${service.jwt.token}") String serviceToken) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationSeconds * 1000L;
         this.serviceToken = serviceToken;
