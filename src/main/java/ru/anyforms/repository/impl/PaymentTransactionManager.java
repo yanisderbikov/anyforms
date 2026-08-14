@@ -75,6 +75,17 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public List<PaymentTransaction> getPaidByEmailAndProductCodes(String email, Collection<String> productCodes) {
+        try {
+            return transactionRepo.findByEmailIgnoreCaseAndStatusAndProductCodeInOrderByCreatedAtDesc(
+                    email, PaymentTransactionStatus.SUCCEEDED, productCodes);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<PaymentTransaction> getRecentByProviderStatusAndProductCodes(PaymentProvider provider,
                                                                              PaymentTransactionStatus status,
                                                                              Collection<String> productCodes,

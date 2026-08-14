@@ -31,6 +31,12 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
                                                                                         Collection<String> productCodes,
                                                                                         Pageable pageable);
 
+    /** Оплаченные покупки почты — для проверки доступа к платформе обучения */
+    List<PaymentTransaction> findByEmailIgnoreCaseAndStatusAndProductCodeInOrderByCreatedAtDesc(
+            String email,
+            PaymentTransactionStatus status,
+            Collection<String> productCodes);
+
     @Query("""
             SELECT t.productCode AS productCode,
                    COUNT(t) AS quantity,
