@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,7 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import ru.anyforms.dto.PresignUploadRequestDTO;
+import ru.anyforms.dto.PresignUploadResponseDTO;
 import ru.anyforms.dto.marketplace.PhotoOrderRequestDTO;
 import ru.anyforms.dto.marketplace.ProductCreateUpdateRequestDTO;
 
@@ -55,15 +55,27 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
-    @Operation(summary = "Загрузить фото товара",
-            description = "Multipart-загрузка изображений в S3-папку товара; если папка не задана, создаётся по id товара",
+    @Operation(summary = "Presigned URL для загрузки фото товара",
+            description = "Файл уходит из браузера сразу в S3-папку товара (PUT по uploadUrl), бэкенд только подписывает; "
+                    + "если папка не задана, создаётся по id товара. После загрузки всех файлов — POST /{id}/photos/confirm. "
+                    + "Требует CORS на бакете.",
             security = @SecurityRequirement(name = "Bearer")
     )
-    @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ProductDTO> uploadPhotos(
+    @PostMapping("/{id}/photos/presign")
+    public ResponseEntity<PresignUploadResponseDTO> presignPhotoUpload(
             @PathVariable("id") UUID id,
-            @RequestParam("files") List<MultipartFile> files) {
-        return ResponseEntity.ok(productService.uploadPhotos(id, files));
+            @Valid @RequestBody PresignUploadRequestDTO request) {
+        var presigned = productService.presignPhotoUpload(id, request.getFilename(), request.getContentType());
+        return ResponseEntity.ok(new PresignUploadResponseDTO(presigned.uploadUrl(), presigned.key()));
+    }
+
+    @Operation(summary = "Зафиксировать загруженные фото товара",
+            description = "Сбрасывает кеш S3-папки товара после прямой загрузки и возвращает товар со свежим списком фото",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @PostMapping("/{id}/photos/confirm")
+    public ResponseEntity<ProductDTO> confirmPhotos(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok(productService.confirmPhotos(id));
     }
 
     @Operation(summary = "Удалить фото товара",

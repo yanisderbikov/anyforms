@@ -1,8 +1,8 @@
 package ru.anyforms.service.product;
 
-import org.springframework.web.multipart.MultipartFile;
 import ru.anyforms.dto.marketplace.ProductCreateUpdateRequestDTO;
 import ru.anyforms.dto.marketplace.ProductDTO;
+import ru.anyforms.service.s3.S3FileStorage;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +19,14 @@ public interface ProductService {
 
     ProductDTO saveOrUpdate(ProductCreateUpdateRequestDTO request);
 
-    ProductDTO uploadPhotos(UUID id, List<MultipartFile> files);
+    /**
+     * Presigned PUT для загрузки фото напрямую в S3-папку товара, минуя бэкенд;
+     * если папка не задана, создаётся по id товара.
+     */
+    S3FileStorage.PresignedUpload presignPhotoUpload(UUID id, String filename, String contentType);
+
+    /** Фиксирует загруженные напрямую фото: сбрасывает кеш папки и возвращает товар со свежим списком. */
+    ProductDTO confirmPhotos(UUID id);
 
     ProductDTO deletePhoto(UUID id, String fileName);
 

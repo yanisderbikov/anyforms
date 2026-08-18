@@ -1,10 +1,11 @@
 package ru.anyforms.service;
 
-import org.springframework.web.multipart.MultipartFile;
+import ru.anyforms.dto.CustomProductFileRefDTO;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.model.CustomProductStatus;
+import ru.anyforms.service.s3.S3FileStorage;
 
 import java.util.List;
 
@@ -32,7 +33,11 @@ public interface CustomProductItemService {
 
     void delete(Long itemId);
 
-    CustomProductItemDTO addFiles(Long itemId, List<MultipartFile> files);
+    /** Presigned PUT для загрузки файла позиции напрямую в S3, минуя бэкенд. */
+    S3FileStorage.PresignedUpload presignFileUpload(Long itemId, String filename, String contentType);
+
+    /** Привязывает к позиции файлы, загруженные напрямую в S3 (ключи из presignFileUpload). */
+    CustomProductItemDTO confirmFiles(Long itemId, List<CustomProductFileRefDTO> files);
 
     /** Удаляет один файл по его id, возвращает обновлённую позицию. */
     CustomProductItemDTO removeFile(Long fileId);

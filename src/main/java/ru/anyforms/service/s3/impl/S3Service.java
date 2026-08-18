@@ -2,7 +2,6 @@ package ru.anyforms.service.s3.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.multipart.MultipartFile;
 import ru.anyforms.config.s3.S3Static;
 import ru.anyforms.service.s3.GetterPhotosFromS3Folder;
 import ru.anyforms.service.s3.S3FileStorage;
@@ -15,11 +14,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +26,8 @@ import java.util.UUID;
 class S3Service implements GetterPhotosFromS3Folder, S3FileStorage {
 
     private static final Duration PRESIGN_DURATION = Duration.ofHours(1);
+    /** Окно на прямую загрузку файла из браузера в S3 */
+    private static final Duration UPLOAD_PRESIGN_DURATION = Duration.ofMinutes(30);
     private static final String SHOP_PREFIX = "shop/";
 
     private final S3Client s3Client;
@@ -80,36 +78,24 @@ class S3Service implements GetterPhotosFromS3Folder, S3FileStorage {
     }
 
     @Override
-    public String upload(MultipartFile file, String keyPrefix) {
+    public PresignedUpload presignUpload(String filename, String contentType, String keyPrefix) {
         String prefix = keyPrefix == null ? "" : keyPrefix.replaceAll("^/+", "").replaceAll("/+$", "");
-        String ext = extractExtension(file.getOriginalFilename());
+        String ext = extractExtension(filename);
         String key = (prefix.isEmpty() ? "" : prefix + "/") + UUID.randomUUID() + ext;
 
-        Path tempFile = null;
-        try {
-            // Грузим из файла (как в vizhuonline): SDK сам считает длину и SHA-256 → обычная подпись,
-            // без streaming/chunked (иначе Yandex отдаёт SignatureDoesNotMatch).
-            tempFile = Files.createTempFile("s3-upload-", ext.isEmpty() ? ".tmp" : ext);
-            try (var in = file.getInputStream()) {
-                Files.copy(in, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            }
-            PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(s3Static.getBucketName())
-                    .key(key)
-                    .contentType(file.getContentType())
-                    .build();
-            s3Client.putObject(request, tempFile);
-        } catch (IOException e) {
-            throw new RuntimeException("Не удалось загрузить файл в S3: " + e.getMessage(), e);
-        } finally {
-            if (tempFile != null) {
-                try {
-                    Files.deleteIfExists(tempFile);
-                } catch (IOException ignored) {
-                }
-            }
+        PutObjectRequest.Builder request = PutObjectRequest.builder()
+                .bucket(s3Static.getBucketName())
+                .key(key);
+        // Content-Type входит в подпись — браузер должен отправить PUT с тем же заголовком
+        if (contentType != null && !contentType.isBlank()) {
+            request.contentType(contentType);
         }
-        return key;
+        String uploadUrl = s3Presigner.presignPutObject(PutObjectPresignRequest.builder()
+                        .signatureDuration(UPLOAD_PRESIGN_DURATION)
+                        .putObjectRequest(request.build())
+                        .build())
+                .url().toString();
+        return new PresignedUpload(uploadUrl, key);
     }
 
     @Override

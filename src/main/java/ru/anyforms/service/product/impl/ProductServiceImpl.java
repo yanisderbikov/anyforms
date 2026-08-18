@@ -3,7 +3,6 @@ package ru.anyforms.service.product.impl;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.marketplace.ProductCreateUpdateRequestDTO;
 import ru.anyforms.dto.marketplace.ProductDTO;
@@ -72,19 +71,23 @@ class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductDTO uploadPhotos(UUID id, List<MultipartFile> files) {
+    public S3FileStorage.PresignedUpload presignPhotoUpload(UUID id, String filename, String contentType) {
         Product product = getterProduct.getById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Товар не найден: " + id));
-        if (files == null || files.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Файлы не переданы");
-        }
         if (product.getS3PhotosFolderPath() == null || product.getS3PhotosFolderPath().isBlank()) {
             product.setS3PhotosFolderPath(product.getId().toString());
             product = saverProduct.save(product);
         }
+        return s3FileStorage.presignUpload(filename, contentType, SHOP_PREFIX + product.getS3PhotosFolderPath());
+    }
+
+    @Override
+    public ProductDTO confirmPhotos(UUID id) {
+        Product product = getterProduct.getById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Товар не найден: " + id));
         String folder = product.getS3PhotosFolderPath();
-        for (MultipartFile file : files) {
-            s3FileStorage.upload(file, SHOP_PREFIX + folder);
+        if (folder == null || folder.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "У товара нет папки с фото");
         }
         getterPhotosFromS3Folder.invalidateFolder(folder);
         return converterProducts.convert(product);

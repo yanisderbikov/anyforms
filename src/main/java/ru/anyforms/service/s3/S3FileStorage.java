@@ -1,18 +1,20 @@
 package ru.anyforms.service.s3;
 
-import org.springframework.web.multipart.MultipartFile;
-
 /**
  * Key-based операции с S3 (в отличие от {@link GetterPhotosFromS3Folder}, работающего по папке).
- * Используется для файлов кастомных позиций: загрузка/удаление конкретного объекта по ключу.
+ * Загрузка идёт напрямую из браузера по presigned PUT — бэкенд файлы не проксирует, только подписывает URL.
  */
 public interface S3FileStorage {
 
+    /** Подписанный URL для прямой загрузки из браузера в S3 (PUT), минуя бэкенд. */
+    record PresignedUpload(String uploadUrl, String key) {
+    }
+
     /**
-     * Загружает файл под ключом {@code keyPrefix/uuid.ext}.
-     * @return полный ключ объекта в бакете.
+     * Presigned PUT URL под ключом {@code keyPrefix/uuid.ext} (от исходного имени остаётся только расширение).
+     * Content-Type входит в подпись: браузер обязан отправить PUT с тем же заголовком.
      */
-    String upload(MultipartFile file, String keyPrefix);
+    PresignedUpload presignUpload(String filename, String contentType, String keyPrefix);
 
     /** Удаляет объект по ключу (no-op при пустом ключе). */
     void delete(String key);
