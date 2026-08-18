@@ -26,6 +26,9 @@ public interface GetterTransaction {
                                                                       Collection<String> productCodes,
                                                                       int limit);
 
+    /** Оплаченные покупки почты по списку продуктов — проверка доступа к обучению */
+    List<PaymentTransaction> getPaidByEmailAndProductCodes(String email, Collection<String> productCodes);
+
     List<ProductSalesRow> getSalesByProductCodes(PaymentTransactionStatus status,
                                                  Collection<String> productCodes,
                                                  Instant from,

@@ -18,12 +18,21 @@ class JwtTokenServiceImpl implements JwtTokenService {
 
     private final SecretKey key;
     private final long expirationMs;
+    private final String serviceToken;
 
     JwtTokenServiceImpl(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration.seconds}") long expirationSeconds) {
+            @Value("${jwt.expiration.seconds}") long expirationSeconds,
+            @Value("${service.jwt.token}") String serviceToken) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationSeconds * 1000L;
+        this.serviceToken = serviceToken;
+    }
+
+    @Override
+    public boolean isServiceToken(String token) {
+        // Секрет не настроен — значит, межсервисного доступа нет ни у кого
+        return serviceToken != null && !serviceToken.isBlank() && serviceToken.equals(token);
     }
 
     @Override

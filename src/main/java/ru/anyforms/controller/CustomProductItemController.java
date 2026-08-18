@@ -6,11 +6,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import ru.anyforms.dto.ConfirmFilesRequestDTO;
 import ru.anyforms.dto.CustomProductItemDTO;
+import ru.anyforms.dto.PresignUploadRequestDTO;
+import ru.anyforms.dto.PresignUploadResponseDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.CustomProductStatusUpdateRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
@@ -78,10 +79,21 @@ public class CustomProductItemController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Добавить файл(ы) к позиции")
-    @PostMapping(value = "/{id}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public CustomProductItemDTO addFiles(@PathVariable Long id, @RequestParam("files") List<MultipartFile> files) {
-        return service.addFiles(id, files);
+    @Operation(summary = "Presigned URL для загрузки файла позиции",
+            description = "Файл уходит из браузера сразу в S3 (PUT по uploadUrl), бэкенд только подписывает. "
+                    + "Загруженные ключи привязываются через POST /{id}/files/confirm. Требует CORS на бакете.")
+    @PostMapping("/{id}/files/presign")
+    public PresignUploadResponseDTO presignFileUpload(@PathVariable Long id,
+                                                      @Valid @RequestBody PresignUploadRequestDTO request) {
+        var presigned = service.presignFileUpload(id, request.getFilename(), request.getContentType());
+        return new PresignUploadResponseDTO(presigned.uploadUrl(), presigned.key());
+    }
+
+    @Operation(summary = "Привязать загруженные в S3 файлы к позиции")
+    @PostMapping("/{id}/files/confirm")
+    public CustomProductItemDTO confirmFiles(@PathVariable Long id,
+                                             @Valid @RequestBody ConfirmFilesRequestDTO request) {
+        return service.confirmFiles(id, request.getFiles());
     }
 
     @Operation(summary = "Заказы с позициями, готовыми к отправке (группировка по заказу)")

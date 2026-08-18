@@ -7,6 +7,8 @@ public interface JwtTokenService {
 
     boolean isValid(String token);
 
+    boolean isServiceToken(String token);
+
     String getUsername(String token);
 
     Role getRole(String token);

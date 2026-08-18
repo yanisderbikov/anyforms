@@ -7,9 +7,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.CustomProductFileDTO;
+import ru.anyforms.dto.CustomProductFileRefDTO;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
@@ -135,20 +135,31 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     }
 
     @Override
-    @Transactional
-    public CustomProductItemDTO addFiles(Long itemId, List<MultipartFile> files) {
+    @Transactional(readOnly = true)
+    public S3FileStorage.PresignedUpload presignFileUpload(Long itemId, String filename, String contentType) {
         CustomProductItem item = getOrThrow(itemId);
-        if (files != null) {
-            for (MultipartFile file : files) {
-                if (file == null || file.isEmpty()) {
-                    continue;
-                }
-                String key = s3FileStorage.upload(file, FILE_KEY_PREFIX + item.getId());
-                CustomProductFile cf = new CustomProductFile();
-                cf.setS3Key(key);
-                cf.setFilename(file.getOriginalFilename());
-                item.addFile(cf);
+        return s3FileStorage.presignUpload(filename, contentType, FILE_KEY_PREFIX + item.getId());
+    }
+
+    @Override
+    @Transactional
+    public CustomProductItemDTO confirmFiles(Long itemId, List<CustomProductFileRefDTO> files) {
+        CustomProductItem item = getOrThrow(itemId);
+        String expectedPrefix = FILE_KEY_PREFIX + item.getId() + "/";
+        for (CustomProductFileRefDTO ref : files) {
+            String key = ref.getKey();
+            // Ключ обязан быть из presign этой же позиции — чужие/произвольные ключи не привязываем
+            if (key == null || !key.startsWith(expectedPrefix) || key.contains("..")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ключ не из папки позиции: " + key);
             }
+            boolean alreadyAttached = item.getFiles().stream().anyMatch(f -> key.equals(f.getS3Key()));
+            if (alreadyAttached) {
+                continue;
+            }
+            CustomProductFile cf = new CustomProductFile();
+            cf.setS3Key(key);
+            cf.setFilename(ref.getFilename());
+            item.addFile(cf);
         }
         return toDTO(itemRepository.save(item));
     }
