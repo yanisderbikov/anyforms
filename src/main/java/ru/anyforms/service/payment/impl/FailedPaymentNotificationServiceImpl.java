@@ -1,0 +1,74 @@
+package ru.anyforms.service.payment.impl;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.model.amo.AmoTaskId;
+import ru.anyforms.model.amo.AmoTaskResponsibleUser;
+import ru.anyforms.model.payment.PaymentProduct;
+import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.service.payment.FailedPaymentNotificationService;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationService {
+
+    static final String LEAD_NAME_PREFIX = "Неуспешная оплата - ";
+    static final String TASK_TEXT = "не получилось оплатить продукт - связаться";
+    static final int TASK_DEADLINE_MINUTES = 24 * 60;
+
+    static final long EDUCATION_PIPELINE_ID = 10863606L;
+    static final long EDUCATION_FAILED_STATUS_ID = 85480278L;
+    static final long MARKETPLACE_FAILED_PIPELINE_ID = 10557858L;
+    static final long MARKETPLACE_FAILED_STATUS_ID = 83286998L;
+
+    private final AmoCrmGateway amoCrmGateway;
+    private final AmoContactFinder amoContactFinder;
+
+    @Override
+    public void notify(PaymentTransaction transaction) {
+        PipelineTarget target = resolveTarget(transaction.getProductCode());
+        if (target == null) {
+            log.info("Неуспешная оплата: продукт {} в АМО не ведём (транзакция {})",
+                    transaction.getProductCode(), transaction.getId());
+            return;
+        }
+
+        Long existingContactId = amoContactFinder.findByEmailOrPhone(
+                transaction.getEmail(), transaction.getContactPhone());
+        String contactName = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
+        Long leadId = amoCrmGateway.createLead(LEAD_NAME_PREFIX + transaction.getProductCode(),
+                contactName, transaction.getContactPhone(), transaction.getEmail(),
+                target.pipelineId(), target.statusId(),
+                AmoTaskResponsibleUser.IRINA.getResponsibleUserId());
+        if (leadId == null) {
+            log.info("Неуспешная оплата: АМО выключена — сделка по транзакции {} не создана",
+                    transaction.getId());
+            return;
+        }
+        if (existingContactId == null) {
+            amoContactFinder.fillContactFio(leadId, transaction.getContactName());
+        }
+
+        amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
+                AmoTaskId.LOST_MESSAGE.getTaskId(), TASK_TEXT, leadId, TASK_DEADLINE_MINUTES);
+    }
+
+    private PipelineTarget resolveTarget(String productCode) {
+        if (productCode == null) {
+            return null;
+        }
+        return switch (productCode) {
+            case PaymentProduct.CODE_MARKETPLACE_CART ->
+                    new PipelineTarget(MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID);
+            case PaymentProduct.CODE_GUIDE, PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL ->
+                    new PipelineTarget(EDUCATION_PIPELINE_ID, EDUCATION_FAILED_STATUS_ID);
+            default -> null;
+        };
+    }
+
+    private record PipelineTarget(Long pipelineId, Long statusId) {
+    }
+}
