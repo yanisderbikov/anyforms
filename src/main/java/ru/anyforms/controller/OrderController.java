@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,15 +19,18 @@ import ru.anyforms.dto.DeliveryMethodUpdateRequestDTO;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
+import ru.anyforms.dto.marketplace.ShopSalesReportDTO;
 import ru.anyforms.model.Order;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.service.product.ShopSalesReportService;
 import ru.anyforms.util.converter.ConverterOrder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,6 +46,7 @@ public class OrderController {
     private final ConverterOrder converterOrder;
     private final CustomProductItemRepository customProductItemRepository;
     private final CustomOrderCreator customOrderCreator;
+    private final ShopSalesReportService shopSalesReportService;
 
     @Operation(
             summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
@@ -249,6 +254,19 @@ public class OrderController {
             orderService.syncOrder(request);
         }
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @Operation(
+            summary = "Отчёт по продажам магазина за период",
+            description = "Оплаченные заказы витрины магазина: сколько молдов куплено, общая сумма, разбивка по товарам",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @GetMapping("/shop-report")
+    public ResponseEntity<ShopSalesReportDTO> getShopSalesReport(
+            @RequestParam String shopSlug,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(shopSalesReportService.getReport(shopSlug, from, to));
     }
 }
 
