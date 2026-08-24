@@ -22,7 +22,6 @@ public class Order {
     @Column(name = "lead_id", unique = true)
     private Long leadId;
 
-    /** Публичный номер заказа для клиента (6 символов A-Z/0-9). Null у АМО/кастомных заказов. */
     @Column(name = "public_id", unique = true, length = 6)
     private String publicId;
 

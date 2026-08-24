@@ -14,6 +14,9 @@ public class CustomProductItemDTO {
 
     private Long id;
 
+    @Schema(description = "Публичный номер позиции (6 символов A-Z/0-9), для публичной ссылки")
+    private String publicId;
+
     @Schema(description = "ID сделки (наш order.id)")
     private Long orderId;
 

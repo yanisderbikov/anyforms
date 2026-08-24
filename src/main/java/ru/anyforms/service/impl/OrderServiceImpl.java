@@ -18,6 +18,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.PickupAddressDetector;
+import ru.anyforms.util.PublicIdGenerator;
 import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.sheets.GoogleSheetsColumnIndex;
 
@@ -165,6 +166,14 @@ class OrderServiceImpl implements OrderService  {
                         }
                     }
                 }
+            }
+
+            if (order.getPublicId() == null) {
+                order.setPublicId(PublicIdGenerator.generateUnique(orderRepository::existsByPublicId));
+            }
+            String projectLinkInCrm = lead.getCustomFieldValue(AmoCrmFieldId.PROJECT_LINK.getId());
+            if (!order.getPublicId().equals(projectLinkInCrm)) {
+                amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.PROJECT_LINK.getId(), order.getPublicId());
             }
 
             Order savedOrder = orderRepository.save(order);

@@ -51,11 +51,11 @@ import ru.anyforms.service.product.ShopService;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 import ru.anyforms.util.PickupAddressDetector;
+import ru.anyforms.util.PublicIdGenerator;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -81,10 +81,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private static final String PROVIDER_TINKOFF = "tinkoff";
     private static final String TINKOFF_PAY_TYPE_SINGLE_STAGE = "O";
     private static final int TINKOFF_ITEM_NAME_MAX_LENGTH = 128;
-    // Публичный номер заказа: 6 символов, заглавные буквы + цифры.
-    private static final char[] PUBLIC_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
-    private static final int PUBLIC_ID_LENGTH = 6;
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final YooKassaService yooKassaService;
     private final TinkoffService tinkoffService;
@@ -441,7 +437,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         order.setSource(OrderSource.MARKETPLACE);
         order.setRetail(true);
         order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
-        order.setPublicId(generateUniquePublicId());
+        order.setPublicId(PublicIdGenerator.generateUnique(orderRepository::existsByPublicId));
         order.setContactName(fullName);
         order.setContactPhone(request.getPhone());
         order.setPvzSdekCity(request.getPvzCity());
@@ -531,20 +527,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         return url + (url.contains("?") ? "&" : "?") + name + "=" + value;
     }
 
-    /** Уникальный публичный номер заказа (6 символов A-Z/0-9, заглавные). */
-    private String generateUniquePublicId() {
-        for (int attempt = 0; attempt < 12; attempt++) {
-            StringBuilder sb = new StringBuilder(PUBLIC_ID_LENGTH);
-            for (int i = 0; i < PUBLIC_ID_LENGTH; i++) {
-                sb.append(PUBLIC_ID_ALPHABET[RANDOM.nextInt(PUBLIC_ID_ALPHABET.length)]);
-            }
-            String candidate = sb.toString();
-            if (!orderRepository.existsByPublicId(candidate)) {
-                return candidate;
-            }
-        }
-        throw new IllegalStateException("Не удалось сгенерировать уникальный публичный номер заказа");
-    }
 
     private String joinUrl(String domain, String path) {
         if (domain.endsWith("/") && path.startsWith("/")) {

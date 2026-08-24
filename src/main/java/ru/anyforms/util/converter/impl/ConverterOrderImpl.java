@@ -20,6 +20,7 @@ class ConverterOrderImpl implements ConverterOrder {
 
         OrderSummaryDTO dto = new OrderSummaryDTO();
         dto.setId(order.getId());
+        dto.setPublicId(order.getPublicId());
         dto.setLeadId(order.getLeadId());
         dto.setContactId(order.getContactId());
         dto.setContactName(order.getContactName());

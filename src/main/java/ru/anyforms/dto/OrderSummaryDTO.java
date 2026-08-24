@@ -12,6 +12,9 @@ public class OrderSummaryDTO {
     @Schema(description = "Наш ID заказа", example = "1")
     private Long id;
 
+    @Schema(description = "Публичный номер заказа (6 символов A-Z/0-9)", example = "A1B2C3")
+    private String publicId;
+
     @Schema(description = "ID сделки в AmoCRM", example = "12345")
     private Long leadId;
     

@@ -16,6 +16,12 @@ public interface CustomProductItemService {
     /** Одна позиция по id (для шеринга ссылки; отдаётся в любом статусе). */
     CustomProductItemDTO getById(Long itemId);
 
+    /** Одна позиция по публичному номеру (полные данные, для авторизованных). */
+    CustomProductItemDTO getByPublicId(String publicId);
+
+    /** Одна позиция по публичному номеру без внутренних id и данных клиента (для публичной ссылки). */
+    CustomProductItemDTO getPublicByPublicId(String publicId);
+
     /** Все позиции, кроме завершённых (плоский список для «в работе»). */
     List<CustomProductItemDTO> getAll();
 

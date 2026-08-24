@@ -8,8 +8,13 @@ import ru.anyforms.model.CustomProductStatus;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface CustomProductItemRepository extends JpaRepository<CustomProductItem, Long> {
+
+    boolean existsByPublicId(String publicId);
+
+    Optional<CustomProductItem> findByPublicId(String publicId);
 
     /** Уникальные непустые значения «кто моделирует» (для select с автодобавлением). */
     @Query("SELECT DISTINCT i.modeler FROM CustomProductItem i WHERE i.modeler IS NOT NULL AND i.modeler <> '' ORDER BY i.modeler")

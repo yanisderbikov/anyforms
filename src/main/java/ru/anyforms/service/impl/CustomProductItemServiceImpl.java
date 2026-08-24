@@ -26,6 +26,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.s3.S3FileStorage;
+import ru.anyforms.util.PublicIdGenerator;
 import ru.anyforms.util.converter.ConverterOrder;
 
 import java.util.ArrayList;
@@ -67,6 +68,23 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
 
     @Override
     @Transactional(readOnly = true)
+    public CustomProductItemDTO getByPublicId(String publicId) {
+        return toDTO(getByPublicIdOrThrow(publicId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomProductItemDTO getPublicByPublicId(String publicId) {
+        CustomProductItemDTO dto = toDTO(getByPublicIdOrThrow(publicId));
+        dto.setId(null);
+        dto.setOrderId(null);
+        dto.setLeadId(null);
+        dto.setClientName(null);
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<CustomProductItemDTO> getAll() {
         return itemRepository.findByStatusNotIn(List.of(CustomProductStatus.COMPLETED), Sort.by(Sort.Direction.ASC, "createdAt")).stream()
                 .map(this::toDTO)
@@ -94,6 +112,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + orderId));
         CustomProductItem item = new CustomProductItem();
         item.setOrder(order);
+        item.setPublicId(PublicIdGenerator.generateUnique(itemRepository::existsByPublicId));
         if (request.getStatus() == CustomProductStatus.DELIVERING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "В статус DELIVERING позиция переводится только через отгрузку с трекером");
@@ -264,6 +283,12 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Позиция не найдена: " + itemId));
     }
 
+    private CustomProductItem getByPublicIdOrThrow(String publicId) {
+        String normalized = publicId == null ? "" : publicId.trim().toUpperCase();
+        return itemRepository.findByPublicId(normalized)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Позиция не найдена: " + publicId));
+    }
+
     private void applyRequest(CustomProductItem item, CustomProductItemRequestDTO request) {
         item.setProductName(request.getProductName());
         item.setDescription(request.getDescription());
@@ -275,6 +300,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private CustomProductItemDTO toDTO(CustomProductItem item) {
         CustomProductItemDTO dto = new CustomProductItemDTO();
         dto.setId(item.getId());
+        dto.setPublicId(item.getPublicId());
         dto.setOrderId(item.getOrder() != null ? item.getOrder().getId() : null);
         dto.setClientName(item.getOrder() != null ? item.getOrder().getContactName() : null);
         dto.setLeadId(item.getOrder() != null ? item.getOrder().getLeadId() : null);
