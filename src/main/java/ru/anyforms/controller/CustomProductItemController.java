@@ -52,6 +52,12 @@ public class CustomProductItemController {
         return service.getById(id);
     }
 
+    @Operation(summary = "Позиция по публичному номеру (полные данные, для админки)")
+    @GetMapping("/by-public-id/{publicId}")
+    public CustomProductItemDTO getByPublicId(@PathVariable String publicId) {
+        return service.getByPublicId(publicId);
+    }
+
     @Operation(summary = "Создать позицию")
     @PostMapping
     public ResponseEntity<CustomProductItemDTO> create(@RequestParam Long orderId,

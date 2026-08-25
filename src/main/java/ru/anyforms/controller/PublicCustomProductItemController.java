@@ -22,9 +22,9 @@ public class PublicCustomProductItemController {
 
     private final CustomProductItemService service;
 
-    @Operation(summary = "Позиция по id (публично, read-only)")
-    @GetMapping("/{id}")
-    public CustomProductItemDTO get(@PathVariable Long id) {
-        return service.getById(id);
+    @Operation(summary = "Позиция по публичному номеру (публично, read-only, без внутренних id)")
+    @GetMapping("/{publicId}")
+    public CustomProductItemDTO get(@PathVariable String publicId) {
+        return service.getPublicByPublicId(publicId);
     }
 }

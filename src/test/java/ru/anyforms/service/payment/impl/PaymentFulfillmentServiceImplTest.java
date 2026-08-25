@@ -3,6 +3,7 @@ package ru.anyforms.service.payment.impl;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
+import ru.anyforms.dto.amo.FailedPaymentAmoTaskPayload;
 import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.model.payment.PaymentProduct;
@@ -86,5 +87,30 @@ class PaymentFulfillmentServiceImplTest {
 
         verify(marketplaceFulfillmentService).fulfill(transaction);
         verify(taskAdder, never()).addTask(any());
+    }
+
+    @Test
+    void cancelAddsFailedPaymentAmoTask() {
+        PaymentTransaction transaction = transaction(PaymentProduct.CODE_GUIDE);
+
+        service.cancel(transaction);
+
+        ArgumentCaptor<Object> payloads = ArgumentCaptor.forClass(Object.class);
+        verify(taskAdder).addTask(payloads.capture());
+        FailedPaymentAmoTaskPayload payload =
+                assertInstanceOf(FailedPaymentAmoTaskPayload.class, payloads.getValue());
+        assertEquals(transaction.getId(), payload.getTransactionId());
+    }
+
+    @Test
+    void marketplaceCancelMarksOrderAndAddsFailedPaymentAmoTask() {
+        PaymentTransaction transaction = transaction(PaymentProduct.CODE_MARKETPLACE_CART);
+
+        service.cancel(transaction);
+
+        verify(marketplaceFulfillmentService).cancel(transaction);
+        ArgumentCaptor<Object> payloads = ArgumentCaptor.forClass(Object.class);
+        verify(taskAdder).addTask(payloads.capture());
+        assertInstanceOf(FailedPaymentAmoTaskPayload.class, payloads.getValue());
     }
 }

@@ -56,7 +56,7 @@ public final class EmailTemplate {
                 : payload.getSupportTelegram();
         String slug = normalizeSlug(payload.getShopSlug());
         return loadMarketplaceOrderTemplate(slug)
-                .replace("%ORDER%", esc(payload.getOrderPublicId() == null ? "" : payload.getOrderPublicId()))
+                .replace("%ORDER%", esc(payload.getOrderPublicId() == null ? "" : payload.getOrderPublicId().toUpperCase()))
                 .replace("%ROWS%", buildRows(payload.getItems(), SHOP_ROW_STYLES.getOrDefault(slug, DEFAULT_ROW_STYLE)))
                 .replace("%TOTAL%", formatRub(payload.getTotalRub()))
                 .replace("%PVZ%", esc(buildPvz(payload)))

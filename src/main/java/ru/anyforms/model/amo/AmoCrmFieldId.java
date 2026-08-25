@@ -30,7 +30,10 @@ public enum AmoCrmFieldId {
     FORMS_COUNT(2351399L, "Количество форм"), // То же поле что и QUANTITY
 
     COMMENT_TO_ORDER(2775317L, "Комментарий к заказу"), // То же поле что и QUANTITY
-    
+
+    PROJECT_LINK(2375223L, "Ссылка на проект"),
+
+
     // Поля для расчетов
     MIN_FORMS_COUNT(2337779L, "Мин-кол-во форм"),
     FORM_PRICE(2337773L, "Форма"),

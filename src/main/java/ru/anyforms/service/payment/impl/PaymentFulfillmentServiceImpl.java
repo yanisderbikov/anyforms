@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
+import ru.anyforms.dto.amo.FailedPaymentAmoTaskPayload;
 import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.model.payment.PaymentProduct;
@@ -60,7 +61,11 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
         if (PaymentProduct.CODE_MARKETPLACE_CART.equals(transaction.getProductCode())) {
             marketplaceFulfillmentService.cancel(transaction);
         }
-        // Для курса/гайда при отмене ничего делать не нужно.
+        taskAdder.addTask(FailedPaymentAmoTaskPayload.builder()
+                .transactionId(transaction.getId())
+                .build());
+        log.info("Поставлена таска на сделку АМО о неуспешной оплате продукта {} (транзакция {})",
+                transaction.getProductCode(), transaction.getId());
     }
 
     @Override

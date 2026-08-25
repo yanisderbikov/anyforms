@@ -12,6 +12,7 @@ import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
+import ru.anyforms.util.PublicIdGenerator;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +37,7 @@ class CustomOrderCreatorImpl implements CustomOrderCreator {
         Order order = new Order();
         order.setSource(OrderSource.CUSTOM);
         order.setRetail(false);
+        order.setPublicId(PublicIdGenerator.generateUnique(orderRepository::existsByPublicId));
         if (request != null) {
             order.setContactName(request.getContactName());
             order.setContactPhone(request.getContactPhone());
@@ -64,6 +66,7 @@ class CustomOrderCreatorImpl implements CustomOrderCreator {
             }
             order.setLeadId(leadId);
             orderRepository.save(order);
+            amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.PROJECT_LINK.getId(), order.getPublicId());
         } catch (Exception e) {
             log.error("Под заказ: не удалось создать сделку в АМО для заказа #{}: {}",
                     order.getId(), e.getMessage());

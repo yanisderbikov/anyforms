@@ -1113,8 +1113,17 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     private JsonObject resolveContact(String contactName, String phone, String email) {
-        Long existingContactId = findExistingContactId(email, phone);
+        boolean hasEmail = email != null && !email.isBlank();
+        Long contactByEmail = hasEmail ? findContactIdByQuery(email) : null;
+        Long existingContactId = contactByEmail;
+        if (existingContactId == null && phone != null && !phone.isBlank()) {
+            String phoneDigits = phone.replaceAll("\\D", "");
+            existingContactId = phoneDigits.isBlank() ? null : findContactIdByQuery(phoneDigits);
+        }
         if (existingContactId != null) {
+            if (contactByEmail == null && hasEmail) {
+                fillContactEmailIfMissing(existingContactId, email);
+            }
             log.info("Contact {} already exists in amoCRM, attaching it to the new lead", existingContactId);
             JsonObject existingContact = new JsonObject();
             existingContact.addProperty("id", existingContactId);
@@ -1137,18 +1146,39 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         return contact;
     }
 
-    private Long findExistingContactId(String email, String phone) {
-        if (email != null && !email.isBlank()) {
-            Long byEmail = findContactIdByQuery(email);
-            if (byEmail != null) {
-                return byEmail;
+    /**
+     * Дозаполняет системное поле EMAIL контакта, если оно пустое.
+     * Ошибка здесь не должна ронять создание сделки — только логируем.
+     */
+    private void fillContactEmailIfMissing(Long contactId, String email) {
+        try {
+            AmoContact contact = getContact(contactId);
+            boolean hasEmail = contact != null && contact.getCustomFieldsValues() != null
+                    && contact.getCustomFieldsValues().stream()
+                    .anyMatch(f -> "EMAIL".equalsIgnoreCase(f.getFieldCode())
+                            && f.getValues() != null
+                            && f.getValues().stream()
+                            .anyMatch(v -> v.getValue() != null && !v.getValue().isBlank()));
+            if (hasEmail) {
+                return;
             }
+
+            JsonArray customFields = new JsonArray();
+            customFields.add(contactSystemField("EMAIL", email));
+            JsonObject body = new JsonObject();
+            body.add("custom_fields_values", customFields);
+
+            webClient.patch()
+                    .uri("/api/v4/contacts/" + contactId)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(body.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+            log.info("Filled missing EMAIL for existing contact {}", contactId);
+        } catch (Exception e) {
+            log.error("Failed to fill missing EMAIL for contact {}: {}", contactId, e.getMessage());
         }
-        if (phone == null || phone.isBlank()) {
-            return null;
-        }
-        String phoneDigits = phone.replaceAll("\\D", "");
-        return phoneDigits.isBlank() ? null : findContactIdByQuery(phoneDigits);
     }
 
     @Override

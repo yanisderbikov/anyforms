@@ -105,7 +105,7 @@ class MarketplaceFulfillmentService {
             String name = order.getContactName() != null ? order.getContactName() : "Клиент";
             leadId = amoCrmGateway.createLead(
                     "Маркетплейс — " + name, name, order.getContactPhone(),
-                    retailPipelineId, readyToShipStatusId);
+                    transaction.getEmail(), retailPipelineId, readyToShipStatusId);
             if (leadId == null) {
                 log.error("Маркетплейс: АМО не вернула id сделки для заказа #{}", order.getId());
                 return;
