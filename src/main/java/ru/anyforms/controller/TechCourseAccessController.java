@@ -26,7 +26,9 @@ public class TechCourseAccessController {
 
     @Operation(summary = "Есть ли у почты оплаченный курс",
             description = "Ищет оплаченные (SUCCEEDED) транзакции по продуктам COURSE и COURSE_PERSONAL. "
-                    + "Если куплены оба — возвращает PERSONAL")
+                    + "Если куплены оба — возвращает PERSONAL. "
+                    + "Если транзакций нет — проверяет amoCRM: контакт с такой почтой и сделка "
+                    + "в одной из настроенных воронок/статусов даёт доступ по тарифу SELF")
     @GetMapping
     public ResponseEntity<CourseAccessDTO> getAccess(@RequestParam String email) {
         return ResponseEntity.ok(courseAccessService.getAccess(email));

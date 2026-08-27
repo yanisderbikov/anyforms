@@ -38,6 +38,22 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
             Collection<String> productCodes);
 
     @Query("""
+            SELECT t FROM PaymentTransaction t
+            WHERE t.provider = :provider
+              AND t.status = :status
+              AND t.productCode IN :productCodes
+              AND t.updatedAt >= :from
+              AND t.updatedAt < :to
+            ORDER BY t.updatedAt
+            """)
+    List<PaymentTransaction> findByProviderStatusProductCodesAndUpdatedAtBetween(
+            @Param("provider") PaymentProvider provider,
+            @Param("status") PaymentTransactionStatus status,
+            @Param("productCodes") Collection<String> productCodes,
+            @Param("from") Instant from,
+            @Param("to") Instant to);
+
+    @Query("""
             SELECT t.productCode AS productCode,
                    COUNT(t) AS quantity,
                    SUM(t.amount) AS amountKopecks

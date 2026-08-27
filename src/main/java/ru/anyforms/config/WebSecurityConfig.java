@@ -58,6 +58,7 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/product/*/photos/**").hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/api/product/*").hasRole("ADMIN")
                     .requestMatchers("/api/amo/**").hasRole("ADMIN")
+                    .requestMatchers("/api/income-export/**").hasAnyRole("ADMIN", "SERVICE")
                     .requestMatchers("/api/invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/training-invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/receipt/**").hasRole("ADMIN")
