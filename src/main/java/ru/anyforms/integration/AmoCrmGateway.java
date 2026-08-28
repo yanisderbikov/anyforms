@@ -183,6 +183,8 @@ public interface AmoCrmGateway {
 
     List<Long> getLeadIdsByContact(Long contactId);
 
+    boolean hasIncompleteTask(Long leadId);
+
     boolean addTagToLead(Long leadId, String tagName);
 
     /**

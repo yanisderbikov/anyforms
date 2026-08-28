@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.model.amo.AmoLead;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.model.payment.PaymentProduct;
@@ -38,6 +39,21 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
         Long existingContactId = amoContactFinder.findByEmailOrPhone(
                 transaction.getEmail(), transaction.getContactPhone());
+
+        Long existingLeadId = findExistingFailedLead(existingContactId, target);
+        if (existingLeadId != null) {
+            if (amoCrmGateway.hasIncompleteTask(existingLeadId)) {
+                log.info("Неуспешная оплата: по сделке {} уже есть невыполненная задача — ничего не создаём (транзакция {})",
+                        existingLeadId, transaction.getId());
+                return;
+            }
+            amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
+                    AmoTaskId.LOST_MESSAGE.getTaskId(), TASK_TEXT, existingLeadId, TASK_DEADLINE_MINUTES);
+            log.info("Неуспешная оплата: сделка {} уже есть — добавили только задачу (транзакция {})",
+                    existingLeadId, transaction.getId());
+            return;
+        }
+
         String contactName = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
         Long leadId = amoCrmGateway.createLead(LEAD_NAME_PREFIX + transaction.getProductCode(),
                 contactName, transaction.getContactPhone(), transaction.getEmail(),
@@ -54,6 +70,19 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
         amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
                 AmoTaskId.LOST_MESSAGE.getTaskId(), TASK_TEXT, leadId, TASK_DEADLINE_MINUTES);
+    }
+
+    private Long findExistingFailedLead(Long contactId, PipelineTarget target) {
+        if (contactId == null) {
+            return null;
+        }
+        for (Long leadId : amoCrmGateway.getLeadIdsByContact(contactId)) {
+            AmoLead lead = amoCrmGateway.getLead(leadId);
+            if (lead != null && target.pipelineId().equals(lead.getPipelineId())) {
+                return leadId;
+            }
+        }
+        return null;
     }
 
     private PipelineTarget resolveTarget(String productCode) {
