@@ -29,6 +29,14 @@ public interface GetterTransaction {
     /** Оплаченные покупки почты по списку продуктов — проверка доступа к обучению */
     List<PaymentTransaction> getPaidByEmailAndProductCodes(String email, Collection<String> productCodes);
 
+    /** Последние транзакции провайдера в статусе за окно по updatedAt, свежие сверху */
+    List<PaymentTransaction> getRecentByProviderStatusAndProductCodesUpdatedBetween(PaymentProvider provider,
+                                                                                    PaymentTransactionStatus status,
+                                                                                    Collection<String> productCodes,
+                                                                                    Instant from,
+                                                                                    Instant to,
+                                                                                    int limit);
+
     /** Транзакции провайдера в статусе за окно по updatedAt (момент подтверждения оплаты) */
     List<PaymentTransaction> getByProviderStatusAndProductCodesUpdatedBetween(PaymentProvider provider,
                                                                               PaymentTransactionStatus status,

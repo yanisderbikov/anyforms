@@ -22,6 +22,9 @@ import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.service.payment.ReceiptService;
 import ru.anyforms.service.task.TaskAdder;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +36,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 class ReceiptServiceImpl implements ReceiptService {
+
+    private static final ZoneId MSK = ZoneId.of("Europe/Moscow");
+    /** Сколько оплат просматриваем в БД, когда список ещё фильтруется по признаку отправленного чека */
+    private static final int MAX_SCAN = 5000;
+    private static final Instant MIN_INSTANT = Instant.EPOCH;
+    private static final Instant MAX_INSTANT = Instant.parse("9999-12-31T00:00:00Z");
 
     private static final List<String> TRAINING_PRODUCT_CODES = List.of(
             PaymentProduct.CODE_GUIDE,
@@ -70,18 +79,28 @@ class ReceiptServiceImpl implements ReceiptService {
     }
 
     @Override
-    public List<ReceiptTransactionDTO> paidTransactions(int limit) {
+    public List<ReceiptTransactionDTO> paidTransactions(int limit, Boolean receiptSent, LocalDate from, LocalDate to) {
+        if (from != null && to != null && to.isBefore(from)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Дата to раньше from");
+        }
+        Instant fromInstant = from == null ? MIN_INSTANT : from.atStartOfDay(MSK).toInstant();
+        Instant toInstant = to == null ? MAX_INSTANT : to.plusDays(1).atStartOfDay(MSK).toInstant();
+
         Map<String, String> titlesByCode = productTitlesByCode();
         Set<String> sentEmailProductPairs = new HashSet<>();
         Set<String> sentLegacyEmails = new HashSet<>();
         collectSentReceipts(sentEmailProductPairs, sentLegacyEmails);
-        return getterTransaction.getRecentByProviderStatusAndProductCodes(
-                        PaymentProvider.YOOKASSA, PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES, limit)
+
+        return getterTransaction.getRecentByProviderStatusAndProductCodesUpdatedBetween(
+                        PaymentProvider.YOOKASSA, PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES,
+                        fromInstant, toInstant, receiptSent == null ? limit : MAX_SCAN)
                 .stream()
                 .map(t -> ReceiptTransactionDTO.from(
                         t,
                         titlesByCode.get(t.getProductCode()),
                         receiptSent(sentEmailProductPairs, sentLegacyEmails, t.getEmail(), t.getProductCode())))
+                .filter(dto -> receiptSent == null || dto.receiptSent() == receiptSent)
+                .limit(limit)
                 .toList();
     }
 
