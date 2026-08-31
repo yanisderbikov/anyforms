@@ -54,4 +54,29 @@ class YooKassaServiceImpl implements YooKassaService {
             throw new RuntimeException("Не получилось создать платёж", e);
         }
     }
+
+    @Override
+    public YooKassaPaymentResponse getPayment(String paymentId) {
+        try {
+            YooKassaPaymentResponse response = yooKassaWebClient
+                    .get()
+                    .uri("/payments/{paymentId}", paymentId)
+                    .retrieve()
+                    .bodyToMono(YooKassaPaymentResponse.class)
+                    .onErrorResume(WebClientResponseException.class, ex -> {
+                        log.error("Ошибка YooKassa API: {} - {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                        return Mono.error(new RuntimeException("Не удалось получить платёж: " + ex.getMessage()));
+                    })
+                    .block();
+
+            if (response == null) {
+                throw new RuntimeException("Получили пустой ответ от YooKassa API");
+            }
+
+            return response;
+        } catch (Exception e) {
+            log.error("Не получилось получить платёж {}: {}", paymentId, e.getMessage(), e);
+            throw new RuntimeException("Не получилось получить платёж " + paymentId, e);
+        }
+    }
 }

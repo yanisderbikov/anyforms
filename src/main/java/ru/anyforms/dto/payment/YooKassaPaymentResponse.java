@@ -23,6 +23,10 @@ public class YooKassaPaymentResponse {
     @JsonProperty("amount")
     private Amount amount;
 
+    /** Сумма за вычетом комиссии ЮKassa; приходит только по успешным платежам */
+    @JsonProperty("income_amount")
+    private Amount incomeAmount;
+
     @JsonProperty("description")
     private String description;
 

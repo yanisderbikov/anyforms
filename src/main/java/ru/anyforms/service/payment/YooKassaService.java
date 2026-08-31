@@ -5,4 +5,6 @@ import ru.anyforms.dto.payment.yookassa.CreatePaymentRequest;
 
 public interface YooKassaService {
     YooKassaPaymentResponse createPayment(CreatePaymentRequest request);
+
+    YooKassaPaymentResponse getPayment(String paymentId);
 }

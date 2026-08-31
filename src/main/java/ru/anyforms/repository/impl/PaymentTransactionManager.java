@@ -100,6 +100,37 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public List<PaymentTransaction> getRecentByProviderStatusAndProductCodesUpdatedBetween(PaymentProvider provider,
+                                                                                           PaymentTransactionStatus status,
+                                                                                           Collection<String> productCodes,
+                                                                                           Instant from,
+                                                                                           Instant to,
+                                                                                           int limit) {
+        try {
+            return transactionRepo.findRecentByProviderStatusProductCodesAndUpdatedAtBetween(
+                    provider, status, productCodes, from, to, PageRequest.of(0, limit));
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<PaymentTransaction> getByProviderStatusAndProductCodesUpdatedBetween(PaymentProvider provider,
+                                                                                     PaymentTransactionStatus status,
+                                                                                     Collection<String> productCodes,
+                                                                                     Instant from,
+                                                                                     Instant to) {
+        try {
+            return transactionRepo.findByProviderStatusProductCodesAndUpdatedAtBetween(
+                    provider, status, productCodes, from, to);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<ProductSalesRow> getSalesByProductCodes(PaymentTransactionStatus status,
                                                         Collection<String> productCodes,
                                                         Instant from,

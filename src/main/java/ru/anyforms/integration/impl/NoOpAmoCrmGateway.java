@@ -179,6 +179,12 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean hasIncompleteTask(Long leadId) {
+        skip("hasIncompleteTask");
+        return false;
+    }
+
+    @Override
     public boolean addTagToLead(Long leadId, String tagName) {
         skip("addTagToLead");
         return true;

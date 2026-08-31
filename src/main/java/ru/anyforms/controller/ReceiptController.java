@@ -1,10 +1,12 @@
 package ru.anyforms.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +21,7 @@ import ru.anyforms.dto.payment.ReceiptTaskDTO;
 import ru.anyforms.dto.payment.ReceiptTransactionDTO;
 import ru.anyforms.service.payment.ReceiptService;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -41,15 +44,23 @@ public class ReceiptController {
     @Operation(summary = "Последние отправленные чеки со статусом таски",
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/recent")
-    public ResponseEntity<List<ReceiptTaskDTO>> recent(@RequestParam(defaultValue = "20") int limit) {
-        return ResponseEntity.ok(receiptService.recentTasks(Math.min(Math.max(limit, 1), 100)));
+    public ResponseEntity<List<ReceiptTaskDTO>> recent(@RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(receiptService.recentTasks(Math.min(Math.max(limit, 1), 500)));
     }
 
     @Operation(summary = "Оплаченные через Юкассу покупки гайда/курса",
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/transactions")
-    public ResponseEntity<List<ReceiptTransactionDTO>> transactions(@RequestParam(defaultValue = "50") int limit) {
-        return ResponseEntity.ok(receiptService.paidTransactions(Math.min(Math.max(limit, 1), 500)));
+    public ResponseEntity<List<ReceiptTransactionDTO>> transactions(
+            @RequestParam(defaultValue = "200") int limit,
+            @Parameter(description = "true — только с отправленным чеком, false — только без чека, пусто — все")
+            @RequestParam(required = false) Boolean receiptSent,
+            @Parameter(description = "Дата оплаты от, включительно (МСК), формат 2026-08-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "Дата оплаты по, включительно (МСК), формат 2026-08-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(receiptService.paidTransactions(
+                Math.min(Math.max(limit, 1), 2000), receiptSent, from, to));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

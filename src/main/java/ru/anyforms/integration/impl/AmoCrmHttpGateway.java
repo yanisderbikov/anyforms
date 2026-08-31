@@ -103,6 +103,39 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean hasIncompleteTask(Long leadId) {
+        try {
+            String url = "/api/v4/tasks"
+                    + "?filter[entity_type]=leads"
+                    + "&filter[entity_id]=" + leadId
+                    + "&filter[is_completed]=0"
+                    + "&limit=1";
+            String response = webClient.get()
+                    .uri(url)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new RuntimeException(
+                                            "AmoCRM tasks API " + clientResponse.statusCode() + ": " + body))))
+                    .bodyToMono(String.class)
+                    .block();
+
+            if (response == null || response.isEmpty()) {
+                return false;
+            }
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+            if (!json.has("_embedded") || !json.getAsJsonObject("_embedded").has("tasks")) {
+                return false;
+            }
+            return !json.getAsJsonObject("_embedded").getAsJsonArray("tasks").isEmpty();
+        } catch (Exception e) {
+            log.error("Failed to get tasks of lead {} from amoCRM", leadId, e);
+            throw new RuntimeException("Failed to get tasks of lead from amoCRM", e);
+        }
+    }
+
+    @Override
     public AmoLead getLead(Long leadId) {
         try {
             String url = "/api/v4/leads/" + leadId;
