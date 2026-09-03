@@ -39,15 +39,13 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
 
     @Query("""
             SELECT t FROM PaymentTransaction t
-            WHERE t.provider = :provider
-              AND t.status = :status
+            WHERE t.status = :status
               AND t.productCode IN :productCodes
               AND t.updatedAt >= :from
               AND t.updatedAt < :to
             ORDER BY t.updatedAt
             """)
-    List<PaymentTransaction> findByProviderStatusProductCodesAndUpdatedAtBetween(
-            @Param("provider") PaymentProvider provider,
+    List<PaymentTransaction> findByStatusProductCodesAndUpdatedAtBetween(
             @Param("status") PaymentTransactionStatus status,
             @Param("productCodes") Collection<String> productCodes,
             @Param("from") Instant from,
@@ -55,15 +53,13 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
 
     @Query("""
             SELECT t FROM PaymentTransaction t
-            WHERE t.provider = :provider
-              AND t.status = :status
+            WHERE t.status = :status
               AND t.productCode IN :productCodes
               AND t.updatedAt >= :from
               AND t.updatedAt < :to
             ORDER BY t.updatedAt DESC
             """)
-    List<PaymentTransaction> findRecentByProviderStatusProductCodesAndUpdatedAtBetween(
-            @Param("provider") PaymentProvider provider,
+    List<PaymentTransaction> findRecentByStatusProductCodesAndUpdatedAtBetween(
             @Param("status") PaymentTransactionStatus status,
             @Param("productCodes") Collection<String> productCodes,
             @Param("from") Instant from,

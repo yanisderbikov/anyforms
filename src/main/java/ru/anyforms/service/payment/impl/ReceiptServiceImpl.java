@@ -11,7 +11,6 @@ import ru.anyforms.dto.payment.ReceiptSendRequest;
 import ru.anyforms.dto.payment.ReceiptTaskDTO;
 import ru.anyforms.dto.payment.ReceiptTransactionDTO;
 import ru.anyforms.model.payment.PaymentProduct;
-import ru.anyforms.model.payment.PaymentProvider;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.task.Task;
 import ru.anyforms.model.task.TaskStatus;
@@ -91,8 +90,8 @@ class ReceiptServiceImpl implements ReceiptService {
         Set<String> sentLegacyEmails = new HashSet<>();
         collectSentReceipts(sentEmailProductPairs, sentLegacyEmails);
 
-        return getterTransaction.getRecentByProviderStatusAndProductCodesUpdatedBetween(
-                        PaymentProvider.YOOKASSA, PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES,
+        return getterTransaction.getRecentByStatusAndProductCodesUpdatedBetween(
+                        PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES,
                         fromInstant, toInstant, receiptSent == null ? limit : MAX_SCAN)
                 .stream()
                 .map(t -> ReceiptTransactionDTO.from(

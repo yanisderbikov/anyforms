@@ -37,7 +37,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/payment")
 @RequiredArgsConstructor
-@Tag(name = "Payment", description = "Оплата продуктов через Юкассу")
+@Tag(name = "Payment", description = "Оплата продуктов через ЮKassa и Т-Кассу")
 public class PaymentController {
 
     private final PurchaseService purchaseService;
@@ -120,7 +120,9 @@ public class PaymentController {
                 .body(Map.of("message", e.getReason() == null ? "Не удалось создать платёж" : e.getReason()));
     }
 
-    @Operation(summary = "Купить продукт", description = "Создаёт платёж в Юкассе и возвращает ссылку на оплату")
+    @Operation(summary = "Купить продукт",
+            description = "Создаёт платёж у провайдера из payment.training.provider (Т-Касса или ЮKassa) "
+                    + "и возвращает ссылку на оплату")
     @PostMapping("/purchase")
     public ResponseEntity<PaymentUrlResponse> purchase(@Valid @RequestBody PurchaseRequest request) {
         return ResponseEntity.ok(purchaseService.purchase(request));

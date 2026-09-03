@@ -62,6 +62,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static ru.anyforms.service.payment.impl.TinkoffPaymentSupport.appendParam;
+
 /**
  * Оформление заказа маркетплейса (order-first): заказ создаётся сразу со статусом
  * AWAITING_PAYMENT вместе с позициями, затем создаётся платёж в Юкассе. Вебхук
@@ -78,12 +80,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private static final String CONFIRMATION_REDIRECT = "redirect";
     private static final String DEFAULT_FULL_NAME = "Клиент не представился";
     private static final String DEFAULT_SUCCESS_PATH = "/shop/success";
-    private static final String PROVIDER_TINKOFF = "tinkoff";
-    private static final String TINKOFF_PAY_TYPE_SINGLE_STAGE = "O";
-    private static final int TINKOFF_ITEM_NAME_MAX_LENGTH = 128;
 
     private final YooKassaService yooKassaService;
     private final TinkoffService tinkoffService;
+    private final TinkoffPaymentSupport tinkoffSupport;
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
     private final GetterPromoCode getterPromoCode;
@@ -104,15 +104,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     @Value("${payment.marketplace.provider}")
     private String marketplaceProvider;
-
-    @Value("${payment.tinkoff.taxation}")
-    private String tinkoffTaxation;
-
-    @Value("${payment.tinkoff.tax}")
-    private String tinkoffTax;
-
-    @Value("${payment.tinkoff.notification-url}")
-    private String tinkoffNotificationUrl;
 
     @Value("${amocrm.products.catalog.id}")
     private Long productsCatalogId;
@@ -146,7 +137,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         String description = "Заказ anyforms: " + totalQty + " " + pluralItems(totalQty);
         String returnUrl = buildReturnUrl(request.getReturnUrl(), order.getPublicId());
 
-        if (PROVIDER_TINKOFF.equalsIgnoreCase(marketplaceProvider)) {
+        if (TinkoffPaymentSupport.PROVIDER_NAME.equalsIgnoreCase(marketplaceProvider)) {
             return purchaseViaTinkoff(request, order, priced, totalKopecks, description, returnUrl, amount, promo);
         }
         return purchaseViaYooKassa(request, order, priced, fullName, description, returnUrl, amount, promo);
@@ -298,14 +289,9 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                                                   List<PricedItem> priced, long totalKopecks,
                                                   String description, String returnUrl, Amount amount,
                                                   PromoCode promo) {
-        TinkoffInitRequest initRequest = TinkoffInitRequest.builder()
-                .amount(totalKopecks)
-                .orderId(order.getPublicId())
-                .description(description)
-                .payType(TINKOFF_PAY_TYPE_SINGLE_STAGE)
+        TinkoffInitRequest initRequest = tinkoffSupport.initRequest(totalKopecks, order.getPublicId(), description)
                 .successURL(appendParam(returnUrl, "status", "success"))
                 .failURL(appendParam(returnUrl, "status", "fail"))
-                .notificationURL(blankToNull(tinkoffNotificationUrl))
                 .receipt(buildTinkoffReceipt(request, priced))
                 .build();
 
@@ -320,7 +306,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .description(description)
                 .email(request.getEmail())
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
-                .status(resolveTinkoffStatus(response.getStatus()))
+                .status(tinkoffSupport.resolveStatus(response.getStatus()))
                 .orderId(order.getId())
                 .promoCode(promo != null ? promo.getCode() : null)
                 .discountPercent(promo != null ? promo.getDiscountPercent() : null)
@@ -333,38 +319,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     private TinkoffReceipt buildTinkoffReceipt(CartPurchaseRequest request, List<PricedItem> priced) {
         List<TinkoffReceiptItem> items = priced.stream()
-                .map(i -> TinkoffReceiptItem.builder()
-                        .name(truncate(displayName(i.product(), i.variant()), TINKOFF_ITEM_NAME_MAX_LENGTH))
-                        .price(i.unitKopecks())
-                        .quantity(i.quantity())
-                        .amount(i.unitKopecks() * i.quantity())
-                        .tax(tinkoffTax)
-                        .paymentMethod(PAYMENT_MODE)
-                        .paymentObject(PAYMENT_SUBJECT)
-                        .build())
+                .map(i -> tinkoffSupport.receiptItem(
+                        displayName(i.product(), i.variant()), i.unitKopecks(), i.quantity(), PAYMENT_SUBJECT))
                 .collect(Collectors.toList());
-        return TinkoffReceipt.builder()
-                .email(request.getEmail())
-                .phone(blankToNull(request.getPhone()))
-                .taxation(tinkoffTaxation)
-                .items(items)
-                .build();
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
-            return value;
-        }
-        return value.substring(0, maxLength);
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private PaymentTransactionStatus resolveTinkoffStatus(String tinkoffStatus) {
-        PaymentTransactionStatus status = paymentStatusConverter.fromTinkoff(tinkoffStatus);
-        return status != null ? status : PaymentTransactionStatus.PENDING;
+        return tinkoffSupport.receipt(request.getEmail(), request.getPhone(), items);
     }
 
     private List<PricedItem> priceItems(List<CartItemDTO> items) {
@@ -522,11 +480,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         }
         return appendParam(url, "order", orderPublicId);
     }
-
-    private String appendParam(String url, String name, String value) {
-        return url + (url.contains("?") ? "&" : "?") + name + "=" + value;
-    }
-
 
     private String joinUrl(String domain, String path) {
         if (domain.endsWith("/") && path.startsWith("/")) {
