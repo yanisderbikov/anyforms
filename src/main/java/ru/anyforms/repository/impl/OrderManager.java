@@ -16,10 +16,9 @@ import static ru.anyforms.util.TrackerCustomFields.READY_KEYWORDS;
 @Log4j2
 @Component
 @AllArgsConstructor
-class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder, OrderDeleter {
+class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder {
 
     private OrderRepository orderRepository;
-    private OrderItemRepository orderItemRepository;
 
     @Transactional
     @Override
@@ -66,22 +65,6 @@ class OrderManager implements GetterOrderByTracker, SaverOrder, GetterOrder, Ord
     public List<Order> getNonDeliveredOrders() {
         try {
             return orderRepository.getNonDeliveredOrders();
-        }catch (Exception e) {
-            throw new RuntimeException("Database exception", e);
-        }
-    }
-
-    @Transactional
-    @Override
-    public void deleteByLeadId(List<Long> leadIds) {
-        try {
-            if (leadIds == null || leadIds.isEmpty()) {
-                return;
-            }
-
-            orderItemRepository.deleteByOrderLeadIds(leadIds);
-            int result = orderRepository.deleteByLeadIds(leadIds);
-            log.info("deleted {} orders", result);
         }catch (Exception e) {
             throw new RuntimeException("Database exception", e);
         }
