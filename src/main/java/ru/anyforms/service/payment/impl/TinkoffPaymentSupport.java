@@ -9,6 +9,10 @@ import ru.anyforms.dto.payment.tinkoff.TinkoffReceiptItem;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.service.payment.PaymentStatusConverter;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -29,6 +33,14 @@ class TinkoffPaymentSupport {
     static final int ITEM_NAME_MAX_LENGTH = 128;
     /** Лимит Т-Кассы на длину Description в Init. */
     static final int DESCRIPTION_MAX_LENGTH = 250;
+    /**
+     * Срок жизни ссылки на оплату корзины. После него банк переводит платёж в DEADLINE_EXPIRED,
+     * и {@link PendingPaymentCheckServiceImpl} по этому статусу заводит сделку о неудачной оплате.
+     * 20 минут — с запасом на 3DS и подтверждение в приложении банка при оплате через СБП.
+     */
+    static final Duration CART_LINK_TTL = Duration.ofMinutes(20);
+    private static final ZoneId MSK = ZoneId.of("Europe/Moscow");
+    private static final DateTimeFormatter REDIRECT_DUE_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 
     private final PaymentStatusConverter paymentStatusConverter;
 
@@ -76,6 +88,11 @@ class TinkoffPaymentSupport {
     PaymentTransactionStatus resolveStatus(String tinkoffStatus) {
         PaymentTransactionStatus status = paymentStatusConverter.fromTinkoff(tinkoffStatus);
         return status != null ? status : PaymentTransactionStatus.PENDING;
+    }
+
+    /** RedirectDueDate в формате Т-Кассы, например {@code 2026-09-03T12:28:00+03:00}. */
+    static String redirectDueDate(Instant dueAt) {
+        return REDIRECT_DUE_DATE.format(dueAt.atZone(MSK));
     }
 
     static String appendParam(String url, String name, String value) {

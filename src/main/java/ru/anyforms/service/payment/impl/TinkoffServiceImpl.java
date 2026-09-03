@@ -9,6 +9,8 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 import ru.anyforms.dto.payment.tinkoff.TinkoffCancelRequest;
 import ru.anyforms.dto.payment.tinkoff.TinkoffCancelResponse;
+import ru.anyforms.dto.payment.tinkoff.TinkoffGetStateRequest;
+import ru.anyforms.dto.payment.tinkoff.TinkoffGetStateResponse;
 import ru.anyforms.dto.payment.tinkoff.TinkoffInitRequest;
 import ru.anyforms.dto.payment.tinkoff.TinkoffInitResponse;
 import ru.anyforms.service.payment.TinkoffService;
@@ -99,6 +101,41 @@ class TinkoffServiceImpl implements TinkoffService {
         return response;
     }
 
+    @Override
+    public TinkoffGetStateResponse getState(String paymentId) {
+        if (terminalKey == null || terminalKey.isBlank()) {
+            throw new RuntimeException("Т-Касса не настроена: пустой payment.tinkoff.terminal-key");
+        }
+        TinkoffGetStateRequest request = TinkoffGetStateRequest.builder()
+                .terminalKey(terminalKey)
+                .paymentId(paymentId)
+                .build();
+        request.setToken(tinkoffTokenService.sign(Map.of(
+                "TerminalKey", terminalKey,
+                "PaymentId", paymentId)));
+
+        TinkoffGetStateResponse response = tinkoffWebClient
+                .post()
+                .uri("/GetState")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(TinkoffGetStateResponse.class)
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    log.error("Ошибка Т-Кассы при GetState: {} - {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                    return Mono.error(new RuntimeException("Не удалось получить статус платежа в Т-Кассе: " + ex.getMessage()));
+                })
+                .block();
+
+        if (response == null) {
+            throw new RuntimeException("Получили пустой ответ от Т-Кассы на GetState");
+        }
+        if (!Boolean.TRUE.equals(response.getSuccess())) {
+            throw new RuntimeException("Т-Касса отклонила GetState для платежа " + paymentId + ": "
+                    + (response.getMessage() != null ? response.getMessage() : response.getErrorCode()));
+        }
+        return response;
+    }
+
     private Map<String, String> cancelRootParams(TinkoffCancelRequest request) {
         Map<String, String> params = new HashMap<>();
         params.put("TerminalKey", request.getTerminalKey());
@@ -119,6 +156,7 @@ class TinkoffServiceImpl implements TinkoffService {
         putIfPresent(params, "SuccessURL", request.getSuccessURL());
         putIfPresent(params, "FailURL", request.getFailURL());
         putIfPresent(params, "NotificationURL", request.getNotificationURL());
+        putIfPresent(params, "RedirectDueDate", request.getRedirectDueDate());
         return params;
     }
 

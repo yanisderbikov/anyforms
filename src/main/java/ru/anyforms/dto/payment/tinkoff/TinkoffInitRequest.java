@@ -41,6 +41,10 @@ public class TinkoffInitRequest {
     @JsonProperty("NotificationURL")
     private String notificationURL;
 
+    /** Срок жизни ссылки на оплату, {@code yyyy-MM-dd'T'HH:mm:ssXXX}; после него оплата по ссылке недоступна. */
+    @JsonProperty("RedirectDueDate")
+    private String redirectDueDate;
+
     @JsonProperty("Receipt")
     private TinkoffReceipt receipt;
 

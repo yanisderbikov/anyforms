@@ -56,6 +56,7 @@ import ru.anyforms.util.PublicIdGenerator;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -154,7 +155,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             return PromoCheckResponse.builder()
                     .code(promo.getCode()).message("Срок действия промокода истёк.").build();
         }
-        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
+        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, PhoneUtil.last10(phone))) {
             return PromoCheckResponse.builder()
                     .code(promo.getCode()).message("Этот промокод уже был использован.").build();
         }
@@ -186,7 +187,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
         }
-        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
+        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, PhoneUtil.last10(phone))) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже был использован.");
         }
         if (!promo.meetsMinOrder(subtotalKopecks)) {
@@ -238,14 +239,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         return result;
     }
 
-    private String phoneLast10(String phone) {
-        if (phone == null) {
-            return "";
-        }
-        String digits = phone.replaceAll("\\D", "");
-        return digits.length() >= 10 ? digits.substring(digits.length() - 10) : "";
-    }
-
     private PaymentUrlResponse purchaseViaYooKassa(CartPurchaseRequest request, Order order,
                                                    List<PricedItem> priced, String fullName,
                                                    String description, String returnUrl, Amount amount,
@@ -292,6 +285,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         TinkoffInitRequest initRequest = tinkoffSupport.initRequest(totalKopecks, order.getPublicId(), description)
                 .successURL(appendParam(returnUrl, "status", "success"))
                 .failURL(appendParam(returnUrl, "status", "fail"))
+                .redirectDueDate(TinkoffPaymentSupport.redirectDueDate(
+                        Instant.now().plus(TinkoffPaymentSupport.CART_LINK_TTL)))
                 .receipt(buildTinkoffReceipt(request, priced))
                 .build();
 

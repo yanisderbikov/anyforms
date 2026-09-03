@@ -48,4 +48,22 @@ public interface GetterTransaction {
                                                  Instant to);
 
     boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10);
+
+    /** Транзакции провайдера и продукта в статусе, созданные в окне [from, to], старые сверху */
+    List<PaymentTransaction> getByProviderStatusAndProductCodeCreatedBetween(PaymentProvider provider,
+                                                                             PaymentTransactionStatus status,
+                                                                             String productCode,
+                                                                             Instant from,
+                                                                             Instant to);
+
+    /**
+     * Оплатил ли клиент (по почте или последним 10 цифрам телефона, телефон берётся из заказа
+     * или транзакции) другой заказ этого продукта, созданный не раньше since. Возврат тоже
+     * считается оплатой: деньги списывались.
+     */
+    boolean customerPaidProductSince(UUID excludeTransactionId,
+                                     String productCode,
+                                     String email,
+                                     String phoneLast10,
+                                     Instant since);
 }

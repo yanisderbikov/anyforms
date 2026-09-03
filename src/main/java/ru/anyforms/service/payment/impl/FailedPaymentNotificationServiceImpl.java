@@ -4,12 +4,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.model.Order;
+import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.amo.AmoLead;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.payment.FailedPaymentNotificationService;
+
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -18,15 +23,19 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
     static final String LEAD_NAME_PREFIX = "Неуспешная оплата - ";
     static final String TASK_TEXT = "не получилось оплатить продукт - связаться";
+    /** Розница: в названии сделки перечисляем товары заказа, чтобы Ирина видела корзину без перехода. */
+    static final String MARKETPLACE_LEAD_NAME_PREFIX = "Неудачная оплата Розницы - ";
+    static final String MARKETPLACE_TASK_TEXT = "неудачная оплата Розницы - связаться";
     static final int TASK_DEADLINE_MINUTES = 24 * 60;
 
     static final long EDUCATION_PIPELINE_ID = 10863606L;
     static final long EDUCATION_FAILED_STATUS_ID = 85480278L;
     static final long MARKETPLACE_FAILED_PIPELINE_ID = 10557858L;
-    static final long MARKETPLACE_FAILED_STATUS_ID = 83286998L;
+    static final long MARKETPLACE_FAILED_STATUS_ID = 83287002L;
 
     private final AmoCrmGateway amoCrmGateway;
     private final AmoContactFinder amoContactFinder;
+    private final OrderRepository orderRepository;
 
     @Override
     public void notify(PaymentTransaction transaction) {
@@ -39,6 +48,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
         Long existingContactId = amoContactFinder.findByEmailOrPhone(
                 transaction.getEmail(), transaction.getContactPhone());
+        String taskText = taskText(transaction);
 
         Long existingLeadId = findExistingFailedLead(existingContactId, target);
         if (existingLeadId != null) {
@@ -48,14 +58,14 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
                 return;
             }
             amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
-                    AmoTaskId.LOST_MESSAGE.getTaskId(), TASK_TEXT, existingLeadId, TASK_DEADLINE_MINUTES);
+                    AmoTaskId.LOST_MESSAGE.getTaskId(), taskText, existingLeadId, TASK_DEADLINE_MINUTES);
             log.info("Неуспешная оплата: сделка {} уже есть — добавили только задачу (транзакция {})",
                     existingLeadId, transaction.getId());
             return;
         }
 
         String contactName = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
-        Long leadId = amoCrmGateway.createLead(LEAD_NAME_PREFIX + transaction.getProductCode(),
+        Long leadId = amoCrmGateway.createLead(leadName(transaction),
                 contactName, transaction.getContactPhone(), transaction.getEmail(),
                 target.pipelineId(), target.statusId(),
                 AmoTaskResponsibleUser.IRINA.getResponsibleUserId());
@@ -69,7 +79,43 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         }
 
         amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
-                AmoTaskId.LOST_MESSAGE.getTaskId(), TASK_TEXT, leadId, TASK_DEADLINE_MINUTES);
+                AmoTaskId.LOST_MESSAGE.getTaskId(), taskText, leadId, TASK_DEADLINE_MINUTES);
+    }
+
+    private static boolean isMarketplace(PaymentTransaction transaction) {
+        return PaymentProduct.CODE_MARKETPLACE_CART.equals(transaction.getProductCode());
+    }
+
+    private String taskText(PaymentTransaction transaction) {
+        return isMarketplace(transaction) ? MARKETPLACE_TASK_TEXT : TASK_TEXT;
+    }
+
+    private String leadName(PaymentTransaction transaction) {
+        if (isMarketplace(transaction)) {
+            return MARKETPLACE_LEAD_NAME_PREFIX + orderItemsSummary(transaction);
+        }
+        return LEAD_NAME_PREFIX + transaction.getProductCode();
+    }
+
+    /** «Свеча Луна, Подсвечник ×2»; если заказ не нашли или он пуст — его номер, чтобы сделка всё равно создалась. */
+    private String orderItemsSummary(PaymentTransaction transaction) {
+        Order order = transaction.getOrderId() == null
+                ? null
+                : orderRepository.findById(transaction.getOrderId()).orElse(null);
+        if (order == null) {
+            log.warn("Неуспешная оплата: заказ {} по транзакции {} не найден — в названии сделки товаров не будет",
+                    transaction.getOrderId(), transaction.getId());
+            return "заказ не найден";
+        }
+        String items = order.getItems().stream()
+                .map(FailedPaymentNotificationServiceImpl::itemLabel)
+                .collect(Collectors.joining(", "));
+        return items.isBlank() ? "заказ " + order.getPublicId() : items;
+    }
+
+    private static String itemLabel(OrderItem item) {
+        String name = item.getProductName() != null ? item.getProductName() : "товар";
+        return item.getQuantity() != null && item.getQuantity() > 1 ? name + " ×" + item.getQuantity() : name;
     }
 
     private Long findExistingFailedLead(Long contactId, PipelineTarget target) {

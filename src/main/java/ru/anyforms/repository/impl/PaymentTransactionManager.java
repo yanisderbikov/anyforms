@@ -142,6 +142,33 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public List<PaymentTransaction> getByProviderStatusAndProductCodeCreatedBetween(PaymentProvider provider,
+                                                                                    PaymentTransactionStatus status,
+                                                                                    String productCode,
+                                                                                    Instant from,
+                                                                                    Instant to) {
+        try {
+            return transactionRepo.findByProviderAndStatusAndProductCodeAndCreatedAtBetweenOrderByCreatedAtAsc(
+                    provider, status, productCode, from, to);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public boolean customerPaidProductSince(UUID excludeTransactionId, String productCode, String email,
+                                            String phoneLast10, Instant since) {
+        try {
+            return transactionRepo.customerPaidProductSince(excludeTransactionId, productCode,
+                    email == null ? "" : email, phoneLast10 == null ? "" : phoneLast10, since);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10) {
         try {
             return transactionRepo.promoUsedByCustomer(promoCode, email, phoneLast10);

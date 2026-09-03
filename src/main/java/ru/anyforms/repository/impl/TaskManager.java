@@ -41,6 +41,16 @@ class TaskManager implements GetterTask, GetterTaskByStatus, SaverTask {
     }
 
     @Override
+    public boolean existsByTypeAndPayloadContaining(TaskType type, String payloadFragment) {
+        try {
+            return taskRepo.existsByTypeAndPayloadContaining(type, payloadFragment);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<Task> getByTaskTypeAndStatus(TaskType taskType, TaskStatus taskStatus, int batchSize) {
         try {
             return taskRepo.findByTypeAndStatusOrderByCreatedAtAsc(taskType, taskStatus, PageRequest.of(0, batchSize));
