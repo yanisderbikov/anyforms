@@ -17,4 +17,6 @@ interface TaskRepo extends JpaRepository<Task, UUID> {
     List<Task> findByTypeOrderByCreatedAtDesc(TaskType type, Pageable pageable);
 
     List<Task> findByType(TaskType type);
+
+    boolean existsByTypeAndPayloadContaining(TaskType type, String payloadFragment);
 }

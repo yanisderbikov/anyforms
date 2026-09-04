@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.anyforms.dto.amo.SalesbotRunTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
@@ -31,6 +32,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 class MarketplaceFulfillmentService {
+
+    private static final Long MARKETPLACE_PAID_BOT_ID = 24541L;
 
     private final OrderRepository orderRepository;
     private final AmoCrmGateway amoCrmGateway;
@@ -128,6 +131,11 @@ class MarketplaceFulfillmentService {
             log.error("Маркетплейс: не удалось синкануть заказ #{} из АМО (lead {}): {}",
                     order.getId(), leadId, e.getMessage());
         }
+
+        taskAdder.addTask(SalesbotRunTaskPayload.builder()
+                .leadId(leadId)
+                .botId(MARKETPLACE_PAID_BOT_ID)
+                .build());
     }
 
     /** Бюджет сделки и «Дата оплаты» (unix-секунды — так его парсит синк заказов). */

@@ -272,6 +272,32 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean updateLeadResponsible(Long leadId, Long responsibleUserId) {
+        try {
+            JsonObject leadUpdate = new JsonObject();
+            leadUpdate.addProperty("id", leadId);
+            leadUpdate.addProperty("responsible_user_id", responsibleUserId);
+
+            JsonArray leadsArray = new JsonArray();
+            leadsArray.add(leadUpdate);
+
+            webClient.patch()
+                    .uri("/api/v4/leads")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .bodyValue(leadsArray.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("Successfully set responsible user {} for lead {}", responsibleUserId, leadId);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to set responsible user {} for lead {}", responsibleUserId, leadId, e);
+            return false;
+        }
+    }
+
+    @Override
     public boolean updateLeadStatus(Long leadId, Long statusId, Long pipelineId, Long responsibleUserId) {
         try {
             // Если pipelineId не указан, получаем текущую воронку сделки

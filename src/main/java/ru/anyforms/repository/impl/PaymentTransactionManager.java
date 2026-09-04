@@ -100,15 +100,14 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public List<PaymentTransaction> getRecentByProviderStatusAndProductCodesUpdatedBetween(PaymentProvider provider,
-                                                                                           PaymentTransactionStatus status,
-                                                                                           Collection<String> productCodes,
-                                                                                           Instant from,
-                                                                                           Instant to,
-                                                                                           int limit) {
+    public List<PaymentTransaction> getRecentByStatusAndProductCodesUpdatedBetween(PaymentTransactionStatus status,
+                                                                                   Collection<String> productCodes,
+                                                                                   Instant from,
+                                                                                   Instant to,
+                                                                                   int limit) {
         try {
-            return transactionRepo.findRecentByProviderStatusProductCodesAndUpdatedAtBetween(
-                    provider, status, productCodes, from, to, PageRequest.of(0, limit));
+            return transactionRepo.findRecentByStatusProductCodesAndUpdatedAtBetween(
+                    status, productCodes, from, to, PageRequest.of(0, limit));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
@@ -116,14 +115,13 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public List<PaymentTransaction> getByProviderStatusAndProductCodesUpdatedBetween(PaymentProvider provider,
-                                                                                     PaymentTransactionStatus status,
-                                                                                     Collection<String> productCodes,
-                                                                                     Instant from,
-                                                                                     Instant to) {
+    public List<PaymentTransaction> getByStatusAndProductCodesUpdatedBetween(PaymentTransactionStatus status,
+                                                                             Collection<String> productCodes,
+                                                                             Instant from,
+                                                                             Instant to) {
         try {
-            return transactionRepo.findByProviderStatusProductCodesAndUpdatedAtBetween(
-                    provider, status, productCodes, from, to);
+            return transactionRepo.findByStatusProductCodesAndUpdatedAtBetween(
+                    status, productCodes, from, to);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
@@ -137,6 +135,33 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
                                                         Instant to) {
         try {
             return transactionRepo.aggregateByProductCode(status, productCodes, from, to);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<PaymentTransaction> getByProviderStatusAndProductCodeCreatedBetween(PaymentProvider provider,
+                                                                                    PaymentTransactionStatus status,
+                                                                                    String productCode,
+                                                                                    Instant from,
+                                                                                    Instant to) {
+        try {
+            return transactionRepo.findByProviderAndStatusAndProductCodeAndCreatedAtBetweenOrderByCreatedAtAsc(
+                    provider, status, productCode, from, to);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public boolean customerPaidProductSince(UUID excludeTransactionId, String productCode, String email,
+                                            String phoneLast10, Instant since) {
+        try {
+            return transactionRepo.customerPaidProductSince(excludeTransactionId, productCode,
+                    email == null ? "" : email, phoneLast10 == null ? "" : phoneLast10, since);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

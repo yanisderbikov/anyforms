@@ -63,6 +63,9 @@ public interface AmoCrmGateway {
 
     boolean updateLeadStatus(List<Long> leadIds, Long statusId, Long pipelineId);
 
+    /** Меняет ответственного по сделке, статус и воронку не трогает. */
+    boolean updateLeadResponsible(Long leadId, Long responsibleUserId);
+
     /**
      * Обновляет кастомное поле сделки
      */

@@ -9,6 +9,8 @@ import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.model.task.TaskType;
+import ru.anyforms.repository.GetterTask;
 import ru.anyforms.service.payment.PaymentFulfillmentService;
 import ru.anyforms.service.task.TaskAdder;
 
@@ -19,6 +21,8 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
 
     private final TaskAdder taskAdder;
     private final MarketplaceFulfillmentService marketplaceFulfillmentService;
+    private final MarketplaceRepaymentChecker marketplaceRepaymentChecker;
+    private final GetterTask getterTask;
 
     @Override
     public void fulfill(PaymentTransaction transaction) {
@@ -60,6 +64,16 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
     public void cancel(PaymentTransaction transaction) {
         if (PaymentProduct.CODE_MARKETPLACE_CART.equals(transaction.getProductCode())) {
             marketplaceFulfillmentService.cancel(transaction);
+            if (marketplaceRepaymentChecker.paidAnotherOrderAfter(transaction)) {
+                log.info("Неуспешная оплата корзины {}: клиент уже оплатил другой заказ — сделку не заводим",
+                        transaction.getId());
+                return;
+            }
+        }
+        // Отмена может прийти дважды: нотификацией банка и опросом статуса — второй раз не ставим.
+        if (getterTask.existsByTypeAndPayloadContaining(TaskType.AMO_FAILED_PAYMENT, transaction.getId().toString())) {
+            log.info("Таска на сделку АМО о неуспешной оплате по транзакции {} уже есть", transaction.getId());
+            return;
         }
         taskAdder.addTask(FailedPaymentAmoTaskPayload.builder()
                 .transactionId(transaction.getId())

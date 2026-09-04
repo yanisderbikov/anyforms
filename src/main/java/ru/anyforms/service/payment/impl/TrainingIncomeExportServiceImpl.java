@@ -28,8 +28,10 @@ import java.util.Set;
 
 /**
  * Выгрузка продаж обучения (гайд/курс/личное сопровождение) в гугл-таблицу доходов:
- * один лист на год оплаты, дедупликация по ID платежа ЮKassa, уже выгруженные строки
+ * один лист на год оплаты, дедупликация по ID платежа у провайдера, уже выгруженные строки
  * никогда не меняются — в таблице остаётся снимок на момент выгрузки.
+ * Для ЮKassa «чистыми» берём income_amount из API; Т-Касса сумму за вычетом комиссии
+ * не отдаёт, поэтому колонка остаётся пустой.
  */
 @Slf4j
 @Service
@@ -38,10 +40,11 @@ class TrainingIncomeExportServiceImpl implements TrainingIncomeExportService {
 
     private static final ZoneId MSK = ZoneId.of("Europe/Moscow");
     private static final DateTimeFormatter PAID_AT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private static final String SERVICE_NAME = "ЮKassa";
+    private static final String SERVICE_YOOKASSA = "ЮKassa";
+    private static final String SERVICE_TINKOFF = "Т-Касса";
     private static final int WINDOW_DAYS = 7;
 
-    /** Колонка C — ID платежа ЮKassa, ключ дедупликации */
+    /** Колонка C — ID платежа у провайдера, ключ дедупликации */
     private static final int PAYMENT_ID_COLUMN_INDEX = 2;
 
     private static final List<Object> HEADER_ROW = List.of(
@@ -71,8 +74,8 @@ class TrainingIncomeExportServiceImpl implements TrainingIncomeExportService {
                 ? nowMsk.toLocalDate().withDayOfYear(1).atStartOfDay(MSK).toInstant()
                 : nowMsk.minusDays(WINDOW_DAYS).toInstant();
 
-        List<PaymentTransaction> candidates = getterTransaction.getByProviderStatusAndProductCodesUpdatedBetween(
-                PaymentProvider.YOOKASSA, PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES,
+        List<PaymentTransaction> candidates = getterTransaction.getByStatusAndProductCodesUpdatedBetween(
+                PaymentTransactionStatus.SUCCEEDED, TRAINING_PRODUCT_CODES,
                 from, nowMsk.toInstant());
 
         Map<String, List<List<Object>>> newRowsBySheet = new LinkedHashMap<>();
@@ -108,20 +111,23 @@ class TrainingIncomeExportServiceImpl implements TrainingIncomeExportService {
     }
 
     private List<Object> buildRow(PaymentTransaction transaction, ZonedDateTime paidAt) {
-        YooKassaPaymentResponse payment = yooKassaService.getPayment(transaction.getExternalPaymentId());
-        if (payment.getIncomeAmount() == null || payment.getIncomeAmount().getValue() == null) {
-            throw new IllegalStateException("ЮKassa ещё не отдала income_amount");
-        }
-        double incomeRubles = new BigDecimal(payment.getIncomeAmount().getValue()).doubleValue();
-
+        boolean tinkoff = transaction.getProvider() == PaymentProvider.TINKOFF;
         return List.of(
                 PAID_AT_FORMAT.format(paidAt),
                 transaction.getId().toString(),
                 transaction.getExternalPaymentId(),
-                SERVICE_NAME,
+                tinkoff ? SERVICE_TINKOFF : SERVICE_YOOKASSA,
                 transaction.getProductCode(),
                 transaction.getAmount() / 100.0,
-                incomeRubles);
+                tinkoff ? "" : yooKassaIncomeRubles(transaction));
+    }
+
+    private double yooKassaIncomeRubles(PaymentTransaction transaction) {
+        YooKassaPaymentResponse payment = yooKassaService.getPayment(transaction.getExternalPaymentId());
+        if (payment.getIncomeAmount() == null || payment.getIncomeAmount().getValue() == null) {
+            throw new IllegalStateException("ЮKassa ещё не отдала income_amount");
+        }
+        return new BigDecimal(payment.getIncomeAmount().getValue()).doubleValue();
     }
 
     private Set<String> readExportedPaymentIds(String sheetName) {

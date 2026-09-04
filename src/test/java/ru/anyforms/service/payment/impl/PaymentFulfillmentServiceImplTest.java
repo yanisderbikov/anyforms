@@ -8,6 +8,8 @@ import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.repository.GetterTask;
+import ru.anyforms.model.task.TaskType;
 import ru.anyforms.service.task.TaskAdder;
 
 import java.util.List;
@@ -20,13 +22,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class PaymentFulfillmentServiceImplTest {
 
     private final TaskAdder taskAdder = mock(TaskAdder.class);
     private final MarketplaceFulfillmentService marketplaceFulfillmentService = mock(MarketplaceFulfillmentService.class);
+    private final GetterTask getterTask = mock(GetterTask.class);
+    private final MarketplaceRepaymentChecker marketplaceRepaymentChecker = mock(MarketplaceRepaymentChecker.class);
     private final PaymentFulfillmentServiceImpl service =
-            new PaymentFulfillmentServiceImpl(taskAdder, marketplaceFulfillmentService);
+            new PaymentFulfillmentServiceImpl(taskAdder, marketplaceFulfillmentService, marketplaceRepaymentChecker, getterTask);
 
     private static PaymentTransaction transaction(String productCode) {
         return PaymentTransaction.builder()
@@ -112,5 +117,27 @@ class PaymentFulfillmentServiceImplTest {
         ArgumentCaptor<Object> payloads = ArgumentCaptor.forClass(Object.class);
         verify(taskAdder).addTask(payloads.capture());
         assertInstanceOf(FailedPaymentAmoTaskPayload.class, payloads.getValue());
+    }
+
+    @Test
+    void marketplaceCancelSkipsAmoTaskWhenCustomerAlreadyRepaid() {
+        PaymentTransaction transaction = transaction(PaymentProduct.CODE_MARKETPLACE_CART);
+        when(marketplaceRepaymentChecker.paidAnotherOrderAfter(transaction)).thenReturn(true);
+
+        service.cancel(transaction);
+
+        verify(marketplaceFulfillmentService).cancel(transaction);
+        verify(taskAdder, never()).addTask(any());
+    }
+
+    @Test
+    void cancelDoesNotAddSecondAmoTaskForSameTransaction() {
+        PaymentTransaction transaction = transaction(PaymentProduct.CODE_MARKETPLACE_CART);
+        when(getterTask.existsByTypeAndPayloadContaining(TaskType.AMO_FAILED_PAYMENT, transaction.getId().toString()))
+                .thenReturn(true);
+
+        service.cancel(transaction);
+
+        verify(taskAdder, never()).addTask(any());
     }
 }

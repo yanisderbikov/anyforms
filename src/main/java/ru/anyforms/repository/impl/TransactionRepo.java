@@ -39,15 +39,13 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
 
     @Query("""
             SELECT t FROM PaymentTransaction t
-            WHERE t.provider = :provider
-              AND t.status = :status
+            WHERE t.status = :status
               AND t.productCode IN :productCodes
               AND t.updatedAt >= :from
               AND t.updatedAt < :to
             ORDER BY t.updatedAt
             """)
-    List<PaymentTransaction> findByProviderStatusProductCodesAndUpdatedAtBetween(
-            @Param("provider") PaymentProvider provider,
+    List<PaymentTransaction> findByStatusProductCodesAndUpdatedAtBetween(
             @Param("status") PaymentTransactionStatus status,
             @Param("productCodes") Collection<String> productCodes,
             @Param("from") Instant from,
@@ -55,15 +53,13 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
 
     @Query("""
             SELECT t FROM PaymentTransaction t
-            WHERE t.provider = :provider
-              AND t.status = :status
+            WHERE t.status = :status
               AND t.productCode IN :productCodes
               AND t.updatedAt >= :from
               AND t.updatedAt < :to
             ORDER BY t.updatedAt DESC
             """)
-    List<PaymentTransaction> findRecentByProviderStatusProductCodesAndUpdatedAtBetween(
-            @Param("provider") PaymentProvider provider,
+    List<PaymentTransaction> findRecentByStatusProductCodesAndUpdatedAtBetween(
             @Param("status") PaymentTransactionStatus status,
             @Param("productCodes") Collection<String> productCodes,
             @Param("from") Instant from,
@@ -101,4 +97,32 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     boolean promoUsedByCustomer(@Param("promoCode") String promoCode,
                                 @Param("email") String email,
                                 @Param("phoneLast10") String phoneLast10);
+
+    List<PaymentTransaction> findByProviderAndStatusAndProductCodeAndCreatedAtBetweenOrderByCreatedAtAsc(
+            PaymentProvider provider,
+            PaymentTransactionStatus status,
+            String productCode,
+            Instant from,
+            Instant to);
+
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM payment_transaction pt
+                LEFT JOIN orders o ON o.id = pt.order_id
+                WHERE pt.id <> :excludeId
+                  AND pt.product_code = :productCode
+                  AND pt.status IN ('SUCCEEDED', 'REFUNDED')
+                  AND pt.created_at >= :since
+                  AND ((:email <> '' AND lower(pt.email) = lower(:email))
+                       OR (:phoneLast10 <> ''
+                           AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10)
+                               = :phoneLast10))
+            )
+            """, nativeQuery = true)
+    boolean customerPaidProductSince(@Param("excludeId") UUID excludeId,
+                                     @Param("productCode") String productCode,
+                                     @Param("email") String email,
+                                     @Param("phoneLast10") String phoneLast10,
+                                     @Param("since") Instant since);
 }

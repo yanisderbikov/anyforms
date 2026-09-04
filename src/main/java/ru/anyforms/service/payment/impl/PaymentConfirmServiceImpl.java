@@ -61,7 +61,8 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
         }
     }
 
-    private boolean applyStatus(String externalPaymentId, PaymentTransactionStatus newStatus) {
+    @Override
+    public boolean applyStatus(String externalPaymentId, PaymentTransactionStatus newStatus) {
         PaymentTransaction transaction = getterTransaction
                 .getByExternalPaymentId(externalPaymentId)
                 .orElseThrow(() -> new RuntimeException(

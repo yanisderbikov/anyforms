@@ -21,4 +21,13 @@ public final class PhoneUtil {
         }
         return null;
     }
+
+    /** Последние 10 цифр номера для сравнения клиентов по телефону; пусто, если цифр меньше. */
+    public static String last10(String phone) {
+        if (phone == null) {
+            return "";
+        }
+        String digits = phone.replaceAll("\\D", "");
+        return digits.length() >= 10 ? digits.substring(digits.length() - 10) : "";
+    }
 }

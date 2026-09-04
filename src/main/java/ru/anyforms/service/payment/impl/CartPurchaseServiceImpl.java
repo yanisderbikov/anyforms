@@ -56,11 +56,15 @@ import ru.anyforms.util.PublicIdGenerator;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static ru.anyforms.service.payment.impl.TinkoffPaymentSupport.appendParam;
+import static ru.anyforms.service.payment.impl.TinkoffPaymentSupport.blankToNull;
 
 /**
  * Оформление заказа маркетплейса (order-first): заказ создаётся сразу со статусом
@@ -78,12 +82,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private static final String CONFIRMATION_REDIRECT = "redirect";
     private static final String DEFAULT_FULL_NAME = "Клиент не представился";
     private static final String DEFAULT_SUCCESS_PATH = "/shop/success";
-    private static final String PROVIDER_TINKOFF = "tinkoff";
-    private static final String TINKOFF_PAY_TYPE_SINGLE_STAGE = "O";
-    private static final int TINKOFF_ITEM_NAME_MAX_LENGTH = 128;
 
     private final YooKassaService yooKassaService;
     private final TinkoffService tinkoffService;
+    private final TinkoffPaymentSupport tinkoffSupport;
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
     private final GetterPromoCode getterPromoCode;
@@ -104,15 +106,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     @Value("${payment.marketplace.provider}")
     private String marketplaceProvider;
-
-    @Value("${payment.tinkoff.taxation}")
-    private String tinkoffTaxation;
-
-    @Value("${payment.tinkoff.tax}")
-    private String tinkoffTax;
-
-    @Value("${payment.tinkoff.notification-url}")
-    private String tinkoffNotificationUrl;
 
     @Value("${amocrm.products.catalog.id}")
     private Long productsCatalogId;
@@ -146,7 +139,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         String description = "Заказ anyforms: " + totalQty + " " + pluralItems(totalQty);
         String returnUrl = buildReturnUrl(request.getReturnUrl(), order.getPublicId());
 
-        if (PROVIDER_TINKOFF.equalsIgnoreCase(marketplaceProvider)) {
+        if (TinkoffPaymentSupport.PROVIDER_NAME.equalsIgnoreCase(marketplaceProvider)) {
             return purchaseViaTinkoff(request, order, priced, totalKopecks, description, returnUrl, amount, promo);
         }
         return purchaseViaYooKassa(request, order, priced, fullName, description, returnUrl, amount, promo);
@@ -163,7 +156,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             return PromoCheckResponse.builder()
                     .code(promo.getCode()).message("Срок действия промокода истёк.").build();
         }
-        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
+        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, PhoneUtil.last10(phone))) {
             return PromoCheckResponse.builder()
                     .code(promo.getCode()).message("Этот промокод уже был использован.").build();
         }
@@ -195,7 +188,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
         }
-        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, phoneLast10(phone))) {
+        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, PhoneUtil.last10(phone))) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже был использован.");
         }
         if (!promo.meetsMinOrder(subtotalKopecks)) {
@@ -247,14 +240,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         return result;
     }
 
-    private String phoneLast10(String phone) {
-        if (phone == null) {
-            return "";
-        }
-        String digits = phone.replaceAll("\\D", "");
-        return digits.length() >= 10 ? digits.substring(digits.length() - 10) : "";
-    }
-
     private PaymentUrlResponse purchaseViaYooKassa(CartPurchaseRequest request, Order order,
                                                    List<PricedItem> priced, String fullName,
                                                    String description, String returnUrl, Amount amount,
@@ -275,6 +260,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .provider(PaymentProvider.YOOKASSA)
                 .externalPaymentId(response.getId().toString())
                 .productCode(PaymentProduct.CODE_MARKETPLACE_CART)
+                .contactName(blankToNull(request.getFullName()))
+                .contactPhone(blankToNull(request.getPhone()))
                 .amount(MoneyUtil.stringToKopecks(response.getAmount().getValue()))
                 .currency(Currency.fromCode(response.getAmount().getCurrency()))
                 .description(response.getDescription())
@@ -298,14 +285,11 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                                                   List<PricedItem> priced, long totalKopecks,
                                                   String description, String returnUrl, Amount amount,
                                                   PromoCode promo) {
-        TinkoffInitRequest initRequest = TinkoffInitRequest.builder()
-                .amount(totalKopecks)
-                .orderId(order.getPublicId())
-                .description(description)
-                .payType(TINKOFF_PAY_TYPE_SINGLE_STAGE)
+        TinkoffInitRequest initRequest = tinkoffSupport.initRequest(totalKopecks, order.getPublicId(), description)
                 .successURL(appendParam(returnUrl, "status", "success"))
                 .failURL(appendParam(returnUrl, "status", "fail"))
-                .notificationURL(blankToNull(tinkoffNotificationUrl))
+                .redirectDueDate(TinkoffPaymentSupport.redirectDueDate(
+                        Instant.now().plus(TinkoffPaymentSupport.CART_LINK_TTL)))
                 .receipt(buildTinkoffReceipt(request, priced))
                 .build();
 
@@ -315,12 +299,14 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .provider(PaymentProvider.TINKOFF)
                 .externalPaymentId(response.getPaymentId())
                 .productCode(PaymentProduct.CODE_MARKETPLACE_CART)
+                .contactName(blankToNull(request.getFullName()))
+                .contactPhone(blankToNull(request.getPhone()))
                 .amount(totalKopecks)
                 .currency(Currency.RUB)
                 .description(description)
                 .email(request.getEmail())
                 .marketingConsent(Boolean.TRUE.equals(request.getMarketingConsent()))
-                .status(resolveTinkoffStatus(response.getStatus()))
+                .status(tinkoffSupport.resolveStatus(response.getStatus()))
                 .orderId(order.getId())
                 .promoCode(promo != null ? promo.getCode() : null)
                 .discountPercent(promo != null ? promo.getDiscountPercent() : null)
@@ -333,38 +319,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
 
     private TinkoffReceipt buildTinkoffReceipt(CartPurchaseRequest request, List<PricedItem> priced) {
         List<TinkoffReceiptItem> items = priced.stream()
-                .map(i -> TinkoffReceiptItem.builder()
-                        .name(truncate(displayName(i.product(), i.variant()), TINKOFF_ITEM_NAME_MAX_LENGTH))
-                        .price(i.unitKopecks())
-                        .quantity(i.quantity())
-                        .amount(i.unitKopecks() * i.quantity())
-                        .tax(tinkoffTax)
-                        .paymentMethod(PAYMENT_MODE)
-                        .paymentObject(PAYMENT_SUBJECT)
-                        .build())
+                .map(i -> tinkoffSupport.receiptItem(
+                        displayName(i.product(), i.variant()), i.unitKopecks(), i.quantity(), PAYMENT_SUBJECT))
                 .collect(Collectors.toList());
-        return TinkoffReceipt.builder()
-                .email(request.getEmail())
-                .phone(blankToNull(request.getPhone()))
-                .taxation(tinkoffTaxation)
-                .items(items)
-                .build();
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
-            return value;
-        }
-        return value.substring(0, maxLength);
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private PaymentTransactionStatus resolveTinkoffStatus(String tinkoffStatus) {
-        PaymentTransactionStatus status = paymentStatusConverter.fromTinkoff(tinkoffStatus);
-        return status != null ? status : PaymentTransactionStatus.PENDING;
+        return tinkoffSupport.receipt(request.getEmail(), request.getPhone(), items);
     }
 
     private List<PricedItem> priceItems(List<CartItemDTO> items) {
@@ -522,11 +480,6 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         }
         return appendParam(url, "order", orderPublicId);
     }
-
-    private String appendParam(String url, String name, String value) {
-        return url + (url.contains("?") ? "&" : "?") + name + "=" + value;
-    }
-
 
     private String joinUrl(String domain, String path) {
         if (domain.endsWith("/") && path.startsWith("/")) {

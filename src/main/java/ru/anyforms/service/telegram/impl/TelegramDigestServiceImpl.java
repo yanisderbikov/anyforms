@@ -94,9 +94,6 @@ class TelegramDigestServiceImpl implements TelegramDigestService {
         sb.append(order.getPublicId() != null ? order.getPublicId() : order.getId());
         sb.append("\n");
 
-        sb.append("Получатель: ").append(orDash(order.getContactName())).append("\n");
-        sb.append("ПВЗ город: ").append(orDash(order.getPvzSdekCity())).append("\n");
-        sb.append("ПВЗ улица: ").append(orDash(order.getPvzSdekStreet())).append("\n");
         List<OrderItem> items = order.getItems();
         if (items != null && !items.isEmpty()) {
             sb.append("Состав:\n");
@@ -109,9 +106,5 @@ class TelegramDigestServiceImpl implements TelegramDigestService {
             }
         }
         return sb.toString().stripTrailing();
-    }
-
-    private String orDash(String value) {
-        return value == null || value.isBlank() ? "—" : value.trim();
     }
 }
