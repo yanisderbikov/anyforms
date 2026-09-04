@@ -36,9 +36,9 @@ class TinkoffPaymentSupport {
     /**
      * Срок жизни ссылки на оплату корзины. После него банк переводит платёж в DEADLINE_EXPIRED,
      * и {@link PendingPaymentCheckServiceImpl} по этому статусу заводит сделку о неудачной оплате.
-     * 20 минут — с запасом на 3DS и подтверждение в приложении банка при оплате через СБП.
+     * 15 минут — с запасом на 3DS и подтверждение в приложении банка при оплате через СБП.
      */
-    static final Duration CART_LINK_TTL = Duration.ofMinutes(20);
+    static final Duration CART_LINK_TTL = Duration.ofMinutes(15);
     private static final ZoneId MSK = ZoneId.of("Europe/Moscow");
     private static final DateTimeFormatter REDIRECT_DUE_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 

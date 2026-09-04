@@ -36,8 +36,8 @@ import java.util.List;
 @Slf4j
 class PendingPaymentCheckServiceImpl implements PendingPaymentCheckService {
 
-    /** Запас после истечения ссылки на то, чтобы банк успел проставить статус. */
-    static final Duration BANK_GRACE = Duration.ofMinutes(5);
+    /** Запас после истечения ссылки на то, чтобы банк успел проставить статус; если не успел — дождёмся следующего тика. */
+    static final Duration BANK_GRACE = Duration.ofMinutes(3);
     static final Duration FORCE_CANCEL_AFTER = TinkoffPaymentSupport.CART_LINK_TTL.plus(Duration.ofMinutes(30));
     static final Duration LOOKBACK = Duration.ofDays(1);
 

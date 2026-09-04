@@ -52,7 +52,7 @@ class PendingPaymentCheckServiceImplTest {
     private void expiredCandidates(PaymentTransaction... transactions) {
         when(getterTransaction.getByProviderStatusAndProductCodeCreatedBetween(
                 PaymentProvider.TINKOFF, PaymentTransactionStatus.PENDING, PaymentProduct.CODE_MARKETPLACE_CART,
-                NOW.minus(Duration.ofDays(1)), NOW.minus(TTL).minus(Duration.ofMinutes(5))))
+                NOW.minus(Duration.ofDays(1)), NOW.minus(TTL).minus(PendingPaymentCheckServiceImpl.BANK_GRACE)))
                 .thenReturn(List.of(transactions));
         when(paymentConfirmService.applyStatus(anyString(), any())).thenReturn(true);
     }
