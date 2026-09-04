@@ -111,6 +111,12 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean updateLeadResponsible(Long leadId, Long responsibleUserId) {
+        skip("updateLeadResponsible");
+        return true;
+    }
+
+    @Override
     public List<AmoProduct> getLeadProducts(Long leadId) {
         skip("getLeadProducts");
         return List.of();

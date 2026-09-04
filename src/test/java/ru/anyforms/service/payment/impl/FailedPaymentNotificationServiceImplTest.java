@@ -122,6 +122,8 @@ class FailedPaymentNotificationServiceImplTest {
                 "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, 83287002L, IRINA_ID);
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
+        verify(amoCrmGateway).addNoteToLead(555L,
+                "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1\n— Подсвечник × 2");
     }
 
     @Test
@@ -172,12 +174,80 @@ class FailedPaymentNotificationServiceImplTest {
         lead.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
         when(amoCrmGateway.getLead(555L)).thenReturn(lead);
         when(amoCrmGateway.hasIncompleteTask(555L)).thenReturn(false);
+        orderWithItems(42L, item("Свеча Луна", 1));
 
         service.notify(marketplaceTransaction(42L));
 
         verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
+        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1");
+        verify(amoCrmGateway).updateLeadResponsible(555L, IRINA_ID);
+    }
+
+    @Test
+    void existingLeadAlreadyOnManagerIsNotReassigned() {
+        when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
+        when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(555L));
+        ru.anyforms.model.amo.AmoLead lead = new ru.anyforms.model.amo.AmoLead();
+        lead.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
+        lead.setResponsibleUserId(IRINA_ID);
+        when(amoCrmGateway.getLead(555L)).thenReturn(lead);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway, never()).updateLeadResponsible(anyLong(), anyLong());
+        verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
+                FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
+    }
+
+    @Test
+    void existingLeadOnSomeoneElseIsMovedToManagerEvenWhenTaskAlreadyOpen() {
+        when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
+        when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(555L));
+        ru.anyforms.model.amo.AmoLead lead = new ru.anyforms.model.amo.AmoLead();
+        lead.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
+        lead.setResponsibleUserId(99L);
+        when(amoCrmGateway.getLead(555L)).thenReturn(lead);
+        when(amoCrmGateway.hasIncompleteTask(555L)).thenReturn(true);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway).updateLeadResponsible(555L, IRINA_ID);
+        verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), anyLong(), anyInt());
+    }
+
+    @Test
+    void marketplaceRepeatedFailureWithOpenTaskStillAddsItemsNote() {
+        when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
+        when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(555L));
+        ru.anyforms.model.amo.AmoLead lead = new ru.anyforms.model.amo.AmoLead();
+        lead.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
+        when(amoCrmGateway.getLead(555L)).thenReturn(lead);
+        when(amoCrmGateway.hasIncompleteTask(555L)).thenReturn(true);
+        orderWithItems(42L, item("Подсвечник", 2));
+        PaymentTransaction transaction = marketplaceTransaction(42L);
+        transaction.setAmount(198_000L);
+
+        service.notify(transaction);
+
+        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
+        verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), anyLong(), anyInt());
+        verify(amoCrmGateway).addNoteToLead(555L,
+                "Не получилось оплатить заказ AF-42 на " + ru.anyforms.util.MoneyUtil.formatRubles(198_000L)
+                        + ":\n— Подсвечник × 2");
+    }
+
+    @Test
+    void marketplaceFailureWithoutOrderAddsNoteWithoutItems() {
+        noExistingContactInAmo();
+        when(orderRepository.findById(42L)).thenReturn(Optional.empty());
+        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
+                .thenReturn(555L);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить:\n— состав заказа не найден");
     }
 
     @Test

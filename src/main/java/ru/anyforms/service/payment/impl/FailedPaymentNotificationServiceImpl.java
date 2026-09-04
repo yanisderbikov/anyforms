@@ -13,6 +13,7 @@ import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.payment.FailedPaymentNotificationService;
+import ru.anyforms.util.MoneyUtil;
 
 import java.util.stream.Collectors;
 
@@ -26,6 +27,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
     /** Розница: в названии сделки перечисляем товары заказа, чтобы Ирина видела корзину без перехода. */
     static final String MARKETPLACE_LEAD_NAME_PREFIX = "Неудачная оплата Розницы - ";
     static final String MARKETPLACE_TASK_TEXT = "неудачная оплата Розницы - связаться";
+    static final String MARKETPLACE_NOTE_PREFIX = "Не получилось оплатить";
     static final int TASK_DEADLINE_MINUTES = 24 * 60;
 
     static final long EDUCATION_PIPELINE_ID = 10863606L;
@@ -55,17 +57,20 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         Long existingContactId = amoContactFinder.findByEmailOrPhone(transaction.getEmail(), phone);
         String taskText = taskText(transaction);
 
-        Long existingLeadId = findExistingFailedLead(existingContactId, target);
-        if (existingLeadId != null) {
+        FoundLead existing = findExistingFailedLead(existingContactId, target);
+        if (existing != null) {
+            Long existingLeadId = existing.id();
+            ensureResponsibleIsManager(existing, transaction);
             if (amoCrmGateway.hasIncompleteTask(existingLeadId)) {
-                log.info("Неуспешная оплата: по сделке {} уже есть невыполненная задача — ничего не создаём (транзакция {})",
+                log.info("Неуспешная оплата: по сделке {} уже есть невыполненная задача — новую не ставим (транзакция {})",
                         existingLeadId, transaction.getId());
-                return;
+            } else {
+                amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
+                        AmoTaskId.LOST_MESSAGE.getTaskId(), taskText, existingLeadId, TASK_DEADLINE_MINUTES);
+                log.info("Неуспешная оплата: сделка {} уже есть — добавили только задачу (транзакция {})",
+                        existingLeadId, transaction.getId());
             }
-            amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
-                    AmoTaskId.LOST_MESSAGE.getTaskId(), taskText, existingLeadId, TASK_DEADLINE_MINUTES);
-            log.info("Неуспешная оплата: сделка {} уже есть — добавили только задачу (транзакция {})",
-                    existingLeadId, transaction.getId());
+            addFailedItemsNote(existingLeadId, transaction, order);
             return;
         }
 
@@ -84,6 +89,44 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
         amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
                 AmoTaskId.LOST_MESSAGE.getTaskId(), taskText, leadId, TASK_DEADLINE_MINUTES);
+        addFailedItemsNote(leadId, transaction, order);
+    }
+
+    /**
+     * Примечание к сделке розницы со списком товаров, которые не получилось купить.
+     * Добавляется всегда: и к новой сделке, и к уже существующей, даже если задачу не ставили —
+     * иначе по старой сделке не видно, что именно клиент пытался купить в этот раз.
+     */
+    private void addFailedItemsNote(Long leadId, PaymentTransaction transaction, Order order) {
+        if (!isMarketplace(transaction)) {
+            return;
+        }
+        if (!amoCrmGateway.addNoteToLead(leadId, failedItemsNote(transaction, order))) {
+            log.warn("Неуспешная оплата: не удалось добавить примечание с товарами к сделке {} (транзакция {})",
+                    leadId, transaction.getId());
+        }
+    }
+
+    static String failedItemsNote(PaymentTransaction transaction, Order order) {
+        StringBuilder note = new StringBuilder(MARKETPLACE_NOTE_PREFIX);
+        if (order != null && order.getPublicId() != null) {
+            note.append(" заказ ").append(order.getPublicId());
+        }
+        if (transaction.getAmount() != null) {
+            note.append(" на ").append(MoneyUtil.formatRubles(transaction.getAmount()));
+        }
+        note.append(":");
+        if (order == null || order.getItems().isEmpty()) {
+            note.append("\n— состав заказа не найден");
+            return note.toString();
+        }
+        for (OrderItem item : order.getItems()) {
+            note.append("\n— ")
+                    .append(item.getProductName() != null ? item.getProductName() : "товар")
+                    .append(" × ")
+                    .append(item.getQuantity() != null ? item.getQuantity() : 1);
+        }
+        return note.toString();
     }
 
     private static boolean isMarketplace(PaymentTransaction transaction) {
@@ -132,17 +175,35 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         return item.getQuantity() != null && item.getQuantity() > 1 ? name + " ×" + item.getQuantity() : name;
     }
 
-    private Long findExistingFailedLead(Long contactId, PipelineTarget target) {
+    private FoundLead findExistingFailedLead(Long contactId, PipelineTarget target) {
         if (contactId == null) {
             return null;
         }
         for (Long leadId : amoCrmGateway.getLeadIdsByContact(contactId)) {
             AmoLead lead = amoCrmGateway.getLead(leadId);
             if (lead != null && target.pipelineId().equals(lead.getPipelineId())) {
-                return leadId;
+                return new FoundLead(leadId, lead.getResponsibleUserId());
             }
         }
         return null;
+    }
+
+    /** Старая сделка может стоять на ком угодно, а дожимать неудачную оплату должна Ирина. */
+    private void ensureResponsibleIsManager(FoundLead lead, PaymentTransaction transaction) {
+        Long manager = AmoTaskResponsibleUser.IRINA.getResponsibleUserId();
+        if (manager.equals(lead.responsibleUserId())) {
+            return;
+        }
+        if (amoCrmGateway.updateLeadResponsible(lead.id(), manager)) {
+            log.info("Неуспешная оплата: сделка {} стояла на {} — перевели на Ирину (транзакция {})",
+                    lead.id(), lead.responsibleUserId(), transaction.getId());
+        } else {
+            log.warn("Неуспешная оплата: не удалось перевести сделку {} на Ирину (транзакция {})",
+                    lead.id(), transaction.getId());
+        }
+    }
+
+    private record FoundLead(Long id, Long responsibleUserId) {
     }
 
     private PipelineTarget resolveTarget(String productCode) {
