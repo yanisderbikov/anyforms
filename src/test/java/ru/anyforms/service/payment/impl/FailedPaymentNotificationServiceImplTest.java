@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -182,39 +183,83 @@ class FailedPaymentNotificationServiceImplTest {
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
         verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1");
-        verify(amoCrmGateway).updateLeadResponsible(555L, IRINA_ID);
+        verify(amoCrmGateway).updateLeadStatus(555L, MARKETPLACE_FAILED_STATUS_ID, MARKETPLACE_FAILED_PIPELINE_ID, IRINA_ID);
     }
 
-    @Test
-    void existingLeadAlreadyOnManagerIsNotReassigned() {
+    private ru.anyforms.model.amo.AmoLead existingRetailLead(Long statusId, Long responsibleUserId) {
         when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
         when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(555L));
         ru.anyforms.model.amo.AmoLead lead = new ru.anyforms.model.amo.AmoLead();
         lead.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
-        lead.setResponsibleUserId(IRINA_ID);
+        lead.setStatusId(statusId);
+        lead.setResponsibleUserId(responsibleUserId);
         when(amoCrmGateway.getLead(555L)).thenReturn(lead);
+        return lead;
+    }
+
+    @Test
+    void existingLeadAlreadyInFailedStatusOnManagerIsNotTouched() {
+        existingRetailLead(MARKETPLACE_FAILED_STATUS_ID, IRINA_ID);
 
         service.notify(marketplaceTransaction(42L));
 
         verify(amoCrmGateway, never()).updateLeadResponsible(anyLong(), anyLong());
+        verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
     }
 
     @Test
-    void existingLeadOnSomeoneElseIsMovedToManagerEvenWhenTaskAlreadyOpen() {
-        when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
-        when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(555L));
-        ru.anyforms.model.amo.AmoLead lead = new ru.anyforms.model.amo.AmoLead();
-        lead.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
-        lead.setResponsibleUserId(99L);
-        when(amoCrmGateway.getLead(555L)).thenReturn(lead);
+    void existingLeadInFailedStatusOnSomeoneElseOnlyChangesResponsible() {
+        existingRetailLead(MARKETPLACE_FAILED_STATUS_ID, 99L);
         when(amoCrmGateway.hasIncompleteTask(555L)).thenReturn(true);
 
         service.notify(marketplaceTransaction(42L));
 
         verify(amoCrmGateway).updateLeadResponsible(555L, IRINA_ID);
+        verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), anyLong(), anyInt());
+    }
+
+    @Test
+    void existingLeadInOtherStatusIsMovedToFailedStatusAndManager() {
+        existingRetailLead(12345L, IRINA_ID);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway).updateLeadStatus(555L, MARKETPLACE_FAILED_STATUS_ID, MARKETPLACE_FAILED_PIPELINE_ID, IRINA_ID);
+        verify(amoCrmGateway, never()).updateLeadResponsible(anyLong(), anyLong());
+    }
+
+    @Test
+    void closedLeadIsReopenedIntoFailedStatusInsteadOfCreatingNewOne() {
+        existingRetailLead(142L, IRINA_ID);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway).updateLeadStatus(555L, MARKETPLACE_FAILED_STATUS_ID, MARKETPLACE_FAILED_PIPELINE_ID, IRINA_ID);
+        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
+        verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
+                FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
+    }
+
+    @Test
+    void openLeadIsPreferredOverClosedOne() {
+        when(amoCrmGateway.findContactIdByQuery("buyer@mail.ru")).thenReturn(777L);
+        when(amoCrmGateway.getLeadIdsByContact(777L)).thenReturn(List.of(500L, 555L));
+        ru.anyforms.model.amo.AmoLead closed = new ru.anyforms.model.amo.AmoLead();
+        closed.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
+        closed.setStatusId(143L);
+        when(amoCrmGateway.getLead(500L)).thenReturn(closed);
+        ru.anyforms.model.amo.AmoLead open = new ru.anyforms.model.amo.AmoLead();
+        open.setPipelineId(MARKETPLACE_FAILED_PIPELINE_ID);
+        open.setStatusId(12345L);
+        when(amoCrmGateway.getLead(555L)).thenReturn(open);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway).updateLeadStatus(555L, MARKETPLACE_FAILED_STATUS_ID, MARKETPLACE_FAILED_PIPELINE_ID, IRINA_ID);
+        verify(amoCrmGateway, never()).updateLeadStatus(eq(500L), anyLong(), anyLong(), anyLong());
     }
 
     @Test

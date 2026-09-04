@@ -7,6 +7,7 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.amo.AmoLead;
+import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.model.payment.PaymentProduct;
@@ -60,7 +61,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         FoundLead existing = findExistingFailedLead(existingContactId, target);
         if (existing != null) {
             Long existingLeadId = existing.id();
-            ensureResponsibleIsManager(existing, transaction);
+            ensureLeadPlacement(existing, target, transaction);
             if (amoCrmGateway.hasIncompleteTask(existingLeadId)) {
                 log.info("Неуспешная оплата: по сделке {} уже есть невыполненная задача — новую не ставим (транзакция {})",
                         existingLeadId, transaction.getId());
@@ -175,35 +176,64 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         return item.getQuantity() != null && item.getQuantity() > 1 ? name + " ×" + item.getQuantity() : name;
     }
 
+    /**
+     * Сделка клиента в целевой воронке: сначала та, что уже в статусе неудачной оплаты, потом
+     * любая открытая, и только потом закрытая («Реализовано»/«Не реализовано») — её возвращаем
+     * в работу переводом статуса, а не заводим новую.
+     */
     private FoundLead findExistingFailedLead(Long contactId, PipelineTarget target) {
         if (contactId == null) {
             return null;
         }
+        FoundLead open = null;
+        FoundLead closed = null;
         for (Long leadId : amoCrmGateway.getLeadIdsByContact(contactId)) {
             AmoLead lead = amoCrmGateway.getLead(leadId);
-            if (lead != null && target.pipelineId().equals(lead.getPipelineId())) {
-                return new FoundLead(leadId, lead.getResponsibleUserId());
+            if (lead == null || !target.pipelineId().equals(lead.getPipelineId())) {
+                continue;
+            }
+            FoundLead found = new FoundLead(leadId, lead.getStatusId(), lead.getResponsibleUserId());
+            if (target.statusId().equals(lead.getStatusId())) {
+                return found;
+            }
+            if (isClosed(lead)) {
+                closed = closed == null ? found : closed;
+            } else {
+                open = open == null ? found : open;
             }
         }
-        return null;
+        return open != null ? open : closed;
     }
 
-    /** Старая сделка может стоять на ком угодно, а дожимать неудачную оплату должна Ирина. */
-    private void ensureResponsibleIsManager(FoundLead lead, PaymentTransaction transaction) {
+    private static boolean isClosed(AmoLead lead) {
+        return AmoLeadStatus.REALIZED.getStatusId().equals(lead.getStatusId())
+                || AmoLeadStatus.NOT_REALIZED.getStatusId().equals(lead.getStatusId());
+    }
+
+    /**
+     * Старая сделка могла уехать в другой статус, закрыться или стоять на ком угодно, а неудачную
+     * оплату должна дожимать Ирина из статуса неудачной оплаты: переводим статус и ответственного.
+     */
+    private void ensureLeadPlacement(FoundLead lead, PipelineTarget target, PaymentTransaction transaction) {
         Long manager = AmoTaskResponsibleUser.IRINA.getResponsibleUserId();
-        if (manager.equals(lead.responsibleUserId())) {
+        boolean statusOk = target.statusId().equals(lead.statusId());
+        boolean responsibleOk = manager.equals(lead.responsibleUserId());
+        if (statusOk && responsibleOk) {
             return;
         }
-        if (amoCrmGateway.updateLeadResponsible(lead.id(), manager)) {
-            log.info("Неуспешная оплата: сделка {} стояла на {} — перевели на Ирину (транзакция {})",
-                    lead.id(), lead.responsibleUserId(), transaction.getId());
+        boolean updated = statusOk
+                ? amoCrmGateway.updateLeadResponsible(lead.id(), manager)
+                : amoCrmGateway.updateLeadStatus(lead.id(), target.statusId(), target.pipelineId(), manager);
+        if (updated) {
+            log.info("Неуспешная оплата: сделка {} была в статусе {} на {} — перевели в {} на Ирину (транзакция {})",
+                    lead.id(), lead.statusId(), lead.responsibleUserId(), target.statusId(), transaction.getId());
         } else {
-            log.warn("Неуспешная оплата: не удалось перевести сделку {} на Ирину (транзакция {})",
-                    lead.id(), transaction.getId());
+            log.warn("Неуспешная оплата: не удалось перевести сделку {} в статус {} на Ирину (транзакция {})",
+                    lead.id(), target.statusId(), transaction.getId());
         }
     }
 
-    private record FoundLead(Long id, Long responsibleUserId) {
+    private record FoundLead(Long id, Long statusId, Long responsibleUserId) {
     }
 
     private PipelineTarget resolveTarget(String productCode) {
