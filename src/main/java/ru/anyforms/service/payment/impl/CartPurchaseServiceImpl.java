@@ -64,6 +64,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static ru.anyforms.service.payment.impl.TinkoffPaymentSupport.appendParam;
+import static ru.anyforms.service.payment.impl.TinkoffPaymentSupport.blankToNull;
 
 /**
  * Оформление заказа маркетплейса (order-first): заказ создаётся сразу со статусом
@@ -259,6 +260,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .provider(PaymentProvider.YOOKASSA)
                 .externalPaymentId(response.getId().toString())
                 .productCode(PaymentProduct.CODE_MARKETPLACE_CART)
+                .contactName(blankToNull(request.getFullName()))
+                .contactPhone(blankToNull(request.getPhone()))
                 .amount(MoneyUtil.stringToKopecks(response.getAmount().getValue()))
                 .currency(Currency.fromCode(response.getAmount().getCurrency()))
                 .description(response.getDescription())
@@ -296,6 +299,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .provider(PaymentProvider.TINKOFF)
                 .externalPaymentId(response.getPaymentId())
                 .productCode(PaymentProduct.CODE_MARKETPLACE_CART)
+                .contactName(blankToNull(request.getFullName()))
+                .contactPhone(blankToNull(request.getPhone()))
                 .amount(totalKopecks)
                 .currency(Currency.RUB)
                 .description(description)

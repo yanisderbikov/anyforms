@@ -46,8 +46,13 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
             return;
         }
 
-        Long existingContactId = amoContactFinder.findByEmailOrPhone(
-                transaction.getEmail(), transaction.getContactPhone());
+        Order order = isMarketplace(transaction) ? findOrder(transaction) : null;
+        String contactName = firstNonBlank(transaction.getContactName(),
+                order != null ? order.getContactName() : null);
+        String phone = firstNonBlank(transaction.getContactPhone(),
+                order != null ? order.getContactPhone() : null);
+
+        Long existingContactId = amoContactFinder.findByEmailOrPhone(transaction.getEmail(), phone);
         String taskText = taskText(transaction);
 
         Long existingLeadId = findExistingFailedLead(existingContactId, target);
@@ -64,9 +69,8 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
             return;
         }
 
-        String contactName = transaction.getContactName() != null ? transaction.getContactName() : "Клиент";
-        Long leadId = amoCrmGateway.createLead(leadName(transaction),
-                contactName, transaction.getContactPhone(), transaction.getEmail(),
+        Long leadId = amoCrmGateway.createLead(leadName(transaction, order),
+                contactName != null ? contactName : "Клиент", phone, transaction.getEmail(),
                 target.pipelineId(), target.statusId(),
                 AmoTaskResponsibleUser.IRINA.getResponsibleUserId());
         if (leadId == null) {
@@ -75,7 +79,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
             return;
         }
         if (existingContactId == null) {
-            amoContactFinder.fillContactFio(leadId, transaction.getContactName());
+            amoContactFinder.fillContactFio(leadId, contactName);
         }
 
         amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
@@ -90,21 +94,31 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         return isMarketplace(transaction) ? MARKETPLACE_TASK_TEXT : TASK_TEXT;
     }
 
-    private String leadName(PaymentTransaction transaction) {
+    private String leadName(PaymentTransaction transaction, Order order) {
         if (isMarketplace(transaction)) {
-            return MARKETPLACE_LEAD_NAME_PREFIX + orderItemsSummary(transaction);
+            return MARKETPLACE_LEAD_NAME_PREFIX + orderItemsSummary(order);
         }
         return LEAD_NAME_PREFIX + transaction.getProductCode();
     }
 
-    /** «Свеча Луна, Подсвечник ×2»; если заказ не нашли или он пуст — его номер, чтобы сделка всё равно создалась. */
-    private String orderItemsSummary(PaymentTransaction transaction) {
+    private Order findOrder(PaymentTransaction transaction) {
         Order order = transaction.getOrderId() == null
                 ? null
                 : orderRepository.findById(transaction.getOrderId()).orElse(null);
         if (order == null) {
-            log.warn("Неуспешная оплата: заказ {} по транзакции {} не найден — в названии сделки товаров не будет",
+            log.warn("Неуспешная оплата: заказ {} по транзакции {} не найден — без товаров в названии и контактов заказа",
                     transaction.getOrderId(), transaction.getId());
+        }
+        return order;
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : (second != null && !second.isBlank() ? second : null);
+    }
+
+    /** «Свеча Луна, Подсвечник ×2»; если заказ не нашли или он пуст — его номер, чтобы сделка всё равно создалась. */
+    private String orderItemsSummary(Order order) {
+        if (order == null) {
             return "заказ не найден";
         }
         String items = order.getItems().stream()

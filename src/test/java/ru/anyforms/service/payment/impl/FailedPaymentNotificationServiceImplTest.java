@@ -125,6 +125,33 @@ class FailedPaymentNotificationServiceImplTest {
     }
 
     @Test
+    void marketplaceFailureTakesContactNameAndPhoneFromOrderWhenTransactionHasNone() {
+        noExistingContactInAmo();
+        Order order = new Order();
+        order.setId(42L);
+        order.setPublicId("AF-42");
+        order.setContactName("Петрова Анна");
+        order.setContactPhone("+79007654321");
+        order.getItems().add(item("Свеча Луна", 1));
+        when(orderRepository.findById(42L)).thenReturn(Optional.of(order));
+        PaymentTransaction transaction = transaction(PaymentProduct.CODE_MARKETPLACE_CART, null, null, "buyer@mail.ru");
+        transaction.setOrderId(42L);
+        String leadName = "Неудачная оплата Розницы - Свеча Луна";
+        when(amoCrmGateway.createLead(leadName, "Петрова Анна", "+79007654321",
+                "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID, IRINA_ID))
+                .thenReturn(555L);
+        when(amoCrmGateway.getContactIdFromLead(555L)).thenReturn(777L);
+
+        service.notify(transaction);
+
+        verify(amoCrmGateway).findContactIdByQuery("79007654321");
+        verify(amoCrmGateway).createLead(leadName, "Петрова Анна", "+79007654321",
+                "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID, IRINA_ID);
+        verify(amoCrmGateway).updateContactCustomField(777L,
+                Map.of(AmoCrmFieldId.FIO_CONTACT.getId(), "Петрова Анна"));
+    }
+
+    @Test
     void marketplaceFailureWithoutOrderStillCreatesLead() {
         noExistingContactInAmo();
         when(orderRepository.findById(42L)).thenReturn(Optional.empty());
