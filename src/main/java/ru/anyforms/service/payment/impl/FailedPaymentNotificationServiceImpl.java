@@ -213,8 +213,15 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
     /**
      * Старая сделка могла уехать в другой статус, закрыться или стоять на ком угодно, а неудачную
      * оплату должна дожимать Ирина из статуса неудачной оплаты: переводим статус и ответственного.
+     * Исключение — «Успешно реализовано»: закрытую продажу не переоткрываем и не переназначаем,
+     * по ней только задача и примечание.
      */
     private void ensureLeadPlacement(FoundLead lead, PipelineTarget target, PaymentTransaction transaction) {
+        if (AmoLeadStatus.REALIZED.getStatusId().equals(lead.statusId())) {
+            log.info("Неуспешная оплата: сделка {} успешно реализована — статус и ответственного не трогаем (транзакция {})",
+                    lead.id(), transaction.getId());
+            return;
+        }
         Long manager = AmoTaskResponsibleUser.IRINA.getResponsibleUserId();
         boolean statusOk = target.statusId().equals(lead.statusId());
         boolean responsibleOk = manager.equals(lead.responsibleUserId());

@@ -232,8 +232,23 @@ class FailedPaymentNotificationServiceImplTest {
     }
 
     @Test
+    void realizedLeadKeepsStatusAndResponsibleButGetsTaskAndNote() {
+        existingRetailLead(142L, 99L);
+        orderWithItems(42L, item("Свеча Луна", 1));
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway, never()).updateLeadStatus(anyLong(), anyLong(), anyLong(), anyLong());
+        verify(amoCrmGateway, never()).updateLeadResponsible(anyLong(), anyLong());
+        verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
+        verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
+                FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
+        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1");
+    }
+
+    @Test
     void closedLeadIsReopenedIntoFailedStatusInsteadOfCreatingNewOne() {
-        existingRetailLead(142L, IRINA_ID);
+        existingRetailLead(143L, IRINA_ID);
 
         service.notify(marketplaceTransaction(42L));
 
