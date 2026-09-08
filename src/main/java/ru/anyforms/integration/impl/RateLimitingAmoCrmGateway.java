@@ -8,7 +8,9 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoContact;
 import ru.anyforms.model.amo.AmoLead;
 import ru.anyforms.model.amo.AmoLeadStatus;
+import ru.anyforms.model.amo.AmoPipelineInfo;
 import ru.anyforms.model.amo.AmoProduct;
+import ru.anyforms.model.amo.AmoSalesbot;
 
 import java.util.List;
 import java.util.Map;
@@ -256,5 +258,17 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     public List<AmoProduct> getCatalogElements(Long catalogId) {
         acquireSlot();
         return delegate.getCatalogElements(catalogId);
+    }
+
+    @Override
+    public List<AmoSalesbot> getSalesbots() {
+        acquireSlot();
+        return delegate.getSalesbots();
+    }
+
+    @Override
+    public List<AmoPipelineInfo> getPipelines() {
+        acquireSlot();
+        return delegate.getPipelines();
     }
 }

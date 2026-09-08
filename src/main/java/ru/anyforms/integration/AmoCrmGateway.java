@@ -3,7 +3,9 @@ package ru.anyforms.integration;
 import ru.anyforms.model.amo.AmoContact;
 import ru.anyforms.model.amo.AmoLead;
 import ru.anyforms.model.amo.AmoLeadStatus;
+import ru.anyforms.model.amo.AmoPipelineInfo;
 import ru.anyforms.model.amo.AmoProduct;
+import ru.anyforms.model.amo.AmoSalesbot;
 
 import java.util.List;
 import java.util.Map;
@@ -207,4 +209,21 @@ public interface AmoCrmGateway {
      * @param catalogId ID каталога товаров
      */
     List<AmoProduct> getCatalogElements(Long catalogId);
+
+    /**
+     * Все SalesBot'ы аккаунта ({@code GET /api/v4/bots}, с обходом страниц) — для выбора
+     * бота по имени в админке дрип-кампании.
+     * <p>
+     * В отличие от большинства методов гейтвея НЕ глушит ошибки: при недоступности amoCRM
+     * бросает исключение, чтобы админка могла отличить «ботов нет» от «список не загрузился».
+     *
+     * @return список ботов (пустой, если в аккаунте их нет)
+     */
+    List<AmoSalesbot> getSalesbots();
+
+    /**
+     * Все воронки аккаунта с их статусами ({@code GET /api/v4/leads/pipelines}) — для выбора
+     * воронки/статуса по имени в админке. Как и {@link #getSalesbots()}, при ошибке бросает исключение.
+     */
+    List<AmoPipelineInfo> getPipelines();
 }

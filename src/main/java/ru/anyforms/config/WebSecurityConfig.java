@@ -63,6 +63,8 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/training-invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/receipt/**").hasRole("ADMIN")
                     .requestMatchers("/api/promo-code/**").hasRole("ADMIN")
+                    // Дрип-кампания SalesBot: админка настроек/аналитики и ручной массовый запуск ботов
+                    .requestMatchers("/api/salesbot/**").hasRole("ADMIN")
                     .requestMatchers("/webhook/**").permitAll()
                     .requestMatchers("/api/**").permitAll()
                     .anyRequest().permitAll()

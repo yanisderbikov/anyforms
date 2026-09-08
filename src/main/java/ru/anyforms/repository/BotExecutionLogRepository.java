@@ -1,6 +1,7 @@
 package ru.anyforms.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,7 +14,8 @@ import java.time.Instant;
 import java.util.List;
 
 @Repository
-public interface BotExecutionLogRepository extends JpaRepository<BotExecutionLog, Long> {
+public interface BotExecutionLogRepository
+        extends JpaRepository<BotExecutionLog, Long>, JpaSpecificationExecutor<BotExecutionLog> {
 
     /**
      * Позиции, успешно отработавшие для лида в рамках типа. По ним считается прогресс цепочки.
@@ -86,4 +88,24 @@ public interface BotExecutionLogRepository extends JpaRepository<BotExecutionLog
             )
             """, nativeQuery = true)
     int markLatestStatus(@Param("leadId") Long leadId, @Param("status") String status);
+
+    /**
+     * Аналитика для админки: число записей каждого статуса по шагу (тип, позиция, бот)
+     * за период {@code [from, to)}. По {@code MESSAGE_SEND_FAILED} видно, на каком шаге
+     * сообщения перестают доставляться (лид заблокировал бота / недоступен).
+     */
+    @Query("""
+            SELECT new ru.anyforms.repository.BotStepStatusCount(l.type, l.position, l.botId, l.status, COUNT(l))
+            FROM BotExecutionLog l
+            WHERE l.dateExecuted >= :fromInstant AND l.dateExecuted < :toInstant
+            GROUP BY l.type, l.position, l.botId, l.status
+            """)
+    List<BotStepStatusCount> countByStepAndStatus(@Param("fromInstant") Instant from, @Param("toInstant") Instant to);
+
+    /** Сколько разных лидов встречается в журнале за период {@code [from, to)}. */
+    @Query("""
+            SELECT COUNT(DISTINCT l.leadId) FROM BotExecutionLog l
+            WHERE l.dateExecuted >= :fromInstant AND l.dateExecuted < :toInstant
+            """)
+    long countDistinctLeads(@Param("fromInstant") Instant from, @Param("toInstant") Instant to);
 }

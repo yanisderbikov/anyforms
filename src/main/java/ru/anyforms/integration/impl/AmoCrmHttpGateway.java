@@ -1085,6 +1085,126 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     }
 
     @Override
+    public List<AmoSalesbot> getSalesbots() {
+        List<AmoSalesbot> bots = new java.util.ArrayList<>();
+        int limit = 250;
+        for (int page = 1; page <= 40; page++) { // страховочный потолок 10 000 ботов
+            String response = webClient.get()
+                    .uri("/api/v4/bots?limit=" + limit + "&page=" + page)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            clientResponse -> clientResponse.bodyToMono(String.class)
+                                    .defaultIfEmpty("")
+                                    .flatMap(b -> Mono.error(new RuntimeException(
+                                            "AmoCRM GET /api/v4/bots " + clientResponse.statusCode() + ": " + b))))
+                    .bodyToMono(String.class)
+                    .block();
+
+            // 204 No Content — ботов (больше) нет.
+            if (response == null || response.trim().isEmpty()) {
+                break;
+            }
+            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
+            JsonArray items = extractBots(json);
+            if (items == null || items.isEmpty()) {
+                break;
+            }
+            for (JsonElement element : items) {
+                JsonObject bot = element.getAsJsonObject();
+                if (!bot.has("id") || bot.get("id").isJsonNull()) {
+                    continue;
+                }
+                bots.add(new AmoSalesbot(
+                        bot.get("id").getAsLong(),
+                        bot.has("name") && !bot.get("name").isJsonNull() ? bot.get("name").getAsString() : null,
+                        bot.has("type_functionality") && !bot.get("type_functionality").isJsonNull()
+                                ? bot.get("type_functionality").getAsString() : null));
+            }
+            if (items.size() < limit) {
+                break; // последняя страница
+            }
+        }
+        log.info("Loaded {} salesbot(s) from amoCRM", bots.size());
+        return bots;
+    }
+
+    /** Список ботов лежит в {@code _embedded.items}; на всякий случай принимаем и {@code _embedded.bots}. */
+    private static JsonArray extractBots(JsonObject json) {
+        return embeddedArray(json, "items", "bots");
+    }
+
+    @Override
+    public List<AmoPipelineInfo> getPipelines() {
+        String response = webClient.get()
+                .uri("/api/v4/leads/pipelines")
+                .header("Authorization", "Bearer " + accessToken)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(b -> Mono.error(new RuntimeException(
+                                        "AmoCRM GET /api/v4/leads/pipelines " + clientResponse.statusCode() + ": " + b))))
+                .bodyToMono(String.class)
+                .block();
+        List<AmoPipelineInfo> pipelines = new java.util.ArrayList<>();
+        if (response == null || response.trim().isEmpty()) {
+            return pipelines;
+        }
+        JsonArray items = embeddedArray(JsonParser.parseString(response).getAsJsonObject(), "pipelines");
+        if (items == null) {
+            return pipelines;
+        }
+        java.util.Comparator<Integer> bySort = java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder());
+        for (JsonElement element : items) {
+            JsonObject pipeline = element.getAsJsonObject();
+            if (!pipeline.has("id") || pipeline.get("id").isJsonNull()) {
+                continue;
+            }
+            List<AmoPipelineStatusInfo> statuses = new java.util.ArrayList<>();
+            JsonArray statusItems = embeddedArray(pipeline, "statuses");
+            if (statusItems != null) {
+                for (JsonElement statusElement : statusItems) {
+                    JsonObject status = statusElement.getAsJsonObject();
+                    if (!status.has("id") || status.get("id").isJsonNull()) {
+                        continue;
+                    }
+                    statuses.add(new AmoPipelineStatusInfo(status.get("id").getAsLong(),
+                            optString(status, "name"), optInt(status, "sort")));
+                }
+                statuses.sort(java.util.Comparator.comparing(AmoPipelineStatusInfo::sort, bySort));
+            }
+            pipelines.add(new AmoPipelineInfo(pipeline.get("id").getAsLong(), optString(pipeline, "name"),
+                    optInt(pipeline, "sort"), List.copyOf(statuses)));
+        }
+        pipelines.sort(java.util.Comparator.comparing(AmoPipelineInfo::sort, bySort));
+        log.info("Loaded {} pipeline(s) from amoCRM", pipelines.size());
+        return pipelines;
+    }
+
+    /** Первый из массивов {@code _embedded.<key>}, который есть в ответе; {@code null}, если ни одного. */
+    private static JsonArray embeddedArray(JsonObject json, String... keys) {
+        if (!json.has("_embedded") || !json.get("_embedded").isJsonObject()) {
+            return null;
+        }
+        JsonObject embedded = json.getAsJsonObject("_embedded");
+        for (String key : keys) {
+            if (embedded.has(key) && embedded.get(key).isJsonArray()) {
+                return embedded.getAsJsonArray(key);
+            }
+        }
+        return null;
+    }
+
+    private static String optString(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsString() : null;
+    }
+
+    private static Integer optInt(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsInt() : null;
+    }
+
+    @Override
     public boolean runSalesbot(Long leadId, Long botId) {
         try {
             // TODO: уточнить точный endpoint/тело запуска SalesBot в amoCRM.
