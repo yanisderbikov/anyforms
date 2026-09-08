@@ -8,7 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.anyforms.dto.RunSalesbotBatchRequestDTO;
-import ru.anyforms.service.salesbot.ManualSalesbotBatchRunner;
+import ru.anyforms.dto.salesbot.ManualRunDTO;
+import ru.anyforms.service.salesbot.ManualSalesbotBatchService;
+
+import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/salesbot")
@@ -16,7 +19,7 @@ import ru.anyforms.service.salesbot.ManualSalesbotBatchRunner;
 @Tag(name = "Salesbot", description = "Массовый запуск SalesBot по воронке/статусу")
 public class SalesbotBatchController {
 
-    private final ManualSalesbotBatchRunner batchRunner;
+    private final ManualSalesbotBatchService batchService;
 
     @Operation(
             summary = "Запустить SalesBot для всех лидов в заданной воронке/статусе (в фоне)",
@@ -25,13 +28,10 @@ public class SalesbotBatchController {
                     + "Если задан tagName — запуск только для лидов с этим тегом.",
             security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/run-batch")
-    public ResponseEntity<String> runBatch(@Valid @RequestBody RunSalesbotBatchRequestDTO request) {
-        String tagName = request.getTagName() == null || request.getTagName().isBlank()
-                ? null
-                : request.getTagName().trim();
-        batchRunner.runBatch(request.getPipelineId(), request.getStatusId(), request.getBotId(), tagName);
+    public ResponseEntity<String> runBatch(@Valid @RequestBody RunSalesbotBatchRequestDTO request, Principal principal) {
+        ManualRunDTO run = batchService.start(request, principal != null ? principal.getName() : null);
         return ResponseEntity.accepted()
-                .body("accepted: запуск SalesBot " + request.getBotId() + " запущен в фоне"
-                        + (tagName == null ? "" : " (только лиды с тегом '" + tagName + "')"));
+                .body("accepted: запуск SalesBot " + request.getBotId() + " запущен в фоне (#" + run.id() + ")"
+                        + (run.tagName() == null ? "" : " (только лиды с тегом '" + run.tagName() + "')"));
     }
 }

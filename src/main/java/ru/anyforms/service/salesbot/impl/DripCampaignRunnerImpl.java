@@ -82,6 +82,15 @@ class DripCampaignRunnerImpl implements DripCampaignRunner {
         }
         BotStep step = next.get();
 
+        // Этот бот лиду уже уходил (цепочку переставили/поменяли бота на пройденной позиции):
+        // второй раз не шлём, но позицию засчитываем, чтобы цепочка шла дальше.
+        if (executionReader.alreadyExecuted(leadId, step.botId())) {
+            log.info("Lead {} already received bot {} earlier; marking position {} done without sending",
+                    leadId, step.botId(), step.position());
+            executionRecorder.recordSuccess(leadId, type, step);
+            return;
+        }
+
         // Перечитываем актуальный статус: лид мог выйти из статуса между запросом №1 и сейчас.
         if (!leadStatusVerifier.isInTargetStatus(leadId, funnel)) {
             log.info("Lead {} left target status before bot {} (pos {}); recording FAILED, skipping",

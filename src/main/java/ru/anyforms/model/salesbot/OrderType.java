@@ -1,21 +1,40 @@
 package ru.anyforms.model.salesbot;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /**
  * Тип заказа. У каждого типа своя пара (pipeline_id, status_id) в amoCRM
  * (см. таблицу {@code order_type_funnel}) и свой список ботов
  * (см. таблицу {@code bot_sequence}).
+ * <p>
+ * В БД хранится строкой ({@code EnumType.STRING}) — подписи и флаг {@link #drip}
+ * на хранение не влияют, они нужны админке.
  */
+@Getter
+@RequiredArgsConstructor
 public enum OrderType {
     /** Розница (первичная продажа). */
-    RETAIL,
+    RETAIL("Розница", "Розница, первичная продажа", true),
     /** Розница, повторные продажи. */
-    RETAIL_REPEAT,
+    RETAIL_REPEAT("Розница, повтор", "Розница, повторные продажи", true),
     /** Под заказ (первичная). */
-    CUSTOM,
+    CUSTOM("Под заказ", "Под заказ, первичная продажа", true),
     /** Под заказ, повторные продажи. */
-    CUSTOM_REPEAT,
+    CUSTOM_REPEAT("Под заказ, повтор", "Под заказ, повторные продажи", true),
     /** Ручной массовый запуск бота по воронке/статусу (вне цепочки дрип-кампании). */
-    MANUAL,
+    MANUAL("Ручной запуск", "Ручной массовый запуск бота по воронке/статусу, вне дрип-цепочки", false),
     /** Уведомления о доставке: трекер отправлен / можно забрать / самовывоз готов. */
-    DELIVERY
+    DELIVERY("Доставка", "Уведомления о доставке: трекер отправлен, можно забрать, самовывоз готов", false);
+
+    /** Короткая подпись для админки. */
+    private final String label;
+    /** Пояснение для админки. */
+    private final String description;
+    /**
+     * Участвует ли тип в дрип-кампании: для таких типов задаются воронка/статус
+     * ({@code order_type_funnel}) и цепочка ботов ({@code bot_sequence}).
+     * Служебные типы ({@link #MANUAL}, {@link #DELIVERY}) пишут в журнал сами, цепочки у них нет.
+     */
+    private final boolean drip;
 }

@@ -7,7 +7,9 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoContact;
 import ru.anyforms.model.amo.AmoLead;
 import ru.anyforms.model.amo.AmoLeadStatus;
+import ru.anyforms.model.amo.AmoPipelineInfo;
 import ru.anyforms.model.amo.AmoProduct;
+import ru.anyforms.model.amo.AmoSalesbot;
 
 import java.util.List;
 import java.util.Map;
@@ -205,6 +207,18 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     @Override
     public List<AmoProduct> getCatalogElements(Long catalogId) {
         skip("getCatalogElements");
+        return List.of();
+    }
+
+    @Override
+    public List<AmoSalesbot> getSalesbots() {
+        skip("getSalesbots");
+        return List.of();
+    }
+
+    @Override
+    public List<AmoPipelineInfo> getPipelines() {
+        skip("getPipelines");
         return List.of();
     }
 }

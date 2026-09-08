@@ -16,10 +16,36 @@ backend for anyforms.ru
 
 | Таблица | Назначение | Кто заполняет |
 |---|---|---|
-| `order_type_funnel` | тип заказа → воронка/статус amoCRM | **вручную** |
-| `bot_sequence` | порядок ботов для каждого типа | **вручную** |
+| `order_type_funnel` | тип заказа → воронка/статус amoCRM | **админка** `/admin/salesbot` (или руками) |
+| `bot_sequence` | порядок ботов для каждого типа | **админка** `/admin/salesbot` (или руками) |
 | `schedule` | слоты каденции (когда запускать), общие для всех типов | сид + **правки вручную** |
-| `bot_execution_log` | журнал отправок (источник истины о прогрессе) | **приложение само** |
+| `bot_execution_log` | журнал отправок (источник истины о прогрессе) | **приложение само**; смотреть — `/admin/salesbot/analytics` |
+
+### Админка (только ADMIN): `/api/salesbot/admin/**`
+
+Фронт: раздел «боты amocrm» в админке (`/admin/salesbot` — цепочки, `/admin/salesbot/analytics` — аналитика и журнал).
+Все ручки под `/api/salesbot/**` требуют роль `ADMIN` (включая ручной запуск `POST /api/salesbot/run-batch`).
+
+| Метод и путь | Что делает |
+|---|---|
+| `GET /api/salesbot/admin/order-types` | справочник `OrderType` с подписями; `drip=false` — служебный тип (`MANUAL`, `DELIVERY`), воронка/цепочка ему не задаются |
+| `GET /api/salesbot/admin/config` | сводка по типам: воронка (`order_type_funnel`) + цепочка (`bot_sequence`) |
+| `GET /api/salesbot/admin/bots?refresh=` | SalesBot'ы аккаунта из amoCRM (`GET /api/v4/bots`, кэш 5 мин) — в админке бот выбирается по имени, в таблицу пишется `id` |
+| `POST/PUT/DELETE /api/salesbot/admin/funnels[/{id}]` | воронка/статус типа; одна на тип |
+| `GET /api/salesbot/admin/pipelines?refresh=` | воронки и статусы аккаунта (`GET /api/v4/leads/pipelines`, кэш 5 мин) — выбор по имени, хранятся id |
+| `POST /api/salesbot/admin/steps` `{type, botId}` | бот добавляется **в конец** цепочки (позиция = последняя + 1); один бот — не более одного раза на тип |
+| `PUT /api/salesbot/admin/steps/{id}` `{botId}` | заменить бота на шаге, позиция не меняется |
+| `POST /api/salesbot/admin/steps/{id}/move?direction=UP\|DOWN` | поменять шаг местами с соседним (порядок только стрелками, руками позиция не задаётся) |
+| `DELETE /api/salesbot/admin/steps/{id}` | удалить шаг; позиции остальных не сдвигаются (пропуски допустимы) |
+| `GET /api/salesbot/admin/manual-runs` | последние ручные запуски с живыми счётчиками (в памяти процесса) |
+| `GET /api/salesbot/admin/manual-runs/preview?pipelineId&statusId&botId&tagName` | сколько лидов в статусе и сколько уже получали бота |
+| `POST /api/salesbot/admin/manual-runs` | запустить бота всем лидам воронки/статуса в фоне (202); один запуск за раз (409) |
+| `GET /api/salesbot/admin/analytics?from&to` | счётчики `SUCCESS` / `MESSAGE_SEND_FAILED` / `FAILED` по каждому шагу — видно, после какого бота сообщения перестают доставляться; даты — дни по МСК, включительно |
+| `GET /api/salesbot/admin/logs?type&status&leadId&from&to&page&size` | журнал `bot_execution_log` постранично, новые сверху |
+
+> Прогресс лида считается **по позициям**. Перестановка шагов меняет порядок и для лидов в работе,
+> но один и тот же бот одному лиду повторно не уходит: прогон проверяет журнал
+> (`BotExecutionReader.alreadyExecuted`) и уже отправленного бота засчитывает без повторной отправки.
 
 > Все времена в БД — в **UTC**. МСК = UTC+3 (без перехода на лето).
 > `type` хранится строкой (enum `OrderType`): `RETAIL`, `RETAIL_REPEAT`, `CUSTOM`, `CUSTOM_REPEAT`.
@@ -121,7 +147,7 @@ UPDATE schedule SET enabled = FALSE WHERE id = 4;
 |---|---|
 | `lead_id` | сделка amoCRM |
 | `bot_id` / `position` / `type` | какой бот / позиция / тип отработали |
-| `status` | `SUCCESS` (запрос на запуск ушёл) или `FAILED` (лид вышел из статуса / ошибка запроса) |
+| `status` | `SUCCESS` (запрос на запуск ушёл), `FAILED` (лид вышел из статуса / ошибка запроса) или `MESSAGE_SEND_FAILED` (бот запущен, но amoCRM не доставил сообщение — вебхук `fail-send-message`; ставится на последнюю запись лида) |
 | `date_executed` | момент попытки (`timestamptz`, UTC) |
 
 - `UNIQUE(lead_id, bot_id)` — жёсткий бэкстоп от двойной отправки; запись через upsert.
@@ -132,8 +158,8 @@ UPDATE schedule SET enabled = FALSE WHERE id = 4;
 
 ### Минимальный чек-лист запуска
 
-1. Заполнить `order_type_funnel` (типы → воронка/статус).
-2. Заполнить `bot_sequence` (типы → боты по порядку).
+1. Заполнить `order_type_funnel` (типы → воронка/статус) — в админке `/admin/salesbot`.
+2. Заполнить `bot_sequence` (типы → боты по порядку) — там же.
 3. Проверить/поправить `schedule` (времена в UTC).
 4. `bot_execution_log` оставить пустым — заполнится сам.
 

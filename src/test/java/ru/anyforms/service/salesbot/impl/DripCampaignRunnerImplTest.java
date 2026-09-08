@@ -93,6 +93,24 @@ class DripCampaignRunnerImplTest {
         verifyNoInteractions(statusVerifier, trigger, recorder);
     }
 
+    /**
+     * Бот лиду уже уходил (например, цепочку переставили стрелками): повторно не шлём,
+     * но позицию засчитываем как пройденную, чтобы цепочка двигалась дальше.
+     */
+    @Test
+    void doesNotResendBotAlreadyExecutedForLead_butAdvancesProgress() {
+        when(funnelDirectory.configuredTypes()).thenReturn(List.of(OrderType.RETAIL));
+        when(funnelDirectory.targetFor(OrderType.RETAIL)).thenReturn(Optional.of(TARGET));
+        when(leadProvider.leadsInStatus(TARGET)).thenReturn(List.of(1L));
+        when(nextBotResolver.nextBot(OrderType.RETAIL, 1L)).thenReturn(Optional.of(STEP));
+        when(reader.alreadyExecuted(1L, 101L)).thenReturn(true);
+
+        runner.runOnce();
+
+        verify(recorder).recordSuccess(1L, OrderType.RETAIL, STEP);
+        verifyNoInteractions(statusVerifier, trigger);
+    }
+
     @Test
     void oneFailingLeadDoesNotAbortTheRest() {
         when(funnelDirectory.configuredTypes()).thenReturn(List.of(OrderType.RETAIL));
