@@ -28,7 +28,7 @@ backend for anyforms.ru
 
 | Метод и путь | Что делает |
 |---|---|
-| `GET /api/salesbot/admin/run-types` | справочник типов записей журнала: `DRIP` (шаг цепочки группы), `MANUAL`, `DELIVERY`, `RETAIL_TO_REPEAT` |
+| `GET /api/salesbot/admin/run-types` | справочник типов записей журнала: `DRIP` (шаг цепочки группы), `MANUAL`, `DELIVERY` |
 | `GET /api/salesbot/admin/bots?refresh=` | SalesBot'ы аккаунта из amoCRM (`GET /api/v4/bots`, кэш 5 мин) — в админке бот выбирается по имени, в таблицу пишется `id` |
 | `GET /api/salesbot/admin/pipelines?refresh=` | воронки и статусы аккаунта (`GET /api/v4/leads/pipelines`, кэш 5 мин) — выбор по имени, хранятся id |
 | `GET /api/salesbot/admin/groups` | группы дрип-кампании (`bot_group`) с цепочками (`bot_sequence`) |
@@ -48,7 +48,7 @@ backend for anyforms.ru
 > (`BotExecutionReader.alreadyExecuted`) и уже отправленного бота засчитывает без повторной отправки.
 
 > Все времена в БД — в **UTC**. МСК = UTC+3 (без перехода на лето).
-> С V52 цепочки привязаны к группам (`bot_group`), а не к типам заказа. В журнале `type` — enum `BotRunType`: `DRIP` (шаг цепочки, `group_id` задан), `MANUAL`, `DELIVERY`, `RETAIL_TO_REPEAT`.
+> С V52 цепочки привязаны к группам (`bot_group`), а не к типам заказа. В журнале `type` — enum `BotRunType`: `DRIP` (шаг цепочки, `group_id` задан), `MANUAL`, `DELIVERY`.
 
 ---
 
@@ -126,7 +126,5 @@ backend for anyforms.ru
 | `salesbot.run.interval-minutes` | как часто проверять лидов (мин), круглосуточно |
 | `salesbot.run.window-msk` | окно отправки по умолчанию для групп без своего, Москва, `HH:mm-HH:mm` |
 | `salesbot.lock.key` | ключ Postgres advisory-lock (single-flight: один прогон одновременно во всём кластере) |
-| `amocrm.bot.retail.repeat.id` | бот повторных продаж розницы: запускается по будням в 10:53 МСК для сделок розничной воронки в «Успешно реализовано», закрытых не позже N дней назад (статус не меняем — его меняет сам бот); env `AMOCRM_BOT_RETAIL_REPEAT_ID` |
-| `amocrm.retail.repeat.days-after-close` | N дней после закрытия сделки для бота повторных продаж; env `AMOCRM_RETAIL_REPEAT_DAYS_AFTER_CLOSE` |
 
 > Сборка — только под **JDK 21** (дефолтный `mvn` на JDK 25 ломает Lombok).

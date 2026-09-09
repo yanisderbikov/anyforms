@@ -975,7 +975,6 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                 String url = "/api/v4/leads"
                         + "?filter[statuses][0][pipeline_id]=" + pipelineId
                         + "&filter[statuses][0][status_id]=" + statusId
-                        + (filter.hasClosedBefore() ? "&filter[closed_at][to]=" + filter.closedBefore() : "")
                         + "&page=" + page
                         + "&limit=" + AMO_PAGE_LIMIT;
 
