@@ -26,6 +26,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.s3.S3FileStorage;
+import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.PublicIdGenerator;
 import ru.anyforms.util.converter.ConverterOrder;
 
@@ -246,6 +247,10 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
             if (tracker == null || tracker.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Для отправки СДЭК обязателен трекер");
             }
+            if (!TrackerCustomFields.isValidTracker(tracker)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, TrackerCustomFields.INVALID_TRACKER_MESSAGE);
+            }
+            tracker = tracker.trim();
             order.setTracker(tracker);
             orderRepository.save(order);
         }

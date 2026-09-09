@@ -16,6 +16,7 @@ public record ManualRunDTO(
         Long botId,
         String botName,
         @Schema(description = "Тег-фильтр; null — все лиды статуса") String tagName,
+        @Schema(description = "Фильтр по полю «Розница»: true — только розница, false — только не розница, null — любые") Boolean retail,
         @Schema(description = "Лидов найдено в статусе; -1 — ещё не посчитано") int total,
         @Schema(description = "Бот запущен") int sent,
         @Schema(description = "Пропущено: бот этому лиду уже уходил раньше") int skipped,

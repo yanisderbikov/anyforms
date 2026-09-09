@@ -6,7 +6,7 @@ import java.util.Optional;
 /** Реестр ручных запусков (последние N, в памяти). */
 public interface ManualRunRegistry {
 
-    ManualRun create(Long pipelineId, Long statusId, Long botId, String tagName, String startedBy);
+    ManualRun create(Long pipelineId, Long statusId, Long botId, String tagName, Boolean retail, String startedBy);
 
     /** Последние запуски, новые сверху. */
     List<ManualRun> recent();

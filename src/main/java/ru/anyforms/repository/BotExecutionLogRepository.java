@@ -8,7 +8,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.anyforms.model.salesbot.BotExecutionLog;
 import ru.anyforms.model.salesbot.BotExecutionStatus;
-import ru.anyforms.model.salesbot.OrderType;
 
 import java.time.Instant;
 import java.util.List;
@@ -18,23 +17,26 @@ public interface BotExecutionLogRepository
         extends JpaRepository<BotExecutionLog, Long>, JpaSpecificationExecutor<BotExecutionLog> {
 
     /**
-     * Позиции, успешно отработавшие для лида в рамках типа. По ним считается прогресс цепочки.
+     * Позиции, успешно отработавшие для лида в рамках группы. По ним считается прогресс цепочки.
      */
     @Query("""
             SELECT l.position FROM BotExecutionLog l
             WHERE l.leadId = :leadId
-              AND l.type = :type
+              AND l.groupId = :groupId
               AND l.status = ru.anyforms.model.salesbot.BotExecutionStatus.SUCCESS
             """)
-    List<Integer> findSuccessPositions(@Param("leadId") Long leadId, @Param("type") OrderType type);
+    List<Integer> findSuccessPositions(@Param("leadId") Long leadId, @Param("groupId") Long groupId);
 
     /**
-     * Был ли у лида хоть один успешно запущенный бот начиная с {@code dayStart}
-     * (UTC-полночь текущих суток). Будущих записей не бывает, поэтому это эквивалентно
-     * «успешно отправляли сегодня». Используется как дневной guard от повторной отправки.
+     * Момент последней успешной отправки лиду в рамках группы — якорь задержки следующего шага.
      */
-    boolean existsByLeadIdAndStatusAndDateExecutedGreaterThanEqual(
-            Long leadId, BotExecutionStatus status, Instant dayStart);
+    @Query("""
+            SELECT MAX(l.dateExecuted) FROM BotExecutionLog l
+            WHERE l.leadId = :leadId
+              AND l.groupId = :groupId
+              AND l.status = ru.anyforms.model.salesbot.BotExecutionStatus.SUCCESS
+            """)
+    Instant findLastSuccessAt(@Param("leadId") Long leadId, @Param("groupId") Long groupId);
 
     /**
      * Был ли уже успешно запущен конкретный бот для конкретного лида.
@@ -54,11 +56,12 @@ public interface BotExecutionLogRepository
      */
     @Modifying
     @Query(value = """
-            INSERT INTO bot_execution_log (lead_id, bot_id, position, type, status, date_executed)
-            VALUES (:leadId, :botId, :position, :type, :status, :dateExecuted)
+            INSERT INTO bot_execution_log (lead_id, bot_id, position, type, group_id, status, date_executed)
+            VALUES (:leadId, :botId, :position, :type, :groupId, :status, :dateExecuted)
             ON CONFLICT (lead_id, bot_id)
             DO UPDATE SET position = EXCLUDED.position,
                           type = EXCLUDED.type,
+                          group_id = EXCLUDED.group_id,
                           status = EXCLUDED.status,
                           date_executed = EXCLUDED.date_executed
             """, nativeQuery = true)
@@ -66,6 +69,7 @@ public interface BotExecutionLogRepository
                 @Param("botId") Long botId,
                 @Param("position") Integer position,
                 @Param("type") String type,
+                @Param("groupId") Long groupId,
                 @Param("status") String status,
                 @Param("dateExecuted") Instant dateExecuted);
 
@@ -90,15 +94,15 @@ public interface BotExecutionLogRepository
     int markLatestStatus(@Param("leadId") Long leadId, @Param("status") String status);
 
     /**
-     * Аналитика для админки: число записей каждого статуса по шагу (тип, позиция, бот)
+     * Аналитика для админки: число записей каждого статуса по шагу (тип записи, группа, позиция, бот)
      * за период {@code [from, to)}. По {@code MESSAGE_SEND_FAILED} видно, на каком шаге
      * сообщения перестают доставляться (лид заблокировал бота / недоступен).
      */
     @Query("""
-            SELECT new ru.anyforms.repository.BotStepStatusCount(l.type, l.position, l.botId, l.status, COUNT(l))
+            SELECT new ru.anyforms.repository.BotStepStatusCount(l.type, l.groupId, l.position, l.botId, l.status, COUNT(l))
             FROM BotExecutionLog l
             WHERE l.dateExecuted >= :fromInstant AND l.dateExecuted < :toInstant
-            GROUP BY l.type, l.position, l.botId, l.status
+            GROUP BY l.type, l.groupId, l.position, l.botId, l.status
             """)
     List<BotStepStatusCount> countByStepAndStatus(@Param("fromInstant") Instant from, @Param("toInstant") Instant to);
 

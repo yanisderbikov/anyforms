@@ -6,6 +6,7 @@ import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoPipelineInfo;
 import ru.anyforms.model.amo.AmoProduct;
 import ru.anyforms.model.amo.AmoSalesbot;
+import ru.anyforms.model.amo.LeadFilter;
 
 import java.util.List;
 import java.util.Map;
@@ -121,8 +122,6 @@ public interface AmoCrmGateway {
     List<AmoProduct> getLeadProducts(Long leadId);
 
 
-    List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId, Long statusId, Long closedTo);
-
     /**
      * Запрос №1 дрип-кампании: получить ID всех лидов в заданной воронке/статусе.
      * <p>
@@ -145,6 +144,13 @@ public interface AmoCrmGateway {
      * @return список lead_id (может быть пустым)
      */
     List<Long> getLeadIdsByStatusAndTag(Long pipelineId, Long statusId, String tagName);
+
+    /**
+     * Лиды воронки/статуса с дополнительным отбором по тегу и/или значению кастомного поля
+     * (ручной запуск бота: например, только розница). Отбор делается на нашей стороне по
+     * содержимому ответа amoCRM, как и для тега.
+     */
+    List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId, LeadFilter filter);
 
     /**
      * Запрос №2 дрип-кампании: запустить SalesBot для сделки (fire-and-forget).

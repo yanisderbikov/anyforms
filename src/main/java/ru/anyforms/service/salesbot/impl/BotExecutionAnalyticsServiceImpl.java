@@ -17,8 +17,10 @@ import ru.anyforms.dto.salesbot.BotExecutionLogDTO;
 import ru.anyforms.dto.salesbot.BotExecutionLogPageDTO;
 import ru.anyforms.model.salesbot.BotExecutionLog;
 import ru.anyforms.model.salesbot.BotExecutionStatus;
-import ru.anyforms.model.salesbot.OrderType;
+import ru.anyforms.model.salesbot.BotGroup;
+import ru.anyforms.model.salesbot.BotRunType;
 import ru.anyforms.repository.BotExecutionLogRepository;
+import ru.anyforms.repository.BotGroupRepository;
 import ru.anyforms.repository.BotSequenceRepository;
 import ru.anyforms.repository.BotStepStatusCount;
 import ru.anyforms.service.salesbot.BotExecutionAnalyticsService;
@@ -31,9 +33,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Аналитика и журнал поверх {@link BotExecutionLogRepository}.
@@ -41,8 +46,8 @@ import java.util.TreeMap;
  * «Заблокировали на шаге» = записи {@link BotExecutionStatus#MESSAGE_SEND_FAILED}: бот был
  * запущен, но amoCRM прислал вебхук о недоставке — этот статус ставится на последнюю запись
  * лида, т.е. ровно на тот шаг, после которого сообщения перестали доходить.
- * Шаги из текущей {@code bot_sequence} показываются даже с нулями — так видно, до какой
- * позиции лиды вообще доходят.
+ * Разделы — группы (все, даже без записей: видно, до какой позиции лиды доходят) и служебные
+ * типы запусков, по которым есть записи.
  */
 @Service
 @RequiredArgsConstructor
@@ -54,6 +59,7 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
 
     private final BotExecutionLogRepository logRepository;
     private final BotSequenceRepository sequenceRepository;
+    private final BotGroupRepository groupRepository;
     private final SalesbotDirectory salesbotDirectory;
 
     @Override
@@ -64,42 +70,51 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Начало периода должно быть раньше конца.");
         }
 
-        // (тип, позиция, бот) -> счётчики; TreeMap — чтобы шаги шли по позиции, затем по боту.
-        Map<OrderType, Map<StepKey, StepCounters>> byType = new HashMap<>();
+        Map<Long, BotGroup> groups = groupRepository.findAllByOrderByIdAsc().stream()
+                .collect(Collectors.toMap(BotGroup::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+
+        // Разделы в порядке: группы по id, затем служебные типы по порядку enum; внутри — шаги по позиции/боту.
+        Map<SectionKey, Map<StepKey, StepCounters>> sections = new TreeMap<>();
+        for (BotGroup group : groups.values()) {
+            sections.put(new SectionKey(BotRunType.DRIP, group.getId()), new TreeMap<>());
+        }
         for (BotStepStatusCount count : logRepository.countByStepAndStatus(fromInstant, toInstant)) {
-            StepKey key = new StepKey(count.position(), count.botId());
-            byType.computeIfAbsent(count.type(), t -> new TreeMap<>())
-                    .computeIfAbsent(key, k -> new StepCounters())
+            SectionKey section = new SectionKey(count.type(), count.type() == BotRunType.DRIP ? count.groupId() : null);
+            sections.computeIfAbsent(section, k -> new TreeMap<>())
+                    .computeIfAbsent(new StepKey(count.position(), count.botId()), k -> new StepCounters())
                     .add(count.status(), count.count() == null ? 0 : count.count());
         }
-        // Шаги текущей цепочки: даже без записей за период — с нулями.
-        Map<OrderType, Map<StepKey, Boolean>> configured = new HashMap<>();
-        sequenceRepository.findAll().forEach(step -> {
+        // Шаги текущих цепочек: даже без записей за период — с нулями.
+        Map<Long, Map<StepKey, Boolean>> configured = new HashMap<>();
+        sequenceRepository.findAllByOrderByGroupIdAscPositionAsc().forEach(step -> {
             StepKey key = new StepKey(step.getPosition(), step.getBotId());
-            configured.computeIfAbsent(step.getType(), t -> new HashMap<>()).put(key, Boolean.TRUE);
-            byType.computeIfAbsent(step.getType(), t -> new TreeMap<>()).computeIfAbsent(key, k -> new StepCounters());
+            configured.computeIfAbsent(step.getGroupId(), g -> new HashMap<>()).put(key, Boolean.TRUE);
+            sections.computeIfAbsent(new SectionKey(BotRunType.DRIP, step.getGroupId()), k -> new TreeMap<>())
+                    .computeIfAbsent(key, k -> new StepCounters());
         });
 
         Map<Long, String> botNames = salesbotDirectory.namesById();
         long totalSent = 0;
         long totalBlocked = 0;
         long totalFailed = 0;
-        List<BotAnalyticsTypeDTO> types = new ArrayList<>();
-        for (OrderType type : OrderType.values()) {
-            Map<StepKey, StepCounters> steps = byType.get(type);
-            if (steps == null || steps.isEmpty()) {
-                continue;
+        List<BotAnalyticsTypeDTO> result = new ArrayList<>();
+        for (Map.Entry<SectionKey, Map<StepKey, StepCounters>> sectionEntry : sections.entrySet()) {
+            SectionKey section = sectionEntry.getKey();
+            Map<StepKey, StepCounters> steps = sectionEntry.getValue();
+            if (steps.isEmpty()) {
+                continue; // группа без цепочки и без записей
             }
-            Map<StepKey, Boolean> configuredSteps = configured.getOrDefault(type, Map.of());
-            long typeSent = 0;
-            long typeBlocked = 0;
-            long typeFailed = 0;
+            Map<StepKey, Boolean> configuredSteps = section.groupId() != null
+                    ? configured.getOrDefault(section.groupId(), Map.of()) : Map.of();
+            long sectionSent = 0;
+            long sectionBlocked = 0;
+            long sectionFailed = 0;
             List<BotAnalyticsStepDTO> stepDtos = new ArrayList<>();
             for (Map.Entry<StepKey, StepCounters> entry : steps.entrySet()) {
                 StepCounters c = entry.getValue();
-                typeSent += c.sent;
-                typeBlocked += c.blocked;
-                typeFailed += c.failed;
+                sectionSent += c.sent;
+                sectionBlocked += c.blocked;
+                sectionFailed += c.failed;
                 stepDtos.add(new BotAnalyticsStepDTO(
                         entry.getKey().position(),
                         entry.getKey().botId(),
@@ -110,10 +125,18 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
                         c.blockedShare(),
                         configuredSteps.containsKey(entry.getKey())));
             }
-            totalSent += typeSent;
-            totalBlocked += typeBlocked;
-            totalFailed += typeFailed;
-            types.add(new BotAnalyticsTypeDTO(type.name(), type.getLabel(), typeSent, typeBlocked, typeFailed, stepDtos));
+            totalSent += sectionSent;
+            totalBlocked += sectionBlocked;
+            totalFailed += sectionFailed;
+
+            BotGroup group = section.groupId() != null ? groups.get(section.groupId()) : null;
+            boolean groupDeleted = section.type() == BotRunType.DRIP && section.groupId() != null && group == null;
+            String label = group != null ? group.getName()
+                    : groupDeleted ? "Удалённая группа #" + section.groupId()
+                    : section.type().getLabel();
+            String key = section.groupId() != null ? "group:" + section.groupId() : section.type().name();
+            result.add(new BotAnalyticsTypeDTO(key, section.type(), section.groupId(), label, groupDeleted,
+                    sectionSent, sectionBlocked, sectionFailed, stepDtos));
         }
 
         long leads = logRepository.countDistinctLeads(fromInstant, toInstant);
@@ -121,11 +144,11 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
                 fromInstant.toString(),
                 toInstant.toString(),
                 new BotAnalyticsTotalsDTO(totalSent, totalBlocked, totalFailed, leads),
-                types);
+                result);
     }
 
     @Override
-    public BotExecutionLogPageDTO logs(OrderType type, BotExecutionStatus status, Long leadId,
+    public BotExecutionLogPageDTO logs(BotRunType type, Long groupId, BotExecutionStatus status, Long leadId,
                                        LocalDate from, LocalDate to, int page, int size) {
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         int safePage = Math.max(page, 0);
@@ -136,6 +159,9 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
             List<Predicate> predicates = new ArrayList<>();
             if (type != null) {
                 predicates.add(cb.equal(root.get("type"), type));
+            }
+            if (groupId != null) {
+                predicates.add(cb.equal(root.get("groupId"), groupId));
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
@@ -155,8 +181,10 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
         Page<BotExecutionLog> result = logRepository.findAll(spec,
                 PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "dateExecuted", "id")));
         Map<Long, String> botNames = salesbotDirectory.namesById();
+        Map<Long, String> groupNames = groupRepository.findAll().stream()
+                .collect(Collectors.toMap(BotGroup::getId, BotGroup::getName, (a, b) -> a));
         return new BotExecutionLogPageDTO(
-                result.getContent().stream().map(log -> BotExecutionLogDTO.from(log, botNames)).toList(),
+                result.getContent().stream().map(log -> BotExecutionLogDTO.from(log, botNames, groupNames)).toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements(),
@@ -173,6 +201,19 @@ class BotExecutionAnalyticsServiceImpl implements BotExecutionAnalyticsService {
         return to == null
                 ? Instant.now().plus(1, ChronoUnit.DAYS)
                 : to.plusDays(1).atStartOfDay(MSK).toInstant();
+    }
+
+    /** Раздел аналитики: DRIP-группы сначала (по id), затем служебные типы по порядку enum. */
+    private record SectionKey(BotRunType type, Long groupId) implements Comparable<SectionKey> {
+        private static final Comparator<SectionKey> ORDER = Comparator
+                .comparing((SectionKey k) -> k.type() == BotRunType.DRIP ? 0 : 1)
+                .thenComparing(SectionKey::type)
+                .thenComparing(SectionKey::groupId, Comparator.nullsLast(Comparator.naturalOrder()));
+
+        @Override
+        public int compareTo(SectionKey other) {
+            return ORDER.compare(this, other);
+        }
     }
 
     /** Ключ шага; сортировка — по позиции, затем по боту (в журнале на одной позиции могут быть разные боты). */

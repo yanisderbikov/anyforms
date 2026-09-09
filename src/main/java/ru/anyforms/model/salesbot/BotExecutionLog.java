@@ -14,6 +14,7 @@ import java.time.Instant;
  * {@link BotExecutionStatus#FAILED} (лид временно вышел из статуса) может позже быть
  * «повышена» до {@link BotExecutionStatus#SUCCESS}, когда бот реально уедет.
  *
+ * <p>Прогресс цепочки считается по позициям в рамках группы ({@code group_id}).
  * <p>TODO(run_id): в v1 поля run_id нет. Следствие: если лид вышел и вернулся в статус,
  * он продолжит с места остановки, а не с начала. Если бизнес захочет рестарт цепочки
  * при повторном входе — добавить колонку {@code run_id} и считать «следующего» бота
@@ -40,9 +41,14 @@ public class BotExecutionLog {
     @Column(name = "position", nullable = false)
     private Integer position;
 
+    /** Откуда запись: цепочка группы ({@link BotRunType#DRIP}, см. {@link #groupId}) или служебный запуск. */
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false)
-    private OrderType type;
+    private BotRunType type;
+
+    /** Группа цепочки для {@link BotRunType#DRIP}; у служебных записей {@code null}. */
+    @Column(name = "group_id")
+    private Long groupId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

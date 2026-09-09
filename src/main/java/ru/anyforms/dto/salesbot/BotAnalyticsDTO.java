@@ -9,6 +9,6 @@ public record BotAnalyticsDTO(
         @Schema(description = "Начало периода (включительно), ISO-8601 instant") String from,
         @Schema(description = "Конец периода (исключительно), ISO-8601 instant") String to,
         BotAnalyticsTotalsDTO totals,
-        @Schema(description = "Типы, по которым есть записи в журнале или настроена цепочка") List<BotAnalyticsTypeDTO> types
+        @Schema(description = "Разделы: группы (с записями или настроенной цепочкой) и служебные типы с записями") List<BotAnalyticsTypeDTO> sections
 ) {
 }
