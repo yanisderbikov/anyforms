@@ -11,6 +11,7 @@ import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoPipelineInfo;
 import ru.anyforms.model.amo.AmoProduct;
 import ru.anyforms.model.amo.AmoSalesbot;
+import ru.anyforms.model.amo.LeadFilter;
 
 import java.util.List;
 import java.util.Map;
@@ -175,12 +176,6 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
-    public List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId, Long statusId, Long closedTo) {
-        acquireSlot();
-        return delegate.getLeadIdsOlderThanTwoWeeks(pipelineId, statusId, closedTo);
-    }
-
-    @Override
     public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId) {
         acquireSlot();
         return delegate.getLeadIdsByStatus(pipelineId, statusId);
@@ -258,6 +253,12 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     public List<AmoProduct> getCatalogElements(Long catalogId) {
         acquireSlot();
         return delegate.getCatalogElements(catalogId);
+    }
+
+    @Override
+    public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId, LeadFilter filter) {
+        acquireSlot();
+        return delegate.getLeadIdsByStatus(pipelineId, statusId, filter);
     }
 
     @Override

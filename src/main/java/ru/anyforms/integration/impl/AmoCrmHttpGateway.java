@@ -945,70 +945,27 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
         }
     }
 
-    @Override
-    public List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId,
-                                                  Long statusId,
-                                                  Long closedTo) {
-        try {
-
-            String url = "/api/v4/leads"
-                    + "?filter[pipeline_id]=" + pipelineId
-                    + "&filter[status_id]=" + statusId
-                    + "&filter[closed_at][to]=" + closedTo
-                    + "&limit=" + 50;
-
-            String response = webClient.get()
-                    .uri(url)
-                    .header("Authorization", "Bearer " + accessToken)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            List<Long> result = new java.util.ArrayList<>();
-
-            if (response == null || response.isEmpty()) {
-                return result;
-            }
-
-            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
-
-            if (json.has("_embedded")) {
-                JsonObject embedded = json.getAsJsonObject("_embedded");
-                if (embedded.has("leads")) {
-                    JsonArray leads = embedded.getAsJsonArray("leads");
-
-                    for (int i = 0; i < leads.size(); i++) {
-                        JsonObject lead = leads.get(i).getAsJsonObject();
-                        if (lead.has("id") && !lead.get("id").isJsonNull()) {
-                            result.add(lead.get("id").getAsLong());
-                        }
-                    }
-                }
-            }
-
-            return result;
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get lead IDs", e);
-        }
-    }
-
-    /** amoCRM не отдаёт больше 250 сущностей на страницу — обходим страницы. */
+    /** Максимум сделок на страницу в amoCRM. */
     private static final int AMO_PAGE_LIMIT = 250;
-    /** Предохранитель от бесконечного цикла: 200 страниц = до 50 000 лидов. */
+    /** Страховочный потолок страниц при обходе статуса (50 000 сделок). */
     private static final int MAX_PAGES = 200;
 
     @Override
     public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId) {
-        return collectLeadIdsByStatus(pipelineId, statusId, null);
+        return collectLeadIdsByStatus(pipelineId, statusId, LeadFilter.NONE);
     }
 
     @Override
     public List<Long> getLeadIdsByStatusAndTag(Long pipelineId, Long statusId, String tagName) {
-        return collectLeadIdsByStatus(pipelineId, statusId, tagName);
+        return collectLeadIdsByStatus(pipelineId, statusId, LeadFilter.byTag(tagName));
     }
 
-    private List<Long> collectLeadIdsByStatus(Long pipelineId, Long statusId, String tagName) {
+    @Override
+    public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId, LeadFilter filter) {
+        return collectLeadIdsByStatus(pipelineId, statusId, filter == null ? LeadFilter.NONE : filter);
+    }
+
+    private List<Long> collectLeadIdsByStatus(Long pipelineId, Long statusId, LeadFilter filter) {
         // amoCRM фильтрует по статусу ТОЛЬКО через массив filter[statuses][N][...].
         // Плоский filter[status_id] не работает (возвращает пусто).
         // Пагинация: limit=250 (максимум amo), идём по page=1..N, пока страницы заполнены.
@@ -1045,7 +1002,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                 for (int i = 0; i < leads.size(); i++) {
                     JsonObject lead = leads.get(i).getAsJsonObject();
                     if (lead.has("id") && !lead.get("id").isJsonNull()
-                            && (tagName == null || leadHasTag(lead, tagName))) {
+                            && (!filter.hasTag() || leadHasTag(lead, filter.tagName()))
+                            && LeadCustomFieldMatcher.matches(lead, filter)) {
                         result.add(lead.get("id").getAsLong());
                     }
                 }
@@ -1060,8 +1018,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                 break;
             }
         }
-        log.info("getLeadIdsByStatus: pipeline={}, status={}, tag={} -> {} lead(s)",
-                pipelineId, statusId, tagName, result.size());
+        log.info("getLeadIdsByStatus: pipeline={}, status={}, filter={} -> {} lead(s)",
+                pipelineId, statusId, filter, result.size());
         return result;
     }
 

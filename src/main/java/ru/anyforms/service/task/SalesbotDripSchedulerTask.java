@@ -5,15 +5,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import ru.anyforms.service.salesbot.DripCampaignRunner;
-import ru.anyforms.service.salesbot.ScheduleGate;
+import ru.anyforms.service.salesbot.RunWindowGate;
 import ru.anyforms.service.salesbot.SingleFlightLock;
 
 import java.time.Instant;
 
 /**
- * Тикер дрип-кампании. Раз в минуту спрашивает {@link ScheduleGate}, попадает ли текущая
- * минута в активный слот расписания, который сегодня ещё не отрабатывал. Если да — берёт
- * single-flight лок и запускает один прогон {@link DripCampaignRunner}.
+ * Тикер дрип-кампании. Раз в {@code salesbot.scheduler.tick-ms} спрашивает {@link RunWindowGate},
+ * пора ли (рабочее окно по Москве, не чаще раза в N минут). Если да — берёт single-flight лок
+ * и запускает один прогон {@link DripCampaignRunner}; интервалы между сообщениями задают
+ * задержки шагов цепочек.
  * <p>
  * Тикер намеренно «тонкий»: не знает деталей расписания, amoCRM и БД — только три порта.
  * Двухуровневая защита от двойной отправки: (1) {@link SingleFlightLock} — один прогон
@@ -23,23 +24,23 @@ import java.time.Instant;
 @Component
 public class SalesbotDripSchedulerTask {
 
-    private final ScheduleGate scheduleGate;
+    private final RunWindowGate runWindowGate;
     private final SingleFlightLock singleFlightLock;
     private final DripCampaignRunner dripCampaignRunner;
     private final boolean enabled;
 
-    public SalesbotDripSchedulerTask(ScheduleGate scheduleGate,
+    public SalesbotDripSchedulerTask(RunWindowGate runWindowGate,
                                      SingleFlightLock singleFlightLock,
                                      DripCampaignRunner dripCampaignRunner,
                                      @Value("${salesbot.scheduler.enabled}") boolean enabled) {
-        this.scheduleGate = scheduleGate;
+        this.runWindowGate = runWindowGate;
         this.singleFlightLock = singleFlightLock;
         this.dripCampaignRunner = dripCampaignRunner;
         this.enabled = enabled;
     }
 
     /**
-     * Тик раз в минуту (интервал настраивается через {@code salesbot.scheduler.tick-ms}).
+     * Тик (интервал настраивается через {@code salesbot.scheduler.tick-ms}).
      */
     @Scheduled(fixedDelayString = "${salesbot.scheduler.tick-ms}", initialDelay = 60_000)
     public void tick() {
@@ -47,8 +48,8 @@ public class SalesbotDripSchedulerTask {
             return;
         }
         try {
-            if (!scheduleGate.tryClaimDueSlot(Instant.now())) {
-                return; // текущая минута не попадает в слот / слот уже отработал сегодня
+            if (!runWindowGate.tryClaim(Instant.now())) {
+                return; // вне рабочего окна или прошло меньше интервала с прошлого прогона
             }
             boolean ran = singleFlightLock.runExclusively(dripCampaignRunner::runOnce);
             if (!ran) {

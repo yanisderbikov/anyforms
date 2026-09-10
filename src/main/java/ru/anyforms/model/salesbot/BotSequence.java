@@ -4,16 +4,17 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 /**
- * Порядок ботов для каждого {@link OrderType}.
+ * Порядок ботов в группе ({@link BotGroup}).
  * <p>
- * {@code position} — порядковый номер, начиная с 1. Если в последовательность
- * добавить новую позицию (была 9 — стала 10), она автоматически станет
- * «следующей» для всех лидов, у которых позиции 1–9 уже отработали успешно.
+ * {@code position} — порядковый номер, начиная с 1; пропуски допустимы (после удаления
+ * шага остальные не сдвигаются). Новый бот встаёт в конец, порядок меняется перестановкой
+ * соседей. Если добавить новую старшую позицию, она автоматически станет «следующей» для
+ * всех лидов, у которых предыдущие уже отработали успешно.
  */
 @Entity
 @Table(
         name = "bot_sequence",
-        uniqueConstraints = @UniqueConstraint(name = "uq_bot_sequence_type_position", columnNames = {"type", "position"})
+        uniqueConstraints = @UniqueConstraint(name = "uq_bot_sequence_group_position", columnNames = {"group_id", "position"})
 )
 @Data
 public class BotSequence {
@@ -22,14 +23,21 @@ public class BotSequence {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "group_id", nullable = false)
+    private Long groupId;
+
     @Column(name = "bot_id", nullable = false)
     private Long botId;
 
-    /** Порядковый номер бота в цепочке данного типа, начиная с 1. */
+    /** Порядковый номер бота в цепочке группы, начиная с 1. */
     @Column(name = "position", nullable = false)
     private Integer position;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
-    private OrderType type;
+    /**
+     * Не раньше чем через столько минут после предыдущего шага (для шага 1 — после того, как
+     * сделка впервые замечена в статусе группы). Так у разных групп разный ритм, и сообщения
+     * не уходят всем в одно и то же время.
+     */
+    @Column(name = "delay_minutes", nullable = false)
+    private Integer delayMinutes = 1440;
 }

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.amo.AmoLead;
-import ru.anyforms.model.salesbot.OrderType;
+import ru.anyforms.model.salesbot.BotRunType;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.salesbot.BotExecutionReader;
 import ru.anyforms.service.salesbot.BotExecutionRecorder;
@@ -83,10 +83,10 @@ class DeliveryBotNotifierImpl implements DeliveryBotNotifier {
             boolean success = salesbotTrigger.run(leadId, botId);
             BotStep step = new BotStep(botId, 1);
             if (success) {
-                botExecutionRecorder.recordSuccess(leadId, OrderType.DELIVERY, step);
+                botExecutionRecorder.recordSuccess(leadId, BotRunType.DELIVERY, step);
                 log.info("Delivery bot {} executed for lead {}", botId, leadId);
             } else {
-                botExecutionRecorder.recordFailed(leadId, OrderType.DELIVERY, step);
+                botExecutionRecorder.recordFailed(leadId, BotRunType.DELIVERY, step);
                 log.warn("Delivery bot {} failed for lead {}", botId, leadId);
             }
         } catch (Exception e) {

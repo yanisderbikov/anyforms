@@ -1,19 +1,16 @@
 package ru.anyforms.service.salesbot;
 
-import ru.anyforms.model.salesbot.OrderType;
-
 import java.util.List;
 
 /**
- * Поставщик упорядоченной по {@code position} последовательности ботов для типа
+ * Поставщик упорядоченной по {@code position} последовательности ботов группы
  * (таблица {@code bot_sequence}). Маленький порт (ISP).
  */
 public interface BotSequenceProvider {
 
     /**
-     * @param type тип заказа
-     * @return шаги цепочки, ОТСОРТИРОВАННЫЕ по возрастанию позиции (1, 2, 3, ...);
-     *         пустой список, если для типа ботов нет.
+     * @param groupId группа
+     * @return шаги цепочки, ОТСОРТИРОВАННЫЕ по возрастанию позиции; пустой список, если ботов нет.
      */
-    List<BotStep> sequenceFor(OrderType type);
+    List<BotStep> sequenceFor(Long groupId);
 }

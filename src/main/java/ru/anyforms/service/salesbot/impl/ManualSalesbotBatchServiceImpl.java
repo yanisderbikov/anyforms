@@ -8,6 +8,7 @@ import ru.anyforms.dto.RunSalesbotBatchRequestDTO;
 import ru.anyforms.dto.salesbot.ManualRunDTO;
 import ru.anyforms.dto.salesbot.ManualRunPreviewDTO;
 import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.model.amo.LeadFilter;
 import ru.anyforms.service.salesbot.BotExecutionReader;
 import ru.anyforms.service.salesbot.ManualRun;
 import ru.anyforms.service.salesbot.ManualRunRegistry;
@@ -31,26 +32,26 @@ class ManualSalesbotBatchServiceImpl implements ManualSalesbotBatchService {
     private final PipelineDirectory pipelineDirectory;
 
     @Override
-    public ManualRunPreviewDTO preview(Long pipelineId, Long statusId, Long botId, String tagName) {
-        String tag = normalizeTag(tagName);
+    public ManualRunPreviewDTO preview(Long pipelineId, Long statusId, Long botId, String tagName, Boolean retail) {
         List<Long> leads;
         try {
-            leads = tag == null
-                    ? amoCrmGateway.getLeadIdsByStatus(pipelineId, statusId)
-                    : amoCrmGateway.getLeadIdsByStatusAndTag(pipelineId, statusId, tag);
+            leads = amoCrmGateway.getLeadIdsByStatus(pipelineId, statusId, LeadFilter.forManualRun(tagName, retail));
         } catch (RuntimeException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "Не удалось получить лидов из amoCRM: " + e.getMessage());
         }
+        // Без бота считаем только лидов в статусе: «уже получали» знать неоткуда.
         int alreadySent = 0;
-        for (Long leadId : leads) {
-            if (executionReader.alreadyExecuted(leadId, botId)) {
-                alreadySent++;
+        if (botId != null) {
+            for (Long leadId : leads) {
+                if (executionReader.alreadyExecuted(leadId, botId)) {
+                    alreadySent++;
+                }
             }
         }
         Names names = names();
         return new ManualRunPreviewDTO(leads.size(), alreadySent, leads.size() - alreadySent,
-                names.pipelines.get(pipelineId), names.statuses.get(statusId), names.bots.get(botId));
+                names.pipelines.get(pipelineId), names.statuses.get(statusId), botId == null ? null : names.bots.get(botId));
     }
 
     @Override
@@ -60,7 +61,7 @@ class ManualSalesbotBatchServiceImpl implements ManualSalesbotBatchService {
                     "Уже идёт ручной запуск #" + active.getId() + " — дождитесь его завершения.");
         });
         ManualRun run = registry.create(request.getPipelineId(), request.getStatusId(), request.getBotId(),
-                normalizeTag(request.getTagName()), startedBy);
+                normalizeTag(request.getTagName()), request.getRetail(), startedBy);
         runner.runBatch(run);
         return toDto(run, names());
     }
@@ -92,6 +93,7 @@ class ManualSalesbotBatchServiceImpl implements ManualSalesbotBatchService {
                 run.getBotId(),
                 names.bots.get(run.getBotId()),
                 run.getTagName(),
+                run.getRetail(),
                 run.getTotal(),
                 run.getSent(),
                 run.getSkipped(),

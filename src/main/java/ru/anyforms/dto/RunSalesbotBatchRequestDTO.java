@@ -22,4 +22,8 @@ public class RunSalesbotBatchRequestDTO {
     @Schema(description = "Имя тега в amoCRM: если задано, бот запускается только для лидов с этим тегом "
             + "(сравнение без учёта регистра)", example = "лошадка")
     private String tagName;
+
+    @Schema(description = "Тип заказа по полю сделки «Розница»: true — только розница, false — только не розница, "
+            + "null — любые", example = "true")
+    private Boolean retail;
 }

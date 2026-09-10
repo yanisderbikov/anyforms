@@ -2,8 +2,10 @@ package ru.anyforms.service.salesbot;
 
 import org.junit.jupiter.api.Test;
 import ru.anyforms.integration.AmoCrmGateway;
+import ru.anyforms.model.amo.AmoCrmFieldId;
+import ru.anyforms.model.amo.LeadFilter;
 import ru.anyforms.model.salesbot.ManualRunStatus;
-import ru.anyforms.model.salesbot.OrderType;
+import ru.anyforms.model.salesbot.BotRunType;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,8 +25,8 @@ class ManualSalesbotBatchRunnerTest {
 
     @Test
     void countsSentSkippedFailed_andFinishes() {
-        ManualRun run = new ManualRun(1L, Instant.now(), 10L, 20L, 500L, null, "yan");
-        when(gateway.getLeadIdsByStatus(10L, 20L)).thenReturn(List.of(1L, 2L, 3L, 4L));
+        ManualRun run = new ManualRun(1L, Instant.now(), 10L, 20L, 500L, null, null, "yan");
+        when(gateway.getLeadIdsByStatus(10L, 20L, LeadFilter.NONE)).thenReturn(List.of(1L, 2L, 3L, 4L));
         when(reader.alreadyExecuted(2L, 500L)).thenReturn(true);
         when(gateway.runSalesbot(1L, 500L)).thenReturn(true);
         when(gateway.runSalesbot(3L, 500L)).thenReturn(false);
@@ -38,27 +40,28 @@ class ManualSalesbotBatchRunnerTest {
         assertEquals(1, run.getSkipped());
         assertEquals(2, run.getFailed());
         assertNotNull(run.getFinishedAt());
-        verify(recorder).recordSuccess(eq(1L), eq(OrderType.MANUAL), any(BotStep.class));
-        verify(recorder).recordFailed(eq(3L), eq(OrderType.MANUAL), any(BotStep.class));
+        verify(recorder).recordSuccess(eq(1L), eq(BotRunType.MANUAL), any(BotStep.class));
+        verify(recorder).recordFailed(eq(3L), eq(BotRunType.MANUAL), any(BotStep.class));
         verify(gateway, never()).runSalesbot(2L, 500L);
     }
 
     @Test
-    void usesTagQuery_whenTagGiven() {
-        ManualRun run = new ManualRun(2L, Instant.now(), 10L, 20L, 500L, "лошадка", "yan");
-        when(gateway.getLeadIdsByStatusAndTag(10L, 20L, "лошадка")).thenReturn(List.of());
+    void passesTagAndRetailFilter() {
+        ManualRun run = new ManualRun(2L, Instant.now(), 10L, 20L, 500L, "лошадка", false, "yan");
+        LeadFilter expected = new LeadFilter("лошадка", AmoCrmFieldId.RETAIL.getId(), "false");
+        when(gateway.getLeadIdsByStatus(10L, 20L, expected)).thenReturn(List.of());
 
         runner.runBatch(run);
 
         assertEquals(ManualRunStatus.DONE, run.getStatus());
         assertEquals(0, run.getTotal());
-        verify(gateway, never()).getLeadIdsByStatus(any(), any());
+        verify(gateway).getLeadIdsByStatus(10L, 20L, expected);
     }
 
     @Test
     void marksFailed_whenLeadListingFails() {
-        ManualRun run = new ManualRun(3L, Instant.now(), 10L, 20L, 500L, null, "yan");
-        when(gateway.getLeadIdsByStatus(10L, 20L)).thenThrow(new RuntimeException("amo 503"));
+        ManualRun run = new ManualRun(3L, Instant.now(), 10L, 20L, 500L, null, null, "yan");
+        when(gateway.getLeadIdsByStatus(10L, 20L, LeadFilter.NONE)).thenThrow(new RuntimeException("amo 503"));
 
         runner.runBatch(run);
 

@@ -1,11 +1,12 @@
 package ru.anyforms.repository;
 
 import ru.anyforms.model.salesbot.BotExecutionStatus;
-import ru.anyforms.model.salesbot.OrderType;
+import ru.anyforms.model.salesbot.BotRunType;
 
 /**
  * Проекция агрегата по журналу: сколько записей с данным статусом у шага
- * (тип, позиция, бот). Заполняется constructor-expression в JPQL.
+ * (тип записи, группа, позиция, бот). Заполняется constructor-expression в JPQL.
  */
-public record BotStepStatusCount(OrderType type, Integer position, Long botId, BotExecutionStatus status, Long count) {
+public record BotStepStatusCount(BotRunType type, Long groupId, Integer position, Long botId,
+                                 BotExecutionStatus status, Long count) {
 }

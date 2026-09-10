@@ -1,6 +1,7 @@
 package ru.anyforms.service.salesbot;
 
 import lombok.Getter;
+import ru.anyforms.model.amo.LeadFilter;
 import ru.anyforms.model.salesbot.ManualRunStatus;
 
 import java.time.Instant;
@@ -21,6 +22,8 @@ public final class ManualRun {
     private final Long botId;
     /** Тег-фильтр; {@code null} — все лиды статуса. */
     private final String tagName;
+    /** Фильтр по полю «Розница»: {@code true} / {@code false} / {@code null} — любые. */
+    private final Boolean retail;
     private final String startedBy;
 
     private volatile ManualRunStatus status = ManualRunStatus.RUNNING;
@@ -32,14 +35,21 @@ public final class ManualRun {
     private final AtomicInteger skipped = new AtomicInteger();
     private final AtomicInteger failed = new AtomicInteger();
 
-    public ManualRun(long id, Instant startedAt, Long pipelineId, Long statusId, Long botId, String tagName, String startedBy) {
+    public ManualRun(long id, Instant startedAt, Long pipelineId, Long statusId, Long botId,
+                     String tagName, Boolean retail, String startedBy) {
         this.id = id;
         this.startedAt = startedAt;
         this.pipelineId = pipelineId;
         this.statusId = statusId;
         this.botId = botId;
         this.tagName = tagName;
+        this.retail = retail;
         this.startedBy = startedBy;
+    }
+
+    /** Отбор лидов внутри статуса: тег + признак «Розница». */
+    public LeadFilter leadFilter() {
+        return LeadFilter.forManualRun(tagName, retail);
     }
 
     public void markTotal(int total) {

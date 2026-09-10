@@ -1,7 +1,6 @@
 package ru.anyforms.service.salesbot.impl;
 
 import org.junit.jupiter.api.Test;
-import ru.anyforms.model.salesbot.OrderType;
 import ru.anyforms.service.salesbot.*;
 
 import java.util.List;
@@ -21,15 +20,18 @@ class NextBotResolverImplTest {
     private final BotExecutionReader executionReader = mock(BotExecutionReader.class);
     private final NextBotResolver resolver = new NextBotResolverImpl(sequenceProvider, executionReader);
 
+    private static final Long GROUP = 10L;
+    private static final Long OTHER_GROUP = 11L;
+
     private static final List<BotStep> CHAIN = List.of(
             new BotStep(101L, 1), new BotStep(102L, 2), new BotStep(103L, 3));
 
     @Test
     void returnsFirstBot_whenNothingDone() {
-        when(sequenceProvider.sequenceFor(OrderType.RETAIL)).thenReturn(CHAIN);
-        when(executionReader.successPositions(1L, OrderType.RETAIL)).thenReturn(Set.of());
+        when(sequenceProvider.sequenceFor(GROUP)).thenReturn(CHAIN);
+        when(executionReader.successPositions(1L, GROUP)).thenReturn(Set.of());
 
-        Optional<BotStep> next = resolver.nextBot(OrderType.RETAIL, 1L);
+        Optional<BotStep> next = resolver.nextBot(GROUP, 1L);
 
         assertTrue(next.isPresent());
         assertEquals(101L, next.get().botId());
@@ -38,25 +40,25 @@ class NextBotResolverImplTest {
 
     @Test
     void returnsThirdBot_whenFirstTwoSucceeded() {
-        when(sequenceProvider.sequenceFor(OrderType.RETAIL)).thenReturn(CHAIN);
-        when(executionReader.successPositions(2L, OrderType.RETAIL)).thenReturn(Set.of(1, 2));
+        when(sequenceProvider.sequenceFor(GROUP)).thenReturn(CHAIN);
+        when(executionReader.successPositions(2L, GROUP)).thenReturn(Set.of(1, 2));
 
-        assertEquals(103L, resolver.nextBot(OrderType.RETAIL, 2L).orElseThrow().botId());
+        assertEquals(103L, resolver.nextBot(GROUP, 2L).orElseThrow().botId());
     }
 
     @Test
     void returnsEmpty_whenWholeChainSucceeded() {
-        when(sequenceProvider.sequenceFor(OrderType.RETAIL)).thenReturn(CHAIN);
-        when(executionReader.successPositions(3L, OrderType.RETAIL)).thenReturn(Set.of(1, 2, 3));
+        when(sequenceProvider.sequenceFor(GROUP)).thenReturn(CHAIN);
+        when(executionReader.successPositions(3L, GROUP)).thenReturn(Set.of(1, 2, 3));
 
-        assertTrue(resolver.nextBot(OrderType.RETAIL, 3L).isEmpty());
+        assertTrue(resolver.nextBot(GROUP, 3L).isEmpty());
     }
 
     @Test
     void returnsEmpty_whenSequenceIsEmpty() {
-        when(sequenceProvider.sequenceFor(OrderType.CUSTOM)).thenReturn(List.of());
+        when(sequenceProvider.sequenceFor(OTHER_GROUP)).thenReturn(List.of());
 
-        assertTrue(resolver.nextBot(OrderType.CUSTOM, 9L).isEmpty());
+        assertTrue(resolver.nextBot(OTHER_GROUP, 9L).isEmpty());
     }
 
     /**
@@ -67,9 +69,9 @@ class NextBotResolverImplTest {
      */
     @Test
     void picksFirstGap_notHighestDone() {
-        when(sequenceProvider.sequenceFor(OrderType.RETAIL)).thenReturn(CHAIN);
-        when(executionReader.successPositions(4L, OrderType.RETAIL)).thenReturn(Set.of(1, 3));
+        when(sequenceProvider.sequenceFor(GROUP)).thenReturn(CHAIN);
+        when(executionReader.successPositions(4L, GROUP)).thenReturn(Set.of(1, 3));
 
-        assertEquals(102L, resolver.nextBot(OrderType.RETAIL, 4L).orElseThrow().botId());
+        assertEquals(102L, resolver.nextBot(GROUP, 4L).orElseThrow().botId());
     }
 }

@@ -101,6 +101,9 @@ class OrderServiceImpl implements OrderService  {
             if (tracker == null || tracker.equals("...")) {
                 tracker = "";
                 amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.TRACKER.getId(), tracker);
+            } else if (!TrackerCustomFields.isValidTracker(tracker)) {
+                log.warn("Lead {}: invalid tracker '{}' in AmoCRM, ignoring", leadId, tracker);
+                tracker = "";
             }
             order.setTracker(tracker);
 
@@ -279,6 +282,9 @@ class OrderServiceImpl implements OrderService  {
         }
 
         String tracker = request.getTracker();
+        if (!TrackerCustomFields.isValidTracker(tracker)) {
+            return new ApiResponseDTO(false, TrackerCustomFields.INVALID_TRACKER_MESSAGE, null, null, null);
+        }
 
         try {
             boolean success = setTrackerAndCommentForOrder(request.getLeadId(), tracker.trim(), request.getComment());

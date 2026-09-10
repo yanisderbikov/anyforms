@@ -26,24 +26,23 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.RunSalesbotBatchRequestDTO;
 import ru.anyforms.dto.salesbot.BotAnalyticsDTO;
 import ru.anyforms.dto.salesbot.BotExecutionLogPageDTO;
+import ru.anyforms.dto.salesbot.BotGroupDTO;
+import ru.anyforms.dto.salesbot.BotGroupRequestDTO;
+import ru.anyforms.dto.salesbot.BotRunTypeDTO;
 import ru.anyforms.dto.salesbot.BotStepCreateRequestDTO;
 import ru.anyforms.dto.salesbot.BotStepDTO;
 import ru.anyforms.dto.salesbot.BotStepUpdateRequestDTO;
-import ru.anyforms.dto.salesbot.FunnelDTO;
-import ru.anyforms.dto.salesbot.FunnelRequestDTO;
 import ru.anyforms.dto.salesbot.ManualRunDTO;
 import ru.anyforms.dto.salesbot.ManualRunPreviewDTO;
-import ru.anyforms.dto.salesbot.OrderTypeDTO;
 import ru.anyforms.dto.salesbot.PipelineDTO;
 import ru.anyforms.dto.salesbot.SalesbotDTO;
-import ru.anyforms.dto.salesbot.SalesbotTypeConfigDTO;
 import ru.anyforms.dto.salesbot.StepMoveDirection;
 import ru.anyforms.model.salesbot.BotExecutionStatus;
-import ru.anyforms.model.salesbot.OrderType;
+import ru.anyforms.model.salesbot.BotRunType;
 import ru.anyforms.service.salesbot.BotExecutionAnalyticsService;
+import ru.anyforms.service.salesbot.BotGroupAdminService;
 import ru.anyforms.service.salesbot.ManualSalesbotBatchService;
 import ru.anyforms.service.salesbot.PipelineDirectory;
-import ru.anyforms.service.salesbot.SalesbotConfigAdminService;
 import ru.anyforms.service.salesbot.SalesbotDirectory;
 
 import java.security.Principal;
@@ -60,25 +59,27 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/salesbot/admin")
 @RequiredArgsConstructor
 @Tag(name = "Salesbot admin",
-        description = "Админка дрип-кампании SalesBot: воронки типов, цепочки ботов, журнал и аналитика (только ADMIN)")
+        description = "Админка дрип-кампании SalesBot: группы с цепочками ботов, ручные запуски, журнал и аналитика (только ADMIN)")
 public class SalesbotAdminController {
 
-    private final SalesbotConfigAdminService configService;
+    private final BotGroupAdminService groupService;
     private final BotExecutionAnalyticsService analyticsService;
     private final SalesbotDirectory salesbotDirectory;
     private final PipelineDirectory pipelineDirectory;
     private final ManualSalesbotBatchService manualBatchService;
 
-    @Operation(summary = "Справочник типов заказа",
-            description = "Все значения OrderType с подписями; drip=false — служебный тип без воронки и цепочки",
+    // ── справочники amoCRM ──
+
+    @Operation(summary = "Справочник типов записей журнала",
+            description = "DRIP — шаг цепочки группы; остальные — служебные запуски (ручной, доставка, повтор)",
             security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/order-types")
-    public ResponseEntity<List<OrderTypeDTO>> getSalesbotOrderTypes() {
-        return ResponseEntity.ok(configService.orderTypes());
+    @GetMapping("/run-types")
+    public ResponseEntity<List<BotRunTypeDTO>> getSalesbotRunTypes() {
+        return ResponseEntity.ok(groupService.runTypes());
     }
 
     @Operation(summary = "SalesBot'ы аккаунта amoCRM",
-            description = "Для выбора бота по имени при добавлении шага; кэш ~5 минут, refresh=true перечитывает из amoCRM. "
+            description = "Для выбора бота по имени; кэш ~5 минут, refresh=true перечитывает из amoCRM. "
                     + "502 — amoCRM недоступен и кэша нет",
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/bots")
@@ -102,52 +103,57 @@ public class SalesbotAdminController {
         }
     }
 
-    @Operation(summary = "Сводка настроек по типам",
-            description = "Для каждого типа: воронка/статус amoCRM (order_type_funnel) и цепочка ботов (bot_sequence)",
+    // ── группы ──
+
+    @Operation(summary = "Группы дрип-кампании с цепочками",
+            description = "Каждая группа: название, воронка/статус amoCRM (bot_group) и боты по порядку (bot_sequence)",
             security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/config")
-    public ResponseEntity<List<SalesbotTypeConfigDTO>> getSalesbotConfig() {
-        return ResponseEntity.ok(configService.config());
+    @GetMapping("/groups")
+    public ResponseEntity<List<BotGroupDTO>> getSalesbotGroups() {
+        return ResponseEntity.ok(groupService.groups());
     }
 
-    @Operation(summary = "Задать воронку/статус для типа",
-            description = "На тип — ровно одна воронка. Без воронки тип в прогоне не обрабатывается",
+    @Operation(summary = "Создать группу",
+            description = "Воронка и статус необязательны, но задаются парой. Без них группа в прогоне не участвует",
             security = @SecurityRequirement(name = "Bearer"))
-    @PostMapping("/funnels")
-    public ResponseEntity<FunnelDTO> createSalesbotFunnel(@Valid @RequestBody FunnelRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(configService.createFunnel(request));
+    @PostMapping("/groups")
+    public ResponseEntity<BotGroupDTO> createSalesbotGroup(@Valid @RequestBody BotGroupRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(groupService.createGroup(request));
     }
 
-    @Operation(summary = "Обновить воронку/статус", security = @SecurityRequirement(name = "Bearer"))
-    @PutMapping("/funnels/{id}")
-    public ResponseEntity<FunnelDTO> updateSalesbotFunnel(@PathVariable("id") Long id,
-                                                          @Valid @RequestBody FunnelRequestDTO request) {
-        return ResponseEntity.ok(configService.updateFunnel(id, request));
+    @Operation(summary = "Обновить группу", description = "Название, воронка/статус, вкл/выкл, окно отправки (HH:mm по Москве)",
+            security = @SecurityRequirement(name = "Bearer"))
+    @PutMapping("/groups/{id}")
+    public ResponseEntity<BotGroupDTO> updateSalesbotGroup(@PathVariable("id") Long id,
+                                                           @Valid @RequestBody BotGroupRequestDTO request) {
+        return ResponseEntity.ok(groupService.updateGroup(id, request));
     }
 
-    @Operation(summary = "Удалить воронку типа",
-            description = "Тип перестаёт обрабатываться, цепочка ботов остаётся",
+    @Operation(summary = "Удалить группу",
+            description = "Цепочка удаляется вместе с группой; записи журнала остаются без ссылки на группу",
             security = @SecurityRequirement(name = "Bearer"))
-    @DeleteMapping("/funnels/{id}")
-    public ResponseEntity<Void> deleteSalesbotFunnel(@PathVariable("id") Long id) {
-        configService.deleteFunnel(id);
+    @DeleteMapping("/groups/{id}")
+    public ResponseEntity<Void> deleteSalesbotGroup(@PathVariable("id") Long id) {
+        groupService.deleteGroup(id);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Добавить бота в конец цепочки",
-            description = "Позиция назначается автоматически (последняя + 1). Один бот — не более одного раза на тип",
+    // ── шаги цепочки ──
+
+    @Operation(summary = "Добавить бота в конец цепочки группы",
+            description = "Позиция назначается автоматически (последняя + 1). Один бот — не более одного раза на группу",
             security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/steps")
     public ResponseEntity<BotStepDTO> createSalesbotStep(@Valid @RequestBody BotStepCreateRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(configService.createStep(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(groupService.createStep(request));
     }
 
-    @Operation(summary = "Заменить бота на шаге", description = "Тип и позиция не меняются",
+    @Operation(summary = "Изменить бота и задержку на шаге", description = "Группа и позиция не меняются",
             security = @SecurityRequirement(name = "Bearer"))
     @PutMapping("/steps/{id}")
     public ResponseEntity<BotStepDTO> updateSalesbotStep(@PathVariable("id") Long id,
                                                          @Valid @RequestBody BotStepUpdateRequestDTO request) {
-        return ResponseEntity.ok(configService.updateStep(id, request));
+        return ResponseEntity.ok(groupService.updateStep(id, request));
     }
 
     @Operation(summary = "Сдвинуть шаг вверх/вниз",
@@ -157,18 +163,20 @@ public class SalesbotAdminController {
     @PostMapping("/steps/{id}/move")
     public ResponseEntity<List<BotStepDTO>> moveSalesbotStep(@PathVariable("id") Long id,
                                                              @RequestParam StepMoveDirection direction) {
-        return ResponseEntity.ok(configService.moveStep(id, direction));
+        return ResponseEntity.ok(groupService.moveStep(id, direction));
     }
 
     @Operation(summary = "Удалить шаг цепочки", security = @SecurityRequirement(name = "Bearer"))
     @DeleteMapping("/steps/{id}")
     public ResponseEntity<Void> deleteSalesbotStep(@PathVariable("id") Long id) {
-        configService.deleteStep(id);
+        groupService.deleteStep(id);
         return ResponseEntity.noContent().build();
     }
 
+    // ── аналитика и журнал ──
+
     @Operation(summary = "Аналитика по шагам: где сообщения перестают доставляться",
-            description = "Счётчики SUCCESS / MESSAGE_SEND_FAILED / FAILED по каждому шагу (тип, позиция, бот) "
+            description = "Счётчики SUCCESS / MESSAGE_SEND_FAILED / FAILED по каждому шагу (группа или тип, позиция, бот) "
                     + "за период. Даты — календарные дни по Москве, включительно; без дат — за всё время",
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/analytics")
@@ -185,15 +193,18 @@ public class SalesbotAdminController {
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/logs")
     public ResponseEntity<BotExecutionLogPageDTO> getSalesbotLogs(
-            @RequestParam(required = false) OrderType type,
+            @RequestParam(required = false) BotRunType type,
+            @RequestParam(required = false) Long groupId,
             @RequestParam(required = false) BotExecutionStatus status,
             @RequestParam(required = false) Long leadId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(analyticsService.logs(type, status, leadId, from, to, page, size));
+        return ResponseEntity.ok(analyticsService.logs(type, groupId, status, leadId, from, to, page, size));
     }
+
+    // ── ручной запуск ──
 
     @Operation(summary = "Последние ручные запуски",
             description = "Живые счётчики идущего запуска и итоги завершённых (в памяти процесса, до рестарта)",
@@ -204,14 +215,19 @@ public class SalesbotAdminController {
     }
 
     @Operation(summary = "Превью ручного запуска",
-            description = "Сколько лидов в воронке/статусе (с учётом тега) и сколько из них уже получали этого бота",
+            description = "Сколько лидов в воронке/статусе (с учётом тега и фильтра «Розница») и сколько из них "
+                    + "уже получали этого бота",
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/manual-runs/preview")
-    public ResponseEntity<ManualRunPreviewDTO> previewManualRun(@RequestParam Long pipelineId,
-                                                                @RequestParam Long statusId,
-                                                                @RequestParam Long botId,
-                                                                @RequestParam(required = false) String tagName) {
-        return ResponseEntity.ok(manualBatchService.preview(pipelineId, statusId, botId, tagName));
+    public ResponseEntity<ManualRunPreviewDTO> previewManualRun(
+            @RequestParam Long pipelineId,
+            @RequestParam Long statusId,
+            @Parameter(description = "Бот; без него считаются только лиды в статусе, без «уже получали»")
+            @RequestParam(required = false) Long botId,
+            @RequestParam(required = false) String tagName,
+            @Parameter(description = "true — только розница, false — только не розница, пусто — любые")
+            @RequestParam(required = false) Boolean retail) {
+        return ResponseEntity.ok(manualBatchService.preview(pipelineId, statusId, botId, tagName, retail));
     }
 
     @Operation(summary = "Запустить бота вручную для всех лидов воронки/статуса",
@@ -224,6 +240,8 @@ public class SalesbotAdminController {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(manualBatchService.start(request, principal != null ? principal.getName() : null));
     }
+
+    // ── ошибки ──
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatus(ResponseStatusException e) {
@@ -241,10 +259,10 @@ public class SalesbotAdminController {
                 .body(Map.of("message", message.isBlank() ? "Некорректный запрос" : message));
     }
 
-    /** Нечитаемое тело (например, неизвестный OrderType в JSON) — 400 с понятным текстом, а не 500. */
+    /** Нечитаемое тело или неверный параметр (например, неизвестный тип) — 400 с понятным текстом, а не 500. */
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
     public ResponseEntity<Map<String, String>> handleUnreadable(Exception e) {
         return ResponseEntity.badRequest()
-                .body(Map.of("message", "Некорректные данные запроса: проверьте тип заказа, статус и даты."));
+                .body(Map.of("message", "Некорректные данные запроса: проверьте тип, статус и даты."));
     }
 }

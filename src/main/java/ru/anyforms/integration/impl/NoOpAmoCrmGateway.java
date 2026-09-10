@@ -10,6 +10,7 @@ import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoPipelineInfo;
 import ru.anyforms.model.amo.AmoProduct;
 import ru.anyforms.model.amo.AmoSalesbot;
+import ru.anyforms.model.amo.LeadFilter;
 
 import java.util.List;
 import java.util.Map;
@@ -125,12 +126,6 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
-    public List<Long> getLeadIdsOlderThanTwoWeeks(Long pipelineId, Long statusId, Long closedTo) {
-        skip("getLeadIdsOlderThanTwoWeeks");
-        return List.of();
-    }
-
-    @Override
     public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId) {
         skip("getLeadIdsByStatus");
         return List.of();
@@ -207,6 +202,12 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     @Override
     public List<AmoProduct> getCatalogElements(Long catalogId) {
         skip("getCatalogElements");
+        return List.of();
+    }
+
+    @Override
+    public List<Long> getLeadIdsByStatus(Long pipelineId, Long statusId, LeadFilter filter) {
+        skip("getLeadIdsByStatus(filter)");
         return List.of();
     }
 

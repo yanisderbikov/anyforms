@@ -12,8 +12,14 @@ import java.util.List;
  */
 public interface ManualSalesbotBatchService {
 
-    /** Считает лидов статуса и сколько из них уже получали этого бота. Синхронно ходит в amoCRM. */
-    ManualRunPreviewDTO preview(Long pipelineId, Long statusId, Long botId, String tagName);
+    /**
+     * Считает лидов статуса (с отбором по тегу и признаку «Розница») и сколько из них уже
+     * получали этого бота. Синхронно ходит в amoCRM.
+     *
+     * @param botId  бот; {@code null} — посчитать только лидов, без «уже получали»
+     * @param retail {@code true} — только розница, {@code false} — только не розница, {@code null} — любые
+     */
+    ManualRunPreviewDTO preview(Long pipelineId, Long statusId, Long botId, String tagName, Boolean retail);
 
     /**
      * Стартует прогон в фоне и сразу возвращает запись с нулевыми счётчиками.
