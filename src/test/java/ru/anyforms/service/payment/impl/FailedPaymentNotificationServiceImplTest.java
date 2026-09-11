@@ -68,12 +68,13 @@ class FailedPaymentNotificationServiceImplTest {
         return item;
     }
 
-    private void orderWithItems(long orderId, OrderItem... items) {
+    private Order orderWithItems(long orderId, OrderItem... items) {
         Order order = new Order();
         order.setId(orderId);
         order.setPublicId("AF-42");
         order.getItems().addAll(List.of(items));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        return order;
     }
 
     @Test
@@ -91,6 +92,7 @@ class FailedPaymentNotificationServiceImplTest {
                 Map.of(AmoCrmFieldId.FIO_CONTACT.getId(), "Иванов Иван"));
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.TASK_TEXT, 555L, ONE_DAY_MINUTES);
+        verify(amoCrmGateway).updateContactResponsible(777L, IRINA_ID);
     }
 
     @Test
@@ -112,10 +114,11 @@ class FailedPaymentNotificationServiceImplTest {
     void marketplaceFailureCreatesRetailLeadNamedAfterOrderItems() {
         noExistingContactInAmo();
         orderWithItems(42L, item("Свеча Луна", 1), item("Подсвечник", 2));
-        String leadName = "Неудачная оплата Розницы - Свеча Луна, Подсвечник ×2";
+        String leadName = "Неудачная оплата Розницы - anyforms - Свеча Луна, Подсвечник ×2";
         when(amoCrmGateway.createLead(leadName, "Иванов Иван", "+79001234567",
                 "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID, IRINA_ID))
                 .thenReturn(555L);
+        when(amoCrmGateway.getContactIdFromLead(555L)).thenReturn(777L);
 
         service.notify(marketplaceTransaction(42L));
 
@@ -124,7 +127,24 @@ class FailedPaymentNotificationServiceImplTest {
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
         verify(amoCrmGateway).addNoteToLead(555L,
-                "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1\n— Подсвечник × 2");
+                "Не получилось оплатить в магазине anyforms заказ AF-42:\n— Свеча Луна × 1\n— Подсвечник × 2");
+        verify(amoCrmGateway).updateContactResponsible(777L, IRINA_ID);
+    }
+
+    @Test
+    void marketplaceFailureNamesLeadAfterOrderShop() {
+        noExistingContactInAmo();
+        Order order = orderWithItems(42L, item("Гипсовая ваза", 1));
+        order.setShop(ru.anyforms.model.marketplace.Shop.builder().slug("di_gips").name("DI Gips").build());
+        when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
+                .thenReturn(555L);
+
+        service.notify(marketplaceTransaction(42L));
+
+        verify(amoCrmGateway).createLead("Неудачная оплата Розницы - di_gips - Гипсовая ваза", "Иванов Иван", "+79001234567",
+                "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID, IRINA_ID);
+        verify(amoCrmGateway).addNoteToLead(555L,
+                "Не получилось оплатить в магазине di_gips заказ AF-42:\n— Гипсовая ваза × 1");
     }
 
     @Test
@@ -139,7 +159,7 @@ class FailedPaymentNotificationServiceImplTest {
         when(orderRepository.findById(42L)).thenReturn(Optional.of(order));
         PaymentTransaction transaction = transaction(PaymentProduct.CODE_MARKETPLACE_CART, null, null, "buyer@mail.ru");
         transaction.setOrderId(42L);
-        String leadName = "Неудачная оплата Розницы - Свеча Луна";
+        String leadName = "Неудачная оплата Розницы - anyforms - Свеча Луна";
         when(amoCrmGateway.createLead(leadName, "Петрова Анна", "+79007654321",
                 "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID, IRINA_ID))
                 .thenReturn(555L);
@@ -163,7 +183,7 @@ class FailedPaymentNotificationServiceImplTest {
 
         service.notify(marketplaceTransaction(42L));
 
-        verify(amoCrmGateway).createLead("Неудачная оплата Розницы - заказ не найден", "Иванов Иван", "+79001234567",
+        verify(amoCrmGateway).createLead("Неудачная оплата Розницы - anyforms - заказ не найден", "Иванов Иван", "+79001234567",
                 "buyer@mail.ru", MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID, IRINA_ID);
     }
 
@@ -182,8 +202,9 @@ class FailedPaymentNotificationServiceImplTest {
         verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
-        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1");
+        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить в магазине anyforms заказ AF-42:\n— Свеча Луна × 1");
         verify(amoCrmGateway).updateLeadStatus(555L, MARKETPLACE_FAILED_STATUS_ID, MARKETPLACE_FAILED_PIPELINE_ID, IRINA_ID);
+        verify(amoCrmGateway).updateContactResponsible(777L, IRINA_ID);
     }
 
     private ru.anyforms.model.amo.AmoLead existingRetailLead(Long statusId, Long responsibleUserId) {
@@ -243,7 +264,7 @@ class FailedPaymentNotificationServiceImplTest {
         verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway).setNewTask(IRINA_ID, LOST_MESSAGE_TASK_TYPE_ID,
                 FailedPaymentNotificationServiceImpl.MARKETPLACE_TASK_TEXT, 555L, ONE_DAY_MINUTES);
-        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить заказ AF-42:\n— Свеча Луна × 1");
+        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить в магазине anyforms заказ AF-42:\n— Свеча Луна × 1");
     }
 
     @Test
@@ -294,7 +315,7 @@ class FailedPaymentNotificationServiceImplTest {
         verify(amoCrmGateway, never()).createLead(anyString(), anyString(), any(), any(), anyLong(), anyLong(), anyLong());
         verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), anyLong(), anyInt());
         verify(amoCrmGateway).addNoteToLead(555L,
-                "Не получилось оплатить заказ AF-42 на " + ru.anyforms.util.MoneyUtil.formatRubles(198_000L)
+                "Не получилось оплатить в магазине anyforms заказ AF-42 на " + ru.anyforms.util.MoneyUtil.formatRubles(198_000L)
                         + ":\n— Подсвечник × 2");
     }
 
@@ -307,7 +328,7 @@ class FailedPaymentNotificationServiceImplTest {
 
         service.notify(marketplaceTransaction(42L));
 
-        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить:\n— состав заказа не найден");
+        verify(amoCrmGateway).addNoteToLead(555L, "Не получилось оплатить в магазине anyforms:\n— состав заказа не найден");
     }
 
     @Test
