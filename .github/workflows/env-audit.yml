@@ -1,0 +1,54 @@
+name: env-audit
+
+# На каждый PR в main считает, какие ${ENV} переменные и property-ключи
+# добавились/удалились/изменились в application.properties относительно base,
+# и постит (обновляет) один комментарий с полным списком env для прода.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: env-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  env-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Diff env placeholders
+        id: audit
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          bash .github/scripts/env-audit.sh "$BASE_REF" > env-audit.md
+          cat env-audit.md
+
+      - name: Post or update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('env-audit.md', 'utf8');
+            const marker = '<!-- env-audit -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Summary
+        run: cat env-audit.md >> "$GITHUB_STEP_SUMMARY"

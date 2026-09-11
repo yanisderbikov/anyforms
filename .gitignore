@@ -8,3 +8,5 @@ target/
 *.dump
 restore-db.sh
 clear-orders.sh
+.env.bak*
+.DS_Store

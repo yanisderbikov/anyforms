@@ -650,6 +650,8 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     JsonObject fieldValue = new JsonObject();
                     if (entry.getValue() instanceof Number number) {
                         fieldValue.addProperty("value", number);
+                    } else if (entry.getValue() instanceof Boolean bool) {
+                        fieldValue.addProperty("value", bool);
                     } else {
                         fieldValue.addProperty("value", String.valueOf(entry.getValue()));
                     }
