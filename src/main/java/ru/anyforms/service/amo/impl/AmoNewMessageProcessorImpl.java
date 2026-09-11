@@ -37,44 +37,49 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
             68050553L // дима
     );
 
+    private static final String SYSTEM_WZ_MARKER = "=== SYSTEM WZ ===";
+
     @Override
     public void process(AmoNewMessageWebhookPayload payload) {
         var contactId = payload.getMessage().getContactId();
         if (skippingContactIds.contains(contactId)) {
             return;
         }
+        var message = payload.getMessage().getText();
+        if (message != null && message.contains(SYSTEM_WZ_MARKER)) {
+            return;
+        }
         var lead  = amoCrmGateway.getLead(payload.getMessage().getEntity().getId());
         var pipelineId = lead.getPipelineId();
         if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId())) {
             if (!lead.getStatusId().equals(AmoLeadStatus.FIST_TOUCH.getStatusId()) && lead.getResponsibleUserId().equals(AmoTaskResponsibleUser.IAN.getResponsibleUserId())) {
-                if (leadIdTaskCache.getIfPresent(lead.getId()) == null) {
-                    amoCrmGateway.setNewTask(
-                            AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
-                            AmoTaskId.LOST_MESSAGE.getTaskId(),
-                            "Похоже что нужно ответить",
-                            lead.getId(),
-                            10
-                    );
-                    leadIdTaskCache.put(lead.getId(), Boolean.TRUE);
-                }
+                setTaskIfAbsent(lead.getId(), "Похоже что нужно ответить");
             }
             return;
         }
-        var message = payload.getMessage().getText();
         if (MessagePatternOrder.isNeedToMove(message)) {
             amoCrmGateway.updateLeadStatus(lead.getId(), AmoLeadStatus.FIST_TOUCH);
-            if (leadIdTaskCache.getIfPresent(lead.getId()) == null) {
-                amoCrmGateway.setNewTask(
-                        AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
-                        AmoTaskId.LOST_MESSAGE.getTaskId(),
-                        "Проверка",
-                        lead.getId(),
-                        10
-                );
-                leadIdTaskCache.put(lead.getId(), Boolean.TRUE);
-            }
+            setTaskIfAbsent(lead.getId(), "Проверка");
         } else {
             log.info("не передвинули сообщение сделки {} {}", lead.getId(), message);
         }
+    }
+
+    private void setTaskIfAbsent(Long leadId, String text) {
+        if (leadIdTaskCache.getIfPresent(leadId) != null) {
+            return;
+        }
+        if (amoCrmGateway.hasIncompleteTask(leadId)) {
+            leadIdTaskCache.put(leadId, Boolean.TRUE);
+            return;
+        }
+        amoCrmGateway.setNewTask(
+                AmoTaskResponsibleUser.IAN.getResponsibleUserId(),
+                AmoTaskId.LOST_MESSAGE.getTaskId(),
+                text,
+                leadId,
+                10
+        );
+        leadIdTaskCache.put(leadId, Boolean.TRUE);
     }
 }

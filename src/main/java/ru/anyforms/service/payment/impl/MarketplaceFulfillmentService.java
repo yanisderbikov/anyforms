@@ -106,8 +106,10 @@ class MarketplaceFulfillmentService {
         Long leadId;
         try {
             String name = order.getContactName() != null ? order.getContactName() : "Клиент";
+            Shop shop = order.getShop();
+            String shopName = shop != null ? shop.getName() : Shop.DEFAULT_SLUG;
             leadId = amoCrmGateway.createLead(
-                    "Маркетплейс — " + name, name, order.getContactPhone(),
+                    "Маркетплейс (" + shopName + ") — " + name, name, order.getContactPhone(),
                     transaction.getEmail(), retailPipelineId, readyToShipStatusId);
             if (leadId == null) {
                 log.error("Маркетплейс: АМО не вернула id сделки для заказа #{}", order.getId());
@@ -138,13 +140,14 @@ class MarketplaceFulfillmentService {
                 .build());
     }
 
-    /** Бюджет сделки и «Дата оплаты» (unix-секунды — так его парсит синк заказов). */
+    /** Бюджет сделки, «Дата оплаты» (unix-секунды — так его парсит синк заказов) и чекбокс «Розница». */
     private void fillLeadFields(Long leadId, PaymentTransaction transaction) {
         try {
             Long priceRub = transaction.getAmount() != null ? transaction.getAmount() / 100 : null;
             Map<Long, Object> fields = Map.of(
                     AmoCrmFieldId.DATE_PAYMENT.getId(),
-                    java.time.Instant.now().getEpochSecond());
+                    java.time.Instant.now().getEpochSecond(),
+                    AmoCrmFieldId.RETAIL.getId(), Boolean.TRUE);
             amoCrmGateway.updateLeadFields(leadId, priceRub, fields);
         } catch (Exception e) {
             log.error("Маркетплейс: не удалось заполнить поля сделки {}: {}", leadId, e.getMessage());

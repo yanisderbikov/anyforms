@@ -21,7 +21,7 @@ public class CdekPvzController {
 
     private final CdekPvzService cdekPvzService;
 
-    @Operation(summary = "Саджест ПВЗ СДЭК: текстовый поиск по улице/городу по всей России (для дропдауна на чекауте)")
+    @Operation(summary = "Саджест ПВЗ СДЭК: текстовый поиск по улице/городу/региону по всем странам присутствия СДЭК (для дропдауна на чекауте)")
     @GetMapping("/pvz")
     public ResponseEntity<List<CdekPvzDTO>> pvz(@RequestParam(required = false) String query) {
         return ResponseEntity.ok(cdekPvzService.search(query));
