@@ -73,7 +73,7 @@ class FailedPaymentNotificationServiceImplTest {
         order.setId(orderId);
         order.setPublicId("AF-42");
         order.getItems().addAll(List.of(items));
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdWithShop(orderId)).thenReturn(Optional.of(order));
         return order;
     }
 
@@ -156,7 +156,7 @@ class FailedPaymentNotificationServiceImplTest {
         order.setContactName("Петрова Анна");
         order.setContactPhone("+79007654321");
         order.getItems().add(item("Свеча Луна", 1));
-        when(orderRepository.findById(42L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdWithShop(42L)).thenReturn(Optional.of(order));
         PaymentTransaction transaction = transaction(PaymentProduct.CODE_MARKETPLACE_CART, null, null, "buyer@mail.ru");
         transaction.setOrderId(42L);
         String leadName = "Неудачная оплата Розницы - anyforms - Свеча Луна";
@@ -177,7 +177,7 @@ class FailedPaymentNotificationServiceImplTest {
     @Test
     void marketplaceFailureWithoutOrderStillCreatesLead() {
         noExistingContactInAmo();
-        when(orderRepository.findById(42L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdWithShop(42L)).thenReturn(Optional.empty());
         when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
                 .thenReturn(555L);
 
@@ -322,7 +322,7 @@ class FailedPaymentNotificationServiceImplTest {
     @Test
     void marketplaceFailureWithoutOrderAddsNoteWithoutItems() {
         noExistingContactInAmo();
-        when(orderRepository.findById(42L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdWithShop(42L)).thenReturn(Optional.empty());
         when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong(), anyLong()))
                 .thenReturn(555L);
 

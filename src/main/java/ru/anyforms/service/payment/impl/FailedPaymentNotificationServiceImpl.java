@@ -174,7 +174,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
     private Order findOrder(PaymentTransaction transaction) {
         Order order = transaction.getOrderId() == null
                 ? null
-                : orderRepository.findById(transaction.getOrderId()).orElse(null);
+                : orderRepository.findByIdWithShop(transaction.getOrderId()).orElse(null);
         if (order == null) {
             log.warn("Неуспешная оплата: заказ {} по транзакции {} не найден — без товаров в названии и контактов заказа",
                     transaction.getOrderId(), transaction.getId());
