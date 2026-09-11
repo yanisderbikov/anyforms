@@ -2,6 +2,7 @@ package ru.anyforms.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.anyforms.model.Order;
 
@@ -16,6 +17,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean existsByPublicId(String publicId);
 
     Optional<Order> findByPublicId(String publicId);
+
+    @Query("""
+       SELECT o FROM Order o
+       LEFT JOIN FETCH o.shop
+       WHERE o.id = :id
+    """)
+    Optional<Order> findByIdWithShop(@Param("id") Long id);
 
     /** Под-заказные сделки (без товаров из amo-каталога). */
     List<Order> findByIsRetailFalseOrderByCreatedAtDesc();

@@ -69,6 +69,9 @@ public interface AmoCrmGateway {
     /** Меняет ответственного по сделке, статус и воронку не трогает. */
     boolean updateLeadResponsible(Long leadId, Long responsibleUserId);
 
+    /** Меняет ответственного по контакту. */
+    boolean updateContactResponsible(Long contactId, Long responsibleUserId);
+
     /**
      * Обновляет кастомное поле сделки
      */

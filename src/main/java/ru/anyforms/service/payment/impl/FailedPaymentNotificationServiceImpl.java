@@ -10,6 +10,7 @@ import ru.anyforms.model.amo.AmoLead;
 import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
+import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.OrderRepository;
@@ -25,7 +26,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
     static final String LEAD_NAME_PREFIX = "Неуспешная оплата - ";
     static final String TASK_TEXT = "не получилось оплатить продукт - связаться";
-    /** Розница: в названии сделки перечисляем товары заказа, чтобы Ирина видела корзину без перехода. */
+    /** Розница: в названии сделки магазин (anyforms / di_gips …) и товары заказа, чтобы Ирина видела корзину без перехода. */
     static final String MARKETPLACE_LEAD_NAME_PREFIX = "Неудачная оплата Розницы - ";
     static final String MARKETPLACE_TASK_TEXT = "неудачная оплата Розницы - связаться";
     static final String MARKETPLACE_NOTE_PREFIX = "Не получилось оплатить";
@@ -72,6 +73,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
                         existingLeadId, transaction.getId());
             }
             addFailedItemsNote(existingLeadId, transaction, order);
+            assignContactResponsible(existingContactId, existingLeadId, transaction);
             return;
         }
 
@@ -87,10 +89,28 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         if (existingContactId == null) {
             amoContactFinder.fillContactFio(leadId, contactName);
         }
+        assignContactResponsible(existingContactId, leadId, transaction);
 
         amoCrmGateway.setNewTask(AmoTaskResponsibleUser.IRINA.getResponsibleUserId(),
                 AmoTaskId.LOST_MESSAGE.getTaskId(), taskText, leadId, TASK_DEADLINE_MINUTES);
         addFailedItemsNote(leadId, transaction, order);
+    }
+
+    /**
+     * Ответственный за контакт должен совпадать с ответственным за сделку — иначе задача уходит
+     * Ирине, а контакт висит на другом менеджере.
+     */
+    private void assignContactResponsible(Long knownContactId, Long leadId, PaymentTransaction transaction) {
+        Long contactId = knownContactId != null ? knownContactId : amoCrmGateway.getContactIdFromLead(leadId);
+        if (contactId == null) {
+            log.warn("Неуспешная оплата: у сделки {} нет контакта — ответственного за контакт не назначили (транзакция {})",
+                    leadId, transaction.getId());
+            return;
+        }
+        if (!amoCrmGateway.updateContactResponsible(contactId, AmoTaskResponsibleUser.IRINA.getResponsibleUserId())) {
+            log.warn("Неуспешная оплата: не удалось назначить Ирину ответственной за контакт {} (транзакция {})",
+                    contactId, transaction.getId());
+        }
     }
 
     /**
@@ -110,6 +130,7 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
     static String failedItemsNote(PaymentTransaction transaction, Order order) {
         StringBuilder note = new StringBuilder(MARKETPLACE_NOTE_PREFIX);
+        note.append(" в магазине ").append(shopSlug(order));
         if (order != null && order.getPublicId() != null) {
             note.append(" заказ ").append(order.getPublicId());
         }
@@ -140,15 +161,20 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
 
     private String leadName(PaymentTransaction transaction, Order order) {
         if (isMarketplace(transaction)) {
-            return MARKETPLACE_LEAD_NAME_PREFIX + orderItemsSummary(order);
+            return MARKETPLACE_LEAD_NAME_PREFIX + shopSlug(order) + " - " + orderItemsSummary(order);
         }
         return LEAD_NAME_PREFIX + transaction.getProductCode();
+    }
+
+    /** Витрина заказа: у заказов до появления магазинов и без найденного заказа — anyforms. */
+    private static String shopSlug(Order order) {
+        return order != null && order.getShop() != null ? order.getShop().getSlug() : Shop.DEFAULT_SLUG;
     }
 
     private Order findOrder(PaymentTransaction transaction) {
         Order order = transaction.getOrderId() == null
                 ? null
-                : orderRepository.findById(transaction.getOrderId()).orElse(null);
+                : orderRepository.findByIdWithShop(transaction.getOrderId()).orElse(null);
         if (order == null) {
             log.warn("Неуспешная оплата: заказ {} по транзакции {} не найден — без товаров в названии и контактов заказа",
                     transaction.getOrderId(), transaction.getId());

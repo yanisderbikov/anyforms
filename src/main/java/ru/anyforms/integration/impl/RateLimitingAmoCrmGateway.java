@@ -170,6 +170,12 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean updateContactResponsible(Long contactId, Long responsibleUserId) {
+        acquireSlot();
+        return delegate.updateContactResponsible(contactId, responsibleUserId);
+    }
+
+    @Override
     public List<AmoProduct> getLeadProducts(Long leadId) {
         acquireSlot();
         return delegate.getLeadProducts(leadId);
