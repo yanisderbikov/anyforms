@@ -21,15 +21,19 @@ import ru.anyforms.dto.SetTrackerAndCommentRequestDTO;
 import ru.anyforms.dto.SyncOrderRequestDTO;
 import ru.anyforms.dto.marketplace.ShopSalesReportDTO;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.Role;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.service.auth.UserAccess;
+import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.product.ShopSalesReportService;
 import ru.anyforms.util.converter.ConverterOrder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.security.Principal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -47,6 +51,7 @@ public class OrderController {
     private final CustomProductItemRepository customProductItemRepository;
     private final CustomOrderCreator customOrderCreator;
     private final ShopSalesReportService shopSalesReportService;
+    private final UserAccessService userAccessService;
 
     @Operation(
             summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
@@ -258,15 +263,35 @@ public class OrderController {
 
     @Operation(
             summary = "Отчёт по продажам магазина за период",
-            description = "Оплаченные заказы витрины магазина: сколько молдов куплено, общая сумма, разбивка по товарам",
+            description = "Оплаченные заказы витрины магазина: сколько молдов куплено, общая сумма, разбивка по товарам. "
+                    + "SHOP_OWNER получает отчёт только по своему магазину (shopSlug можно не передавать, чужой — 403)",
             security = @SecurityRequirement(name = "Bearer")
     )
     @GetMapping("/shop-report")
     public ResponseEntity<ShopSalesReportDTO> getShopSalesReport(
-            @RequestParam String shopSlug,
+            @RequestParam(required = false) String shopSlug,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return ResponseEntity.ok(shopSalesReportService.getReport(shopSlug, from, to));
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Principal principal) {
+        return ResponseEntity.ok(shopSalesReportService.getReport(resolveReportShop(shopSlug, principal), from, to));
+    }
+
+    private String resolveReportShop(String requestedSlug, Principal principal) {
+        UserAccess access = userAccessService.resolve(principal.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Доступ отозван"));
+        if (access.role() != Role.SHOP_OWNER) {
+            if (requestedSlug == null || requestedSlug.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Укажите магазин (shopSlug)");
+            }
+            return requestedSlug;
+        }
+        if (access.shopSlug() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "К вашему доступу не привязан магазин");
+        }
+        if (requestedSlug != null && !requestedSlug.isBlank() && !requestedSlug.equals(access.shopSlug())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Доступна только аналитика своего магазина");
+        }
+        return access.shopSlug();
     }
 }
 

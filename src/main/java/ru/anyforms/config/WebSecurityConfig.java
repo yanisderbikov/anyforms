@@ -9,12 +9,9 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -47,8 +44,10 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/actuator/**").hasRole("SERVICE")
                     .requestMatchers("/api/tech/**").hasRole("SERVICE")
                     .requestMatchers("/api/pusher/**").hasRole("SERVICE")
-                    .requestMatchers(HttpMethod.POST, "/api/auth/register-admin").hasRole("SERVICE")
                     // ── Пользовательские роли ──
+                    .requestMatchers("/api/admin-users/**").hasRole("SUPER_ADMIN")
+                    .requestMatchers("/api/auth/me").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SHOP_OWNER")
+                    .requestMatchers("/api/orders/shop-report").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SHOP_OWNER")
                     .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/custom-product-items/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/custom-product-files/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
@@ -69,13 +68,8 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/**").permitAll()
                     .anyRequest().permitAll()
             )
-            // Актуатор и пушер исторически отвечают 401, остальное — 403 по умолчанию
-            // (на 403 завязан редирект на логин в админке фронта)
-            .exceptionHandling(e -> e
-                    .defaultAuthenticationEntryPointFor(unauthorizedEntryPoint(),
-                            new AntPathRequestMatcher("/api/actuator/**"))
-                    .defaultAuthenticationEntryPointFor(unauthorizedEntryPoint(),
-                            new AntPathRequestMatcher("/api/pusher/**")))
+            // Без аутентификации — 401 (фронт стирает токен и уводит на логин), не та роль — 403
+            .exceptionHandling(e -> e.authenticationEntryPoint(unauthorizedEntryPoint()))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -87,11 +81,6 @@ public class WebSecurityConfig {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("{\"error\":\"invalid auth token\"}");
         };
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 
     @Bean
