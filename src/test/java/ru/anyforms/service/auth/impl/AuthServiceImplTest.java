@@ -9,7 +9,6 @@ import ru.anyforms.model.Role;
 import ru.anyforms.model.User;
 import ru.anyforms.repository.UserRepository;
 import ru.anyforms.service.auth.JwtTokenService;
-import ru.anyforms.service.auth.LoginCodeAlreadySentException;
 import ru.anyforms.service.auth.SuperAdminResolver;
 import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.email.EmailService;
@@ -80,14 +79,13 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void unknownEmailIsForbiddenAndGetsNoLetter() {
+    void unknownEmailIsSilentlyIgnoredSoUsersCannotBeEnumerated() {
         when(userRepository.findByEmail("stranger@x.ru")).thenReturn(Optional.empty());
 
-        ResponseStatusException e = assertThrows(ResponseStatusException.class,
-                () -> service.requestLoginCode("Stranger@X.ru "));
+        assertDoesNotThrow(() -> service.requestLoginCode("Stranger@X.ru "));
 
-        assertEquals(HttpStatus.FORBIDDEN, e.getStatusCode());
         verifyNoInteractions(emailService);
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -183,14 +181,16 @@ class AuthServiceImplTest {
         when(userRepository.findByEmail(MANAGER)).thenReturn(Optional.of(user));
         service.requestLoginCode(MANAGER);
 
+        String firstCode = sentCode();
         clock.advance(Duration.ofSeconds(30));
-        LoginCodeAlreadySentException e = assertThrows(LoginCodeAlreadySentException.class,
-                () -> service.requestLoginCode(MANAGER));
-        assertEquals(31, e.getRetryAfterSeconds());
+        assertDoesNotThrow(() -> service.requestLoginCode(MANAGER));
+        verify(emailService, times(1)).sendEmail(eq(MANAGER), anyString(), anyString());
+        assertEquals("jwt", service.verifyLoginCode(MANAGER, firstCode).getToken());
 
-        clock.advance(Duration.ofSeconds(31));
         service.requestLoginCode(MANAGER);
-        verify(emailService, times(2)).sendEmail(eq(MANAGER), anyString(), anyString());
+        clock.advance(Duration.ofSeconds(61));
+        service.requestLoginCode(MANAGER);
+        verify(emailService, times(3)).sendEmail(eq(MANAGER), anyString(), anyString());
     }
 
     @Test

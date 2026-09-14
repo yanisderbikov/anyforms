@@ -21,7 +21,6 @@ import ru.anyforms.dto.auth.MeDTO;
 import ru.anyforms.dto.auth.RequestLoginCodeDTO;
 import ru.anyforms.dto.auth.VerifyLoginCodeDTO;
 import ru.anyforms.service.auth.AuthService;
-import ru.anyforms.service.auth.LoginCodeAlreadySentException;
 import ru.anyforms.service.auth.UserAccessService;
 
 import java.security.Principal;
@@ -38,12 +37,13 @@ public class AuthController {
     private final UserAccessService userAccessService;
 
     @Operation(summary = "Отправить код входа на почту",
-            description = "Почта должна быть заведена супер-админом в /admin/users (или совпадать с ADMIN_SUPER_EMAIL). "
-                    + "403 — доступа нет, 429 — код уже отправлен недавно")
+            description = "Письмо уходит, только если почта заведена супер-админом в /admin/users (или совпадает с ADMIN_SUPER_EMAIL). "
+                    + "Ответ одинаковый для любой почты, чтобы нельзя было перечислить пользователей; "
+                    + "повторный запрос раньше чем через минуту письмо не шлёт, действует прежний код. 502 — письмо не ушло")
     @PostMapping("/request-code")
     public ResponseEntity<Map<String, String>> requestCode(@Valid @RequestBody RequestLoginCodeDTO request) {
         authService.requestLoginCode(request.getEmail());
-        return ResponseEntity.ok(Map.of("message", "Код отправлен на почту"));
+        return ResponseEntity.ok(Map.of("message", "Если у этой почты есть доступ, код отправлен"));
     }
 
     @Operation(summary = "Подтвердить код и получить токен")
@@ -61,13 +61,6 @@ public class AuthController {
                 .map(a -> new MeDTO(a.email(), a.name(), a.role(), a.superAdmin(), a.shopSlug(), a.shopName()))
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Доступ отозван"));
-    }
-
-    @ExceptionHandler(LoginCodeAlreadySentException.class)
-    public ResponseEntity<Map<String, Object>> handleAlreadySent(LoginCodeAlreadySentException e) {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
-                .body(Map.of("message", e.getMessage(), "retryAfterSeconds", e.getRetryAfterSeconds()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

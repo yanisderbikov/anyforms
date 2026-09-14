@@ -13,7 +13,6 @@ import ru.anyforms.model.User;
 import ru.anyforms.repository.UserRepository;
 import ru.anyforms.service.auth.AuthService;
 import ru.anyforms.service.auth.JwtTokenService;
-import ru.anyforms.service.auth.LoginCodeAlreadySentException;
 import ru.anyforms.service.auth.SuperAdminResolver;
 import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.email.EmailService;
@@ -94,17 +93,21 @@ class AuthServiceImpl implements AuthService {
     @Transactional
     public void requestLoginCode(String rawEmail) {
         String email = SuperAdminResolver.normalize(rawEmail);
-        User user = userRepository.findByEmail(email)
+        Optional<User> found = userRepository.findByEmail(email)
                 .or(() -> createSuperAdminIfMatches(email))
-                .filter(u -> u.getRole().isAdminPanelRole())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Для этой почты доступ в админку не выдан"));
+                .filter(u -> u.getRole().isAdminPanelRole());
+        if (found.isEmpty()) {
+            log.info("Запрос кода входа для почты без доступа: письмо не отправляем");
+            return;
+        }
+        User user = found.get();
 
         Instant now = clock.instant();
         if (user.getLoginCodeSentAt() != null
                 && user.getLoginCodeSentAt().plus(resendInterval).isAfter(now)) {
-            long waitSeconds = Duration.between(now, user.getLoginCodeSentAt().plus(resendInterval)).toSeconds() + 1;
-            throw new LoginCodeAlreadySentException(waitSeconds);
+            log.info("Повторный запрос кода входа раньше чем через {} сек, пользователь id={}: действует прежний код",
+                    resendInterval.toSeconds(), user.getId());
+            return;
         }
 
         String code = String.format("%06d", random.nextInt(1_000_000));
@@ -158,6 +161,7 @@ class AuthServiceImpl implements AuthService {
         }
 
         clearCode(user);
+        user.setLoginCodeSentAt(null);
         user.setLastLoginAt(now);
         userRepository.save(user);
         userAccessService.evict(user.getEmail());
