@@ -44,7 +44,7 @@ class AuthServiceImplTest {
     void setUp() {
         clock = new MutableClock(NOW);
         service = new AuthServiceImpl(userRepository, jwtTokenService, new SuperAdminResolver(SUPER),
-                emailService, userAccessService, clock, 10, 60, 5);
+                emailService, userAccessService, clock, "test-code-secret", 10, 60, 5);
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(jwtTokenService.createToken(anyString(), any(), any(), anyBoolean())).thenReturn("jwt");
     }
@@ -64,6 +64,19 @@ class AuthServiceImplTest {
         Matcher m = CODE_IN_LETTER.matcher(body.getValue());
         assertTrue(m.find(), "в письме нет шестизначного кода");
         return m.group(1);
+    }
+
+    @Test
+    void storedHashIsKeyedSoPlainSha256OfCodeDoesNotMatch() throws Exception {
+        User user = manager();
+        when(userRepository.findByEmail(MANAGER)).thenReturn(Optional.of(user));
+
+        service.requestLoginCode(MANAGER);
+        String code = sentCode();
+
+        byte[] sha = java.security.MessageDigest.getInstance("SHA-256").digest(code.getBytes());
+        assertNotEquals(java.util.HexFormat.of().formatHex(sha), user.getLoginCodeHash());
+        assertEquals(64, user.getLoginCodeHash().length());
     }
 
     @Test

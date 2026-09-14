@@ -6,16 +6,6 @@ backend for anyforms.ru
 Паролей нет: вход по одноразовому коду из письма (NotiSend). Пользователи админки живут в таблице `users`
 (`email`, `name`, `role`), заводит их супер-админ на скрытой странице `/admin/users`.
 
-- **Супер-админ** — почта из env `ADMIN_SUPER_EMAIL` (обязательная, без дефолта). Запись в `users`
-  создаётся сама при первом входе (роль `ADMIN`). Только он видит `/admin/users` и может дёргать
-  `/api/admin-users/**` (authority `ROLE_SUPER_ADMIN` выдаёт `JwtAuthFilter` по совпадению почты с env).
-  Удалить его или сменить ему роль нельзя.
-- Роль пользователя фильтр берёт **из БД, а не из JWT** (`UserAccessService`): результат кешируется на 5 минут
-  по почте, а выдача, смена роли и отзыв в `/admin/users` сбрасывают запись из кеша, поэтому действуют сразу.
-  В JWT роль и флаг `super` лежат только для меню фронта.
-- Роли админки: `ADMIN`, `SALES_MANAGER`, `PROJECT_MANAGER`, `SHOP_OWNER` (check-constraint в V58).
-  `SHOP_OWNER` привязан к магазину (`users.shop_id`, обязателен) и видит только `/admin/products/analytics`
-  своего магазина: `GET /api/orders/shop-report` для него подставляет свой `shopSlug`, чужой отвечает 403.
 
 | Метод и путь | Что делает |
 |---|---|
@@ -27,7 +17,8 @@ backend for anyforms.ru
 | `PUT /api/admin-users/{id}` `{name, role, shopSlug?}` | сменить имя/роль/магазин |
 | `DELETE /api/admin-users/{id}` | отозвать доступ |
 
-В БД хранится только SHA-256 кода (`login_code_hash`), сам код — только в письме. Миграция `V57__email_login.sql`
+В БД хранится только HMAC-SHA256 кода с ключом из env `AUTH_LOGIN_CODE_SECRET` (`login_code_hash`),
+сам код — только в письме; без секрета дамп БД не даёт перебрать шестизначный код. Миграция `V57__email_login.sql`
 удалила всех старых пользователей с паролями.
 
 ## Salesbot drip-кампания (триггер SalesBot по расписанию)

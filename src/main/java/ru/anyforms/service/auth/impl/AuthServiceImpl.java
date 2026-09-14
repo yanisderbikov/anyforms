@@ -19,7 +19,10 @@ import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.email.EmailService;
 import ru.anyforms.service.email.EmailTemplate;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -34,6 +37,7 @@ import java.util.Optional;
 class AuthServiceImpl implements AuthService {
 
     private static final String EMAIL_SUBJECT = "Код для входа в админку anyforms";
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
 
     private final UserRepository userRepository;
     private final JwtTokenService jwtTokenService;
@@ -42,6 +46,7 @@ class AuthServiceImpl implements AuthService {
     private final UserAccessService userAccessService;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
+    private final SecretKeySpec codeHmacKey;
     private final Duration codeTtl;
     private final Duration resendInterval;
     private final int maxAttempts;
@@ -52,11 +57,12 @@ class AuthServiceImpl implements AuthService {
                     SuperAdminResolver superAdminResolver,
                     EmailService emailService,
                     UserAccessService userAccessService,
+                    @Value("${auth.login-code.secret}") String codeSecret,
                     @Value("${auth.login-code.ttl-minutes}") long ttlMinutes,
                     @Value("${auth.login-code.resend-seconds}") long resendSeconds,
                     @Value("${auth.login-code.max-attempts}") int maxAttempts) {
         this(userRepository, jwtTokenService, superAdminResolver, emailService, userAccessService, Clock.systemUTC(),
-                ttlMinutes, resendSeconds, maxAttempts);
+                codeSecret, ttlMinutes, resendSeconds, maxAttempts);
     }
 
     AuthServiceImpl(UserRepository userRepository,
@@ -65,9 +71,14 @@ class AuthServiceImpl implements AuthService {
                     EmailService emailService,
                     UserAccessService userAccessService,
                     Clock clock,
+                    String codeSecret,
                     long ttlMinutes,
                     long resendSeconds,
                     int maxAttempts) {
+        if (codeSecret == null || codeSecret.isBlank()) {
+            throw new IllegalStateException("AUTH_LOGIN_CODE_SECRET не задан: без него коды входа хранятся небезопасно");
+        }
+        this.codeHmacKey = new SecretKeySpec(codeSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
         this.userRepository = userRepository;
         this.jwtTokenService = jwtTokenService;
         this.superAdminResolver = superAdminResolver;
@@ -176,11 +187,12 @@ class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
-    private static String hash(String code) {
+    private String hash(String code) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(code.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+            mac.init(codeHmacKey);
+            return HexFormat.of().formatHex(mac.doFinal(code.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException(e);
         }
     }
