@@ -1,47 +1,187 @@
 package ru.anyforms.service.auth.impl;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.anyforms.dto.LoginRequestDTO;
+import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.LoginResponseDTO;
-import ru.anyforms.dto.RegisterAdminRequestDTO;
+import ru.anyforms.model.Role;
 import ru.anyforms.model.User;
 import ru.anyforms.repository.UserRepository;
 import ru.anyforms.service.auth.AuthService;
 import ru.anyforms.service.auth.JwtTokenService;
+import ru.anyforms.service.auth.SuperAdminResolver;
+import ru.anyforms.service.auth.UserAccessService;
+import ru.anyforms.service.email.EmailService;
+import ru.anyforms.service.email.EmailTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Optional;
+
+@Slf4j
 @Service
-@RequiredArgsConstructor
 class AuthServiceImpl implements AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtTokenService jwtTokenService;
+    private static final String EMAIL_SUBJECT = "Код для входа в админку anyforms";
 
-    @Override
-    @Transactional
-    public void registerAdmin(RegisterAdminRequestDTO request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Пользователь уже существует");
-        }
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setName(request.getName().trim());
-        user.setRole(request.getRole());
-        userRepository.save(user);
+    private final UserRepository userRepository;
+    private final JwtTokenService jwtTokenService;
+    private final SuperAdminResolver superAdminResolver;
+    private final EmailService emailService;
+    private final UserAccessService userAccessService;
+    private final Clock clock;
+    private final SecureRandom random = new SecureRandom();
+    private final Duration codeTtl;
+    private final Duration resendInterval;
+    private final int maxAttempts;
+
+    @Autowired
+    AuthServiceImpl(UserRepository userRepository,
+                    JwtTokenService jwtTokenService,
+                    SuperAdminResolver superAdminResolver,
+                    EmailService emailService,
+                    UserAccessService userAccessService,
+                    @Value("${auth.login-code.ttl-minutes}") long ttlMinutes,
+                    @Value("${auth.login-code.resend-seconds}") long resendSeconds,
+                    @Value("${auth.login-code.max-attempts}") int maxAttempts) {
+        this(userRepository, jwtTokenService, superAdminResolver, emailService, userAccessService, Clock.systemUTC(),
+                ttlMinutes, resendSeconds, maxAttempts);
+    }
+
+    AuthServiceImpl(UserRepository userRepository,
+                    JwtTokenService jwtTokenService,
+                    SuperAdminResolver superAdminResolver,
+                    EmailService emailService,
+                    UserAccessService userAccessService,
+                    Clock clock,
+                    long ttlMinutes,
+                    long resendSeconds,
+                    int maxAttempts) {
+        this.userRepository = userRepository;
+        this.jwtTokenService = jwtTokenService;
+        this.superAdminResolver = superAdminResolver;
+        this.emailService = emailService;
+        this.userAccessService = userAccessService;
+        this.clock = clock;
+        this.codeTtl = Duration.ofMinutes(ttlMinutes);
+        this.resendInterval = Duration.ofSeconds(resendSeconds);
+        this.maxAttempts = maxAttempts;
     }
 
     @Override
-    public LoginResponseDTO login(LoginRequestDTO request) {
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("Неверный логин или пароль"));
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Неверный логин или пароль");
+    @Transactional
+    public void requestLoginCode(String rawEmail) {
+        String email = SuperAdminResolver.normalize(rawEmail);
+        User user = userRepository.findByEmail(email)
+                .or(() -> createSuperAdminIfMatches(email))
+                .filter(u -> u.getRole().isAdminPanelRole())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Для этой почты доступ в админку не выдан"));
+
+        Instant now = clock.instant();
+        if (user.getLoginCodeSentAt() != null
+                && user.getLoginCodeSentAt().plus(resendInterval).isAfter(now)) {
+            long waitSeconds = Duration.between(now, user.getLoginCodeSentAt().plus(resendInterval)).toSeconds() + 1;
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Код уже отправлен. Новый можно запросить через " + waitSeconds + " сек.");
         }
-        String token = jwtTokenService.createToken(user.getUsername(), user.getRole(), user.getName());
+
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        user.setLoginCodeHash(hash(code));
+        user.setLoginCodeExpiresAt(now.plus(codeTtl));
+        user.setLoginCodeSentAt(now);
+        user.setLoginCodeAttempts(0);
+        userRepository.save(user);
+
+        try {
+            emailService.sendEmail(user.getEmail(), EMAIL_SUBJECT,
+                    EmailTemplate.getLoginCodeEmail(code, codeTtl.toMinutes()));
+        } catch (RuntimeException e) {
+            log.error("Не удалось отправить код входа пользователю id={}", user.getId(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Не удалось отправить письмо. Попробуйте ещё раз через минуту");
+        }
+        log.info("Код входа отправлен пользователю id={}", user.getId());
+    }
+
+    @Override
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public LoginResponseDTO verifyLoginCode(String rawEmail, String code) {
+        String email = SuperAdminResolver.normalize(rawEmail);
+        User user = userRepository.findByEmail(email)
+                .filter(u -> u.getRole().isAdminPanelRole())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Для этой почты доступ в админку не выдан"));
+
+        Instant now = clock.instant();
+        if (user.getLoginCodeHash() == null
+                || user.getLoginCodeExpiresAt() == null
+                || !user.getLoginCodeExpiresAt().isAfter(now)) {
+            clearCode(user);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Код устарел. Запросите новый");
+        }
+        if (user.getLoginCodeAttempts() >= maxAttempts) {
+            clearCode(user);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Слишком много неверных попыток. Запросите новый код");
+        }
+        if (!MessageDigest.isEqual(
+                hash(code).getBytes(StandardCharsets.UTF_8),
+                user.getLoginCodeHash().getBytes(StandardCharsets.UTF_8))) {
+            user.setLoginCodeAttempts(user.getLoginCodeAttempts() + 1);
+            userRepository.save(user);
+            int left = maxAttempts - user.getLoginCodeAttempts();
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    left > 0 ? "Неверный код. Осталось попыток: " + left
+                             : "Неверный код. Запросите новый");
+        }
+
+        clearCode(user);
+        user.setLastLoginAt(now);
+        userRepository.save(user);
+        userAccessService.evict(user.getEmail());
+        log.info("Вход в админку: пользователь id={}, роль {}", user.getId(), user.getRole());
+
+        String token = jwtTokenService.createToken(user.getEmail(), user.getRole(), user.getName(),
+                superAdminResolver.isSuperAdmin(user.getEmail()));
         return new LoginResponseDTO(token);
+    }
+
+    private Optional<User> createSuperAdminIfMatches(String email) {
+        if (!superAdminResolver.isSuperAdmin(email)) {
+            return Optional.empty();
+        }
+        User user = new User();
+        user.setEmail(email);
+        user.setName(email.substring(0, email.indexOf('@')));
+        user.setRole(Role.ADMIN);
+        log.info("Супер-админ входит впервые: заводим запись в users");
+        return Optional.of(userRepository.save(user));
+    }
+
+    private void clearCode(User user) {
+        user.setLoginCodeHash(null);
+        user.setLoginCodeExpiresAt(null);
+        user.setLoginCodeAttempts(0);
+        userRepository.save(user);
+    }
+
+    private static String hash(String code) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(code.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

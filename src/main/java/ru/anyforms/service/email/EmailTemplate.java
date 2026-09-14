@@ -18,6 +18,12 @@ public final class EmailTemplate {
                 .replace("%BONUS_LINK%", bonusLink);
     }
 
+    public static String getLoginCodeEmail(String code, long ttlMinutes) {
+        return load("templates/email-login-code.html")
+                .replace("%CODE%", esc(code))
+                .replace("%TTL%", String.valueOf(ttlMinutes));
+    }
+
     public static String getCourseEmail(String link) {
         return load("templates/email-course.html").replace("%LINK%", link);
     }

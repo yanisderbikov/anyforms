@@ -1,11 +1,9 @@
 package ru.anyforms.service.auth;
 
-import ru.anyforms.dto.LoginRequestDTO;
 import ru.anyforms.dto.LoginResponseDTO;
-import ru.anyforms.dto.RegisterAdminRequestDTO;
 
 public interface AuthService {
-    void registerAdmin(RegisterAdminRequestDTO request);
+    void requestLoginCode(String email);
 
-    LoginResponseDTO login(LoginRequestDTO request);
+    LoginResponseDTO verifyLoginCode(String email, String code);
 }

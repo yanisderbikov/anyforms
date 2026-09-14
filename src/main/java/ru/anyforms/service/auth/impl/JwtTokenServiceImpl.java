@@ -36,16 +36,19 @@ class JwtTokenServiceImpl implements JwtTokenService {
     }
 
     @Override
-    public String createToken(String username, Role role, String name) {
+    public String createToken(String email, Role role, String name, boolean superAdmin) {
         var now = new Date();
         var expiry = new Date(now.getTime() + expirationMs);
         var builder = Jwts.builder()
-                .subject(username)
+                .subject(email)
                 .claim("role", role.name())
                 .issuedAt(now)
                 .expiration(expiry);
         if (name != null && !name.isBlank()) {
             builder.claim("name", name.trim());
+        }
+        if (superAdmin) {
+            builder.claim("super", true);
         }
         return builder.signWith(key).compact();
     }

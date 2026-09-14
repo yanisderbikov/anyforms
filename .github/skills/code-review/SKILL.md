@@ -41,7 +41,7 @@ A6. Если в репо есть workflow `env-audit`, его коммента�
 ## B. Безопасность эндпоинтов
 
 B1. Для каждого нового/переименованного `@RequestMapping`/`@GetMapping`/… найди правило в `config/WebSecurityConfig.java`. Нет правила — эндпоинт публичный из-за `"/api/**" permitAll` — High.
-B2. Роль соответствует разделу: `/api/salesbot/**`, `/api/amo/**`, `/api/promo-code/**`, `/api/receipt/**` — только `ADMIN`; `/api/invoice/**`, `/api/training-invoice/**` — `ADMIN|SALES_MANAGER`; `/api/orders/**`, `/api/custom-product-*` — три менеджерские роли; `/api/pusher/**`, `/api/tech/**`, `/api/actuator/**` — `SERVICE`.
+B2. Роль соответствует разделу: `/api/salesbot/**`, `/api/amo/**`, `/api/promo-code/**`, `/api/receipt/**` — только `ADMIN`; `/api/invoice/**`, `/api/training-invoice/**` — `ADMIN|SALES_MANAGER`; `/api/orders/**`, `/api/custom-product-*` — три менеджерские роли; `/api/pusher/**`, `/api/tech/**`, `/api/actuator/**` — `SERVICE`; `/api/admin-users/**` — только `SUPER_ADMIN`.
 B3. Новый путь под `/api/public/**` или `/webhook/**` — обоснован ли он публичным? Проверяет ли он подпись или секрет?
 B4. Контроллер возвращает чужие данные по id без проверки владельца (`CLIENT` смотрит чужой заказ) — High.
 B5. В логах и ответах нет JWT, `service.jwt.token`, паролей, полных телефонов.
