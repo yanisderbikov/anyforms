@@ -13,6 +13,7 @@ import ru.anyforms.model.User;
 import ru.anyforms.repository.UserRepository;
 import ru.anyforms.service.auth.AuthService;
 import ru.anyforms.service.auth.JwtTokenService;
+import ru.anyforms.service.auth.LoginCodeAlreadySentException;
 import ru.anyforms.service.auth.SuperAdminResolver;
 import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.email.EmailService;
@@ -92,8 +93,7 @@ class AuthServiceImpl implements AuthService {
         if (user.getLoginCodeSentAt() != null
                 && user.getLoginCodeSentAt().plus(resendInterval).isAfter(now)) {
             long waitSeconds = Duration.between(now, user.getLoginCodeSentAt().plus(resendInterval)).toSeconds() + 1;
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                    "Код уже отправлен. Новый можно запросить через " + waitSeconds + " сек.");
+            throw new LoginCodeAlreadySentException(waitSeconds);
         }
 
         String code = String.format("%06d", random.nextInt(1_000_000));

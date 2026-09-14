@@ -46,7 +46,8 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/pusher/**").hasRole("SERVICE")
                     // ── Пользовательские роли ──
                     .requestMatchers("/api/admin-users/**").hasRole("SUPER_ADMIN")
-                    .requestMatchers("/api/auth/me").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
+                    .requestMatchers("/api/auth/me").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SHOP_OWNER")
+                    .requestMatchers("/api/orders/shop-report").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SHOP_OWNER")
                     .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/custom-product-items/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/custom-product-files/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")

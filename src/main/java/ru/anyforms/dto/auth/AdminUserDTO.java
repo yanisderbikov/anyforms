@@ -12,6 +12,8 @@ public record AdminUserDTO(
         String name,
         Role role,
         @Schema(description = "Супер-админ из ADMIN_SUPER_EMAIL: нельзя удалить или сменить роль") boolean superAdmin,
+        @Schema(description = "Магазин владельца (только для SHOP_OWNER)") String shopSlug,
+        String shopName,
         Instant createdAt,
         Instant lastLoginAt
 ) {

@@ -26,7 +26,7 @@
 ### 2. Безопасность и авторизация
 
 `config/WebSecurityConfig.java` — единственное место с правилами доступа. Модель «deny by exception»: в конце стоит `requestMatchers("/api/**").permitAll()`, поэтому **любой новый контроллер публичен, пока его путь не добавлен в матчеры**. `@PreAuthorize` и method security в проекте не используются. При каждом новом или переименованном эндпоинте проверь:
-- добавлен ли путь в `WebSecurityConfig` с правильной ролью (`ADMIN`, `SALES_MANAGER`, `PROJECT_MANAGER`, `SERVICE`; `SUPER_ADMIN` — только `/api/admin-users/**`, это authority по почте из `ADMIN_SUPER_EMAIL`, не роль в БД);
+- добавлен ли путь в `WebSecurityConfig` с правильной ролью (`ADMIN`, `SALES_MANAGER`, `PROJECT_MANAGER`, `SHOP_OWNER` — только `/api/auth/me` и `/api/orders/shop-report` по своему магазину, `SERVICE`; `SUPER_ADMIN` — только `/api/admin-users/**`, это authority по почте из `ADMIN_SUPER_EMAIL`, не роль в БД);
 - не попадает ли он случайно под `/api/public/**` или `/webhook/**`;
 - `JwtAuthFilter` только идентифицирует, не отклоняет — не надейся на него. Роль он берёт из `users` по почте из JWT через `UserAccessService` (кеш 5 минут, сбрасывается при изменениях в `/admin/users`), поэтому пользователь без строки в `users` анонимен даже с живым токеном.
 - Ответ без аутентификации (нет токена, токен не признан) — 401, аутентифицирован без нужной роли — 403. Фронт на 401 в админке стирает токен и уводит на логин, на 403 с живым токеном — нет (гвард секций в AdminLayout).

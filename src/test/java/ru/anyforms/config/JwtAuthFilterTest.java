@@ -92,7 +92,7 @@ class JwtAuthFilterTest {
     @Test
     void userJwtTakesRoleFromDatabase() throws Exception {
         when(userAccessService.resolve(EMAIL))
-                .thenReturn(Optional.of(new UserAccess(EMAIL, "Юра", Role.SALES_MANAGER, false)));
+                .thenReturn(Optional.of(new UserAccess(EMAIL, "Юра", Role.SALES_MANAGER, false, null, null)));
 
         doFilter(userRequest());
 
@@ -103,7 +103,7 @@ class JwtAuthFilterTest {
     @Test
     void superAdminGetsExtraAuthority() throws Exception {
         when(userAccessService.resolve(EMAIL))
-                .thenReturn(Optional.of(new UserAccess(EMAIL, "Босс", Role.ADMIN, true)));
+                .thenReturn(Optional.of(new UserAccess(EMAIL, "Босс", Role.ADMIN, true, null, null)));
 
         doFilter(userRequest());
 

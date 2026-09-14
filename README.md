@@ -13,7 +13,9 @@ backend for anyforms.ru
 - Роль пользователя фильтр берёт **из БД, а не из JWT** (`UserAccessService`): результат кешируется на 5 минут
   по почте, а выдача, смена роли и отзыв в `/admin/users` сбрасывают запись из кеша, поэтому действуют сразу.
   В JWT роль и флаг `super` лежат только для меню фронта.
-- Роли админки: `ADMIN`, `SALES_MANAGER`, `PROJECT_MANAGER` (check-constraint в V57).
+- Роли админки: `ADMIN`, `SALES_MANAGER`, `PROJECT_MANAGER`, `SHOP_OWNER` (check-constraint в V58).
+  `SHOP_OWNER` привязан к магазину (`users.shop_id`, обязателен) и видит только `/admin/products/analytics`
+  своего магазина: `GET /api/orders/shop-report` для него подставляет свой `shopSlug`, чужой отвечает 403.
 
 | Метод и путь | Что делает |
 |---|---|
@@ -21,8 +23,8 @@ backend for anyforms.ru
 | `POST /api/auth/verify-code` `{email, code}` | проверяет код → `{token}` (JWT). Код живёт `auth.login-code.ttl-minutes` (10 мин), 5 неверных попыток — код сгорает |
 | `GET /api/auth/me` | почта, имя, роль и флаг `superAdmin` из БД; фронт строит по ним меню при каждой загрузке админки, 401 — доступ отозван |
 | `GET /api/admin-users` | все пользователи админки |
-| `POST /api/admin-users` `{email, name, role}` | выдать доступ; 409 — уже выдан |
-| `PUT /api/admin-users/{id}` `{name, role}` | сменить имя/роль |
+| `POST /api/admin-users` `{email, name, role, shopSlug?}` | выдать доступ; `shopSlug` обязателен для `SHOP_OWNER`; 409 — уже выдан |
+| `PUT /api/admin-users/{id}` `{name, role, shopSlug?}` | сменить имя/роль/магазин |
 | `DELETE /api/admin-users/{id}` | отозвать доступ |
 
 В БД хранится только SHA-256 кода (`login_code_hash`), сам код — только в письме. Миграция `V57__email_login.sql`

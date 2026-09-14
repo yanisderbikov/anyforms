@@ -2,6 +2,7 @@ package ru.anyforms.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import ru.anyforms.model.marketplace.Shop;
 
 import java.time.Instant;
 
@@ -21,6 +22,10 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "shop_id")
+    private Shop shop;
 
     @Column(name = "login_code_hash")
     private String loginCodeHash;

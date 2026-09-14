@@ -21,6 +21,7 @@ import ru.anyforms.dto.auth.MeDTO;
 import ru.anyforms.dto.auth.RequestLoginCodeDTO;
 import ru.anyforms.dto.auth.VerifyLoginCodeDTO;
 import ru.anyforms.service.auth.AuthService;
+import ru.anyforms.service.auth.LoginCodeAlreadySentException;
 import ru.anyforms.service.auth.UserAccessService;
 
 import java.security.Principal;
@@ -57,9 +58,16 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<MeDTO> me(Principal principal) {
         return userAccessService.resolve(principal.getName())
-                .map(a -> new MeDTO(a.email(), a.name(), a.role(), a.superAdmin()))
+                .map(a -> new MeDTO(a.email(), a.name(), a.role(), a.superAdmin(), a.shopSlug(), a.shopName()))
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Доступ отозван"));
+    }
+
+    @ExceptionHandler(LoginCodeAlreadySentException.class)
+    public ResponseEntity<Map<String, Object>> handleAlreadySent(LoginCodeAlreadySentException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
+                .body(Map.of("message", e.getMessage(), "retryAfterSeconds", e.getRetryAfterSeconds()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

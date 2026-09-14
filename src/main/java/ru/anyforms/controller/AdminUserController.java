@@ -86,6 +86,6 @@ public class AdminUserController {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, String>> handleUnreadable(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest()
-                .body(Map.of("message", "Некорректное тело запроса; роль должна быть одной из: ADMIN, SALES_MANAGER, PROJECT_MANAGER"));
+                .body(Map.of("message", "Некорректное тело запроса; роль должна быть одной из: ADMIN, SALES_MANAGER, PROJECT_MANAGER, SHOP_OWNER"));
     }
 }

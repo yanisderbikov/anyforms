@@ -22,7 +22,11 @@ public class AdminUserCreateRequestDTO {
     @Schema(description = "Имя (для приветствия в админке)", required = true, example = "Юра")
     private String name;
 
-    @NotNull(message = "Укажите роль: ADMIN, SALES_MANAGER или PROJECT_MANAGER")
+    @NotNull(message = "Укажите роль: ADMIN, SALES_MANAGER, PROJECT_MANAGER или SHOP_OWNER")
     @Schema(description = "Роль в админке", required = true, example = "SALES_MANAGER")
     private Role role;
+
+    @Size(max = 64)
+    @Schema(description = "Slug магазина; обязателен для SHOP_OWNER, для остальных ролей игнорируется", example = "af_pastry")
+    private String shopSlug;
 }

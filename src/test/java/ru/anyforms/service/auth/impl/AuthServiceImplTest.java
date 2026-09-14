@@ -9,6 +9,7 @@ import ru.anyforms.model.Role;
 import ru.anyforms.model.User;
 import ru.anyforms.repository.UserRepository;
 import ru.anyforms.service.auth.JwtTokenService;
+import ru.anyforms.service.auth.LoginCodeAlreadySentException;
 import ru.anyforms.service.auth.SuperAdminResolver;
 import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.email.EmailService;
@@ -170,9 +171,9 @@ class AuthServiceImplTest {
         service.requestLoginCode(MANAGER);
 
         clock.advance(Duration.ofSeconds(30));
-        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+        LoginCodeAlreadySentException e = assertThrows(LoginCodeAlreadySentException.class,
                 () -> service.requestLoginCode(MANAGER));
-        assertEquals(HttpStatus.TOO_MANY_REQUESTS, e.getStatusCode());
+        assertEquals(31, e.getRetryAfterSeconds());
 
         clock.advance(Duration.ofSeconds(31));
         service.requestLoginCode(MANAGER);

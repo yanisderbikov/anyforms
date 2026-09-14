@@ -57,6 +57,8 @@ class UserAccessServiceImpl implements UserAccessService {
         return userRepository.findByEmail(email)
                 .filter(user -> user.getRole().isAdminPanelRole())
                 .map(user -> new UserAccess(user.getEmail(), user.getName(), user.getRole(),
-                        superAdminResolver.isSuperAdmin(user.getEmail())));
+                        superAdminResolver.isSuperAdmin(user.getEmail()),
+                        user.getShop() == null ? null : user.getShop().getSlug(),
+                        user.getShop() == null ? null : user.getShop().getName()));
     }
 }
