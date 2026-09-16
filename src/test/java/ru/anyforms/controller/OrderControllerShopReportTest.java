@@ -11,6 +11,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.service.RetailOrderDeleter;
 import ru.anyforms.service.auth.UserAccess;
 import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.product.ShopSalesReportService;
@@ -40,7 +41,7 @@ class OrderControllerShopReportTest {
         OrderController controller = new OrderController(
                 mock(OrderService.class), mock(GetterOrderDTOByType.class), mock(OrderRepository.class),
                 mock(ConverterOrder.class), mock(CustomProductItemRepository.class), mock(CustomOrderCreator.class),
-                reportService, userAccessService);
+                reportService, userAccessService, mock(RetailOrderDeleter.class));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         when(reportService.getReport(any(), any(), any())).thenReturn(mock(ShopSalesReportDTO.class));

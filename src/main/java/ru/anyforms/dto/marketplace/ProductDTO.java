@@ -27,6 +27,10 @@ public class ProductDTO {
     private Boolean active;
     private Boolean preorder;
     private Integer orderNumber;
+    private Integer weightGrams;
+    private Integer lengthCm;
+    private Integer widthCm;
+    private Integer heightCm;
     private String folder;
     private List<ShopDTO> shops;
     private List<ProductVariantDTO> variants;

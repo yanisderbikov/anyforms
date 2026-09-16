@@ -13,7 +13,11 @@ import ru.anyforms.repository.impl.CdekPvzJdbcRepo;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -30,13 +34,14 @@ public class CdekPvzService {
     private final AtomicBoolean refreshing = new AtomicBoolean(false);
 
     private volatile List<CdekPvzDTO> snapshot = List.of();
+    private volatile Map<String, CdekPvzDTO> byCode = Map.of();
 
     @EventListener(ApplicationReadyEvent.class)
     public void warmUp() {
         try {
             List<CdekPvzDTO> stored = repo.findAll();
             if (!stored.isEmpty()) {
-                snapshot = List.copyOf(stored);
+                replaceSnapshot(stored);
                 logger.info("ПВЗ СДЭК: загружено из БД {} пунктов", stored.size());
                 return;
             }
@@ -81,7 +86,7 @@ public class CdekPvzService {
                 return false;
             }
             repo.replaceAll(fresh);
-            snapshot = List.copyOf(fresh);
+            replaceSnapshot(fresh);
             logger.info("ПВЗ СДЭК: кэш обновлён, {} пунктов", fresh.size());
             return true;
         } catch (Exception e) {
@@ -92,8 +97,22 @@ public class CdekPvzService {
         }
     }
 
+    public Optional<CdekPvzDTO> findByCode(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(byCode.get(code.trim().toUpperCase()));
+    }
+
     public int size() {
         return snapshot.size();
+    }
+
+    private void replaceSnapshot(List<CdekPvzDTO> points) {
+        snapshot = List.copyOf(points);
+        byCode = points.stream()
+                .filter(p -> p.getCode() != null)
+                .collect(Collectors.toUnmodifiableMap(p -> p.getCode().toUpperCase(), Function.identity(), (a, b) -> a));
     }
 
     private boolean matches(CdekPvzDTO p, String[] tokens) {

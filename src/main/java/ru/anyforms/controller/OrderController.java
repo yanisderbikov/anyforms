@@ -27,6 +27,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.service.OrderService;
+import ru.anyforms.service.RetailOrderDeleter;
 import ru.anyforms.service.auth.UserAccess;
 import ru.anyforms.service.auth.UserAccessService;
 import ru.anyforms.service.product.ShopSalesReportService;
@@ -52,6 +53,7 @@ public class OrderController {
     private final CustomOrderCreator customOrderCreator;
     private final ShopSalesReportService shopSalesReportService;
     private final UserAccessService userAccessService;
+    private final RetailOrderDeleter retailOrderDeleter;
 
     @Operation(
             summary = "Получить заказы которые доставляются", security = @SecurityRequirement(name = "Bearer")
@@ -157,6 +159,19 @@ public class OrderController {
         return orderRepository.findById(id)
                 .map(this::convertWithCount)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден: " + id));
+    }
+
+    @Operation(
+            summary = "Удалить розничный заказ (только супер-админ)",
+            description = "Необратимо удаляет розничный заказ вместе с позициями и отметкой о telegram-уведомлении; "
+                    + "платежи остаются в истории, но отвязываются от заказа. Сделка в AmoCRM не трогается. "
+                    + "Под-заказные сделки и заказы с позициями под заказ удалить нельзя (409)",
+            security = @SecurityRequirement(name = "Bearer")
+    )
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRetailOrder(@PathVariable Long id) {
+        retailOrderDeleter.delete(id);
+        return ResponseEntity.noContent().build();
     }
 
     private OrderSummaryDTO convertWithCount(ru.anyforms.model.Order order) {

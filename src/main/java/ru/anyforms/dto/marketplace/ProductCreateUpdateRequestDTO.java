@@ -39,6 +39,10 @@ public class ProductCreateUpdateRequestDTO {
     private Integer orderNumber;
     private Long amoProductId;
     private String amoProductName;
+    private Integer weightGrams;
+    private Integer lengthCm;
+    private Integer widthCm;
+    private Integer heightCm;
     /**
      * Доступен ли товар к продаже (показывается на витрине). null при обновлении — не менять.
      */

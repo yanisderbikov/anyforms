@@ -42,6 +42,10 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getActive(),
                 product.getPreorder(),
                 product.getOrderNumber(),
+                product.getWeightGrams(),
+                product.getLengthCm(),
+                product.getWidthCm(),
+                product.getHeightCm(),
                 folder,
                 convertShops(product.getShops()),
                 convertVariants(product.getVariants())

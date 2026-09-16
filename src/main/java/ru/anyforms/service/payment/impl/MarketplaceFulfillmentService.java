@@ -134,10 +134,17 @@ class MarketplaceFulfillmentService {
                     order.getId(), leadId, e.getMessage());
         }
 
-        taskAdder.addTask(SalesbotRunTaskPayload.builder()
-                .leadId(leadId)
-                .botId(MARKETPLACE_PAID_BOT_ID)
-                .build());
+        if (isAnyformsShop(order.getShop())) {
+            taskAdder.addTask(SalesbotRunTaskPayload.builder()
+                    .leadId(leadId)
+                    .botId(MARKETPLACE_PAID_BOT_ID)
+                    .build());
+        }
+    }
+
+    private static boolean isAnyformsShop(Shop shop) {
+        return shop == null || shop.getSlug() == null || shop.getSlug().isBlank()
+                || Shop.DEFAULT_SLUG.equals(shop.getSlug());
     }
 
     /** Бюджет сделки, «Дата оплаты» (unix-секунды — так его парсит синк заказов) и чекбокс «Розница». */

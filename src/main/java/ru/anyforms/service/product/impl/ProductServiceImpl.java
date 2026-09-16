@@ -177,6 +177,10 @@ class ProductServiceImpl implements ProductService {
                 .orderNumber(request.getOrderNumber())
                 .amoProductId(request.getAmoProductId())
                 .amoProductName(request.getAmoProductName())
+                .weightGrams(positiveOrNull(request.getWeightGrams()))
+                .lengthCm(positiveOrNull(request.getLengthCm()))
+                .widthCm(positiveOrNull(request.getWidthCm()))
+                .heightCm(positiveOrNull(request.getHeightCm()))
                 .active(request.getActive() == null || request.getActive())
                 .preorder(Boolean.TRUE.equals(request.getPreorder()))
                 .build();
@@ -216,6 +220,18 @@ class ProductServiceImpl implements ProductService {
         }
         if (request.getAmoProductName() != null) {
             product.setAmoProductName(request.getAmoProductName());
+        }
+        if (request.getWeightGrams() != null) {
+            product.setWeightGrams(positiveOrNull(request.getWeightGrams()));
+        }
+        if (request.getLengthCm() != null) {
+            product.setLengthCm(positiveOrNull(request.getLengthCm()));
+        }
+        if (request.getWidthCm() != null) {
+            product.setWidthCm(positiveOrNull(request.getWidthCm()));
+        }
+        if (request.getHeightCm() != null) {
+            product.setHeightCm(positiveOrNull(request.getHeightCm()));
         }
         if (request.getActive() != null) {
             product.setActive(request.getActive());
@@ -263,6 +279,10 @@ class ProductServiceImpl implements ProductService {
         }
         product.getVariants().clear();
         product.getVariants().addAll(result);
+    }
+
+    private static Integer positiveOrNull(Integer value) {
+        return value == null || value <= 0 ? null : value;
     }
 
     private String blankToNull(String value) {

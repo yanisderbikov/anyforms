@@ -104,11 +104,17 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public boolean hasIncompleteTask(Long leadId) {
+        return hasIncompleteTask(leadId, null);
+    }
+
+    @Override
+    public boolean hasIncompleteTask(Long leadId, Long taskTypeId) {
         try {
             String url = "/api/v4/tasks"
                     + "?filter[entity_type]=leads"
                     + "&filter[entity_id]=" + leadId
                     + "&filter[is_completed]=0"
+                    + (taskTypeId != null ? "&filter[task_type][]=" + taskTypeId : "")
                     + "&limit=1";
             String response = webClient.get()
                     .uri(url)
