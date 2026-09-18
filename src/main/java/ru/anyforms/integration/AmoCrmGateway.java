@@ -199,6 +199,8 @@ public interface AmoCrmGateway {
 
     boolean hasIncompleteTask(Long leadId);
 
+    boolean hasIncompleteTask(Long leadId, Long taskTypeId);
+
     boolean addTagToLead(Long leadId, String tagName);
 
     /**

@@ -17,7 +17,7 @@ public class CartPurchaseRequest {
     @NotEmpty
     @Valid
     @Schema(description = "Позиции корзины")
-    private List<CartItemDTO> items;
+    private List<@NotNull CartItemDTO> items;
 
     @Schema(description = "ФИО клиента")
     private String fullName;

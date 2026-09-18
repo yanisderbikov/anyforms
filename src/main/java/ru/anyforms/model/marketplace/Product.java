@@ -51,6 +51,14 @@ public class Product {
     /** Имя товара в каталоге АМО (чтобы позиции заказа назывались как в АМО). */
     @Column(name = "amo_product_name")
     private String amoProductName;
+    @Column(name = "weight_grams")
+    private Integer weightGrams;
+    @Column(name = "length_cm")
+    private Integer lengthCm;
+    @Column(name = "width_cm")
+    private Integer widthCm;
+    @Column(name = "height_cm")
+    private Integer heightCm;
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "product_shop",

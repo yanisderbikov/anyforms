@@ -238,6 +238,12 @@ class RateLimitingAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public boolean hasIncompleteTask(Long leadId, Long taskTypeId) {
+        acquireSlot();
+        return delegate.hasIncompleteTask(leadId, taskTypeId);
+    }
+
+    @Override
     public List<Long> getLeadIdsByContact(Long contactId) {
         acquireSlot();
         return delegate.getLeadIdsByContact(contactId);

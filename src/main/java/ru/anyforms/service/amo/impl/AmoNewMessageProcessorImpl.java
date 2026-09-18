@@ -69,7 +69,7 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
         if (leadIdTaskCache.getIfPresent(leadId) != null) {
             return;
         }
-        if (amoCrmGateway.hasIncompleteTask(leadId)) {
+        if (amoCrmGateway.hasIncompleteTask(leadId, AmoTaskId.LOST_MESSAGE.getTaskId())) {
             leadIdTaskCache.put(leadId, Boolean.TRUE);
             return;
         }
