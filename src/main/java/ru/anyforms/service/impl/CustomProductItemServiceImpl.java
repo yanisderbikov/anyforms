@@ -300,6 +300,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         item.setQuantity(request.getQuantity());
         String modeler = request.getModeler();
         item.setModeler(modeler != null && !modeler.isBlank() ? modeler.trim() : null);
+        item.setNda(Boolean.TRUE.equals(request.getNda()));
     }
 
     private CustomProductItemDTO toDTO(CustomProductItem item) {
@@ -313,6 +314,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setDescription(item.getDescription());
         dto.setQuantity(item.getQuantity());
         dto.setModeler(item.getModeler());
+        dto.setNda(item.isNda());
         dto.setStatus(item.getStatus());
         dto.setStatusDescription(item.getStatus() != null ? item.getStatus().getDescription() : null);
         dto.setStatusUpdatedAt(item.getStatusUpdatedAt());

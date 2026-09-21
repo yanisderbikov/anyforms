@@ -8,6 +8,7 @@ import ru.anyforms.dto.amo.SalesbotRunTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.OrderRepository;
@@ -27,12 +28,14 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MarketplaceFulfillmentServiceTest {
 
     private static final long LEAD_ID = 777L;
+    private static final long CONTACT_ID = 555L;
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
@@ -60,6 +63,43 @@ class MarketplaceFulfillmentServiceTest {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong()))
                 .thenReturn(LEAD_ID);
+        when(amoCrmGateway.getContactIdFromLead(LEAD_ID)).thenReturn(CONTACT_ID);
+    }
+
+    @Test
+    void anyformsOrderSetsShopOnContact() {
+        order.setShop(shop(Shop.DEFAULT_SLUG));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).updateContactCustomField(CONTACT_ID, AmoCrmFieldId.SHOP_CONTACT.getId(), "anyforms");
+    }
+
+    @Test
+    void orderWithoutShopIsAnyformsOnContact() {
+        order.setShop(null);
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).updateContactCustomField(CONTACT_ID, AmoCrmFieldId.SHOP_CONTACT.getId(), "anyforms");
+    }
+
+    @Test
+    void partnerShopFromListIsSetOnContact() {
+        order.setShop(shop("lunasvecha"));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).updateContactCustomField(CONTACT_ID, AmoCrmFieldId.SHOP_CONTACT.getId(), "lunasvecha");
+    }
+
+    @Test
+    void unknownShopIsNotWrittenToContact() {
+        order.setShop(shop("af_pastry"));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway, never()).updateContactCustomField(eq(CONTACT_ID), eq(AmoCrmFieldId.SHOP_CONTACT.getId()), anyString());
     }
 
     @Test

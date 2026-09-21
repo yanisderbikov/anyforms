@@ -10,6 +10,7 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
+import ru.anyforms.model.amo.AmoContactShop;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PaymentTransaction;
@@ -170,9 +171,20 @@ class MarketplaceFulfillmentService {
             if (!fields.isEmpty()) {
                 amoCrmGateway.updateContactCustomField(contactId, fields);
             }
+            setContactShop(order, contactId);
         } catch (Exception e) {
             log.error("Маркетплейс: не удалось заполнить контакт сделки {}: {}", leadId, e.getMessage());
         }
+    }
+
+    private void setContactShop(Order order, Long contactId) {
+        String shop = AmoContactShop.valueFor(order.getShop());
+        if (shop == null) {
+            log.warn("Маркетплейс: магазин {} не заведён в списке поля «Магазин» контакта, заказ #{} — поле не заполнено",
+                    order.getShop() != null ? order.getShop().getSlug() : null, order.getId());
+            return;
+        }
+        amoCrmGateway.updateContactCustomField(contactId, AmoCrmFieldId.SHOP_CONTACT.getId(), shop);
     }
 
     /** Привязывает товары каталога АМО к сделке; позиции без маппинга — примечанием в сделку. */

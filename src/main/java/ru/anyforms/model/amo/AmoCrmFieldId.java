@@ -20,6 +20,7 @@ public enum AmoCrmFieldId {
     PHONE_CONTACT(2265635L, "Телефон"),
     PVZ_STREET_CONTACT(2370939L, "ПВЗ СДЭК улица"),
     PVZ_CITY_CONTACT(2331841L, "ПВЗ СДЭК город"),
+    SHOP_CONTACT(2973861L, "Магазин"),
 
     // Поля для сделок
     PRODUCT_TYPE(2482683L, "Тип продукта (мультисписок)"),
