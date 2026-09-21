@@ -12,9 +12,10 @@ import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.repository.GetterOrderByTracker;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.CustomProductItemService;
-import ru.anyforms.service.DeliveryBotNotifier;
+import ru.anyforms.service.DeliveryNotifier;
 import ru.anyforms.service.DeliveryProcessor;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.CdekStatusHelper;
@@ -38,7 +39,8 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     private final CdekTrackingGateway cdekTrackingGateway;
     private final SaverOrder saverOrder;
     private final CustomProductItemService customProductItemService;
-    private final DeliveryBotNotifier deliveryBotNotifier;
+    private final DeliveryNotifier deliveryNotifier;
+    private final OrderRepository orderRepository;
 
     @Value("${google.sheets.sheet.name}")
     private String sheetName;
@@ -49,7 +51,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
     @Value("${amocrm.status.ready.to.ship.id}")
     private Long readyToShipStatusId;
 
-    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder, CustomProductItemService customProductItemService, DeliveryBotNotifier deliveryBotNotifier) {
+    public DeliveryProcessorImpl(GoogleSheetsGateway googleSheetsService, AmoCrmGateway amoCrmService, OrderService orderService, GetterOrderByTracker getterOrder, CdekTrackingGateway cdekTrackingGateway, SaverOrder saverOrder, CustomProductItemService customProductItemService, DeliveryNotifier deliveryNotifier, OrderRepository orderRepository) {
         this.googleSheetsService = googleSheetsService;
         this.amoCrmService = amoCrmService;
         this.orderService = orderService;
@@ -57,7 +59,8 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
         this.cdekTrackingGateway = cdekTrackingGateway;
         this.saverOrder = saverOrder;
         this.customProductItemService = customProductItemService;
-        this.deliveryBotNotifier = deliveryBotNotifier;
+        this.deliveryNotifier = deliveryNotifier;
+        this.orderRepository = orderRepository;
     }
 
     @Override
@@ -90,11 +93,11 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
             amoCrmService.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_STATUS.getId(), currentStatus.getCode());
             if (CdekStatusHelper.isAcceptedForDelivery(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT.getStatusId(), retailPipelineId);
-                deliveryBotNotifier.notifyShipped(leadId, trackerNumber);
+                deliveryNotifier.notifyShipped(order, trackerNumber);
             }
             else if (CdekStatusHelper.isReadyToPickUp(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.DELIVERED.getStatusId(), retailPipelineId);
-                deliveryBotNotifier.notifyCdekReadyToPickup(leadId);
+                deliveryNotifier.notifyArrivedAtPvz(order);
             }
             else if (CdekStatusHelper.isDelivered(orderStatus)) {
                 amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.REALIZED.getStatusId(), retailPipelineId);
@@ -317,10 +320,13 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
                     log.warn("Не удалось обновить статус сделки {} на '{}' для трекера {} (статус CDEK: {})",
                             leadId, targetAmoStatus.getDescription(), trackingNumber, statusCode);
                 }
-                if (targetAmoStatus == AmoLeadStatus.SENT) {
-                    deliveryBotNotifier.notifyShipped(leadId, trackingNumber);
+                Order order = orderRepository.findByLeadId(leadId).orElse(null);
+                if (order == null) {
+                    log.warn("Order not found for lead {}, delivery notification skipped", leadId);
+                } else if (targetAmoStatus == AmoLeadStatus.SENT) {
+                    deliveryNotifier.notifyShipped(order, trackingNumber);
                 } else if (targetAmoStatus == AmoLeadStatus.DELIVERED) {
-                    deliveryBotNotifier.notifyCdekReadyToPickup(leadId);
+                    deliveryNotifier.notifyArrivedAtPvz(order);
                 }
             }
             
@@ -346,8 +352,9 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
         }
         
         try {
-            deliveryBotNotifier.notifyShipped(leadId, trackerNumber);
             orderService.setTrackerAndCommentForOrder(leadId, trackerNumber, null);
+            orderRepository.findByLeadId(leadId)
+                    .ifPresent(order -> deliveryNotifier.notifyShipped(order, trackerNumber));
 
             boolean statusUpdated = amoCrmService.updateLeadStatus(leadId, AmoLeadStatus.SENT, null);
             if (statusUpdated) {
@@ -388,7 +395,7 @@ class DeliveryProcessorImpl implements DeliveryProcessor {
                 log.warn("Не удалось обновить статус сделки {} на '{}'",
                         leadId, AmoLeadStatus.DELIVERED.getDescription());
             }
-            deliveryBotNotifier.notifyCdekReadyToPickup(leadId);
+            orderRepository.findByLeadId(leadId).ifPresent(deliveryNotifier::notifyArrivedAtPvz);
         } catch (Exception e) {
             log.error("Ошибка при обработке заказа (доставлен) для трекера {}: {}",
                     trackerNumber, e.getMessage(), e);

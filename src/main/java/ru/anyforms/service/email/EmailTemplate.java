@@ -1,6 +1,8 @@
 package ru.anyforms.service.email;
 
+import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.marketplace.Shop;
 
 import java.util.List;
@@ -125,17 +127,150 @@ public final class EmailTemplate {
     }
 
     private static String buildPvz(MarketplaceOrderEmailPayload payload) {
+        return joinPvz(payload.getPvzCity(), payload.getPvzStreet());
+    }
+
+    private static String joinPvz(String city, String street) {
         StringBuilder sb = new StringBuilder();
-        if (payload.getPvzCity() != null && !payload.getPvzCity().isBlank()) {
-            sb.append(payload.getPvzCity());
+        if (city != null && !city.isBlank()) {
+            sb.append(city);
         }
-        if (payload.getPvzStreet() != null && !payload.getPvzStreet().isBlank()) {
+        if (street != null && !street.isBlank()) {
             if (sb.length() > 0) {
                 sb.append(", ");
             }
-            sb.append(payload.getPvzStreet());
+            sb.append(street);
         }
         return sb.toString();
+    }
+
+    private static final String CDEK_TRACKING_URL = "https://www.cdek.ru/ru/tracking?order_id=";
+
+    private static final String DETAILS_BLOCK = """
+                <tr>
+                    <td class="pad" style="padding:0 40px 8px 40px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fafafa; border:1px solid #ececec; border-radius:12px;">
+                            %ROWS%
+                        </table>
+                    </td>
+                </tr>""";
+
+    private static final String DETAIL_ROW = """
+                            <tr>
+                                <td class="font" style="padding:18px 22px 6px 22px; font-size:12px; line-height:1.5; color:#8c8c8c; text-transform:lowercase; letter-spacing:0.5px;">%LABEL%</td>
+                            </tr>
+                            <tr>
+                                <td class="font" style="padding:0 22px 18px 22px; font-size:16px; line-height:1.5; font-weight:600; color:#111111;">%VALUE%</td>
+                            </tr>""";
+
+    private static final String NEXT_BLOCK = """
+                <tr>
+                    <td class="pad font" style="padding:20px 40px 24px 40px; font-size:16px; line-height:1.6; color:#333333;">
+                        %TEXT%
+                    </td>
+                </tr>""";
+
+    public static String getDeliveryStatusSubject(DeliveryNotification notification, String orderPublicId) {
+        String order = "#" + upper(orderPublicId);
+        return switch (notification) {
+            case SHIPPED -> "Заказ " + order + " передан в СДЭК";
+            case ARRIVED_AT_PVZ -> "Заказ " + order + " ждёт вас в пункте выдачи";
+            case READY_FOR_PICKUP -> "Заказ " + order + " готов к выдаче";
+        };
+    }
+
+    public static String getDeliveryStatusEmail(DeliveryStatusEmailPayload payload, String supportPhone) {
+        String supportTelegram = payload.getSupportTelegram() == null || payload.getSupportTelegram().isBlank()
+                ? Shop.DEFAULT_SUPPORT_TELEGRAM
+                : payload.getSupportTelegram();
+        String order = esc(upper(payload.getOrderPublicId()));
+        String greeting = payload.getCustomerName() == null || payload.getCustomerName().isBlank()
+                ? "Здравствуйте!"
+                : "Здравствуйте, " + esc(payload.getCustomerName()) + "!";
+        String tracker = payload.getTracker() == null || payload.getTracker().isBlank() ? null : payload.getTracker().trim();
+        String pvz = joinPvz(payload.getPvzCity(), payload.getPvzStreet());
+        String trackingLink = tracker == null ? "https://anyforms.ru/shop" : CDEK_TRACKING_URL + esc(tracker);
+
+        String title;
+        String preheader;
+        String intro;
+        String details;
+        String next;
+        String ctaText;
+        String ctaLink;
+        switch (payload.getNotification()) {
+            case SHIPPED -> {
+                title = "заказ&nbsp;<span style=\"text-transform:uppercase;\">#" + order + "</span> отправлен";
+                preheader = "Посылка передана в СДЭК. Трек-номер и адрес пункта выдачи — внутри.";
+                intro = greeting + " Ваш заказ передан в&nbsp;СДЭК и&nbsp;уже едет в&nbsp;пункт выдачи. Ниже трек-номер для&nbsp;отслеживания.";
+                String eta = payload.getDeliveryEta() == null || payload.getDeliveryEta().isBlank() ? null : esc(payload.getDeliveryEta());
+                details = detailRow("трек-номер СДЭК", tracker)
+                        + detailRow("ориентировочный срок доставки", eta)
+                        + detailRow("пункт выдачи", pvz);
+                next = "Когда посылка приедет в&nbsp;пункт выдачи, мы&nbsp;пришлём ещё одно письмо. Доставка оплачивается при&nbsp;получении.";
+                ctaText = "Отследить посылку";
+                ctaLink = trackingLink;
+            }
+            case ARRIVED_AT_PVZ -> {
+                title = "заказ&nbsp;<span style=\"text-transform:uppercase;\">#" + order + "</span> приехал";
+                preheader = "Посылка уже в пункте выдачи СДЭК — можно забирать.";
+                intro = greeting + " Ваша посылка приехала в&nbsp;пункт выдачи СДЭК — можно забирать. Для&nbsp;получения назовите трек-номер или номер телефона получателя.";
+                details = detailRow("пункт выдачи", pvz) + detailRow("трек-номер СДЭК", tracker);
+                next = "Доставка оплачивается при&nbsp;получении. Срок хранения посылки в&nbsp;пункте выдачи ограничен — постарайтесь забрать её в&nbsp;ближайшие дни.";
+                ctaText = "Отследить посылку";
+                ctaLink = trackingLink;
+            }
+            case READY_FOR_PICKUP -> {
+                title = "заказ&nbsp;<span style=\"text-transform:uppercase;\">#" + order + "</span> готов";
+                preheader = "Заказ собран и ждёт самовывоза.";
+                intro = greeting + " Ваш заказ собран и&nbsp;готов к&nbsp;самовывозу. Напишите нам, чтобы договориться о&nbsp;времени и&nbsp;месте получения.";
+                details = "";
+                next = "";
+                ctaText = "Написать в Telegram";
+                ctaLink = "https://t.me/" + esc(supportTelegram);
+            }
+            default -> throw new IllegalArgumentException("Неизвестный тип уведомления о доставке: " + payload.getNotification());
+        }
+
+        return load("templates/email-delivery-status.html")
+                .replace("%SUBJECT%", esc(getDeliveryStatusSubject(payload.getNotification(), payload.getOrderPublicId())))
+                .replace("%PREHEADER%", preheader)
+                .replace("%TITLE%", title)
+                .replace("%INTRO%", intro)
+                .replace("%DETAILS%", details.isEmpty() ? "" : DETAILS_BLOCK.replace("%ROWS%", details))
+                .replace("%NEXT%", next.isEmpty() ? "" : NEXT_BLOCK.replace("%TEXT%", next))
+                .replace("%CTA_TEXT%", ctaText)
+                .replace("%CTA_LINK%", ctaLink)
+                .replace("%SUPPORT_PHONE_BLOCK%", supportPhoneBlock(supportPhone))
+                .replace("%SUPPORT_TG%", esc(supportTelegram))
+                .replace("%ORDER%", order);
+    }
+
+    private static String detailRow(String label, String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return DETAIL_ROW.replace("%LABEL%", label).replace("%VALUE%", esc(value));
+    }
+
+    private static String supportPhoneBlock(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return ".";
+        }
+        String digits = phone.replaceAll("[^0-9+]", "");
+        return " или по&nbsp;телефону <a href=\"tel:" + esc(digits) + "\" style=\"color:#111111; font-weight:700; text-decoration:underline; white-space:nowrap;\">"
+                + esc(formatPhone(digits)) + "</a> — он&nbsp;же в&nbsp;Max, WhatsApp и&nbsp;Telegram.";
+    }
+
+    private static String formatPhone(String digits) {
+        if (!digits.matches("\\+7\\d{10}")) {
+            return digits;
+        }
+        return "+7 " + digits.substring(2, 5) + " " + digits.substring(5, 8) + "-" + digits.substring(8, 10) + "-" + digits.substring(10);
+    }
+
+    private static String upper(String value) {
+        return value == null ? "" : value.toUpperCase();
     }
 
     /** "890.00" → "890", "1890.50" → "1890.50". */

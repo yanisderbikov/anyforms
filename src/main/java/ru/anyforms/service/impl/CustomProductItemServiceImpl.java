@@ -24,7 +24,7 @@ import ru.anyforms.repository.CustomProductFileRepository;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
-import ru.anyforms.service.DeliveryBotNotifier;
+import ru.anyforms.service.DeliveryNotifier;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.PublicIdGenerator;
@@ -51,7 +51,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private final S3FileStorage s3FileStorage;
     private final ConverterOrder converterOrder;
     private final ApplicationEventPublisher eventPublisher;
-    private final DeliveryBotNotifier deliveryBotNotifier;
+    private final DeliveryNotifier deliveryNotifier;
 
     @Override
     @Transactional(readOnly = true)
@@ -262,7 +262,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         }
         if (pickup) {
             if (order.getLeadId() != null) {
-                deliveryBotNotifier.notifyPickupReady(order.getLeadId());
+                deliveryNotifier.notifyReadyForPickup(order);
             } else {
                 log.warn("Order {} is pickup-ready but has no leadId, pickup bot not triggered", orderId);
             }

@@ -63,28 +63,27 @@ class MarketplaceFulfillmentServiceTest {
     }
 
     @Test
-    void anyformsOrderCreatesLeadAndRunsThankYouBot() {
+    void anyformsOrderCreatesLeadAndSendsReceiptWithoutBot() {
         order.setShop(shop(Shop.DEFAULT_SLUG));
 
         service.fulfill(transaction);
 
         assertEquals(LEAD_ID, order.getLeadId());
-        List<SalesbotRunTaskPayload> bots = salesbotTasks();
-        assertEquals(1, bots.size());
-        assertEquals(LEAD_ID, bots.get(0).getLeadId());
+        assertEquals(1, tasks(MarketplaceOrderEmailPayload.class).size());
+        assertTrue(salesbotTasks().isEmpty());
     }
 
     @Test
-    void orderWithoutShopRunsThankYouBot() {
+    void orderWithoutShopDoesNotRunBot() {
         order.setShop(null);
 
         service.fulfill(transaction);
 
-        assertEquals(1, salesbotTasks().size());
+        assertTrue(salesbotTasks().isEmpty());
     }
 
     @Test
-    void partnerShopOrderCreatesLeadButDoesNotRunBot() {
+    void partnerShopOrderCreatesLeadAndSendsReceiptWithoutBot() {
         order.setShop(shop("af_pastry"));
 
         service.fulfill(transaction);

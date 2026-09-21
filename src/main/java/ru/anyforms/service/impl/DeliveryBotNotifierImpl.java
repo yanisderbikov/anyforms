@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ru.anyforms.dto.cdek.CdekDeliveryEta;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.amo.AmoLead;
@@ -34,11 +35,12 @@ class DeliveryBotNotifierImpl implements DeliveryBotNotifier {
     private Long pickupReadyBotId;
 
     @Override
-    public void notifyShipped(Long leadId, String tracker) {
+    public void notifyShipped(Long leadId, String tracker, CdekDeliveryEta eta) {
         if (leadId == null) {
             return;
         }
         ensureTrackerInAmo(leadId, tracker);
+        setDeliveryEtaInAmo(leadId, eta);
         runOnce(leadId, trackerSentBotId);
     }
 
@@ -71,6 +73,18 @@ class DeliveryBotNotifierImpl implements DeliveryBotNotifier {
             }
         } catch (Exception e) {
             log.error("Failed to ensure tracker {} in AmoCRM for lead {}: {}", tracker, leadId, e.getMessage(), e);
+        }
+    }
+
+    private void setDeliveryEtaInAmo(Long leadId, CdekDeliveryEta eta) {
+        if (eta == null) {
+            return;
+        }
+        try {
+            amoCrmGateway.updateLeadCustomField(leadId, AmoCrmFieldId.DELIVERY_ETA.getId(), eta.daysText());
+            log.info("Delivery ETA '{}' set in AmoCRM for lead {}", eta.daysText(), leadId);
+        } catch (Exception e) {
+            log.error("Failed to set delivery ETA for lead {}: {}", leadId, e.getMessage(), e);
         }
     }
 
