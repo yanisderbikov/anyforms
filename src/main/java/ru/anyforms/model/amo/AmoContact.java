@@ -77,5 +77,10 @@ public class AmoContact {
         if (phone == null || phone.isEmpty()) return null;
         return phone.get(0).value;
     }
+
+    public String getDefaultEmail() {
+        if (email == null || email.isEmpty()) return null;
+        return email.get(0).value;
+    }
 }
 

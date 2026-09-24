@@ -4,13 +4,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import ru.anyforms.dto.cdek.CdekDeliveryEta;
 import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
+import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.amo.AmoContact;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.DeliveryEtaResolver;
 import ru.anyforms.service.task.TaskAdder;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,7 +33,16 @@ class DeliveryNotifierImplTest {
     private final TaskAdder taskAdder = mock(TaskAdder.class);
     private final SaverOrder saverOrder = mock(SaverOrder.class);
     private final DeliveryEtaResolver deliveryEtaResolver = mock(DeliveryEtaResolver.class);
-    private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier, taskAdder, saverOrder, deliveryEtaResolver);
+    private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
+    private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier, taskAdder, saverOrder, deliveryEtaResolver, amoCrmGateway);
+
+    private static AmoContact contactWithEmail(String value) {
+        AmoContact.Email email = new AmoContact.Email();
+        email.setValue(value);
+        AmoContact contact = new AmoContact();
+        contact.setEmail(List.of(email));
+        return contact;
+    }
 
     private static Order order(boolean retail) {
         Order order = new Order();
@@ -168,8 +181,61 @@ class DeliveryNotifierImplTest {
 
         notifier.notifyShipped(order, "1234567890");
 
+        verify(amoCrmGateway).getContactFromLead(777L);
         verify(taskAdder, never()).addTask(any());
+        verify(saverOrder, never()).save(any());
         verifyNoInteractions(deliveryBotNotifier);
+    }
+
+    @Test
+    void orderEmailWinsOverAmo() {
+        Order order = order(true);
+
+        notifier.notifyShipped(order, "1234567890");
+
+        assertEquals("buyer@mail.ru", emailTask().getTo());
+        verifyNoInteractions(amoCrmGateway);
+    }
+
+    @Test
+    void missingOrderEmailIsTakenFromAmoContactAndSaved() {
+        Order order = order(true);
+        order.setEmail(" ");
+        when(amoCrmGateway.getContactFromLead(777L)).thenReturn(contactWithEmail("amo@mail.ru"));
+
+        notifier.notifyArrivedAtPvz(order);
+
+        assertEquals("amo@mail.ru", emailTask().getTo());
+        assertEquals("amo@mail.ru", order.getEmail());
+        verify(saverOrder).save(order);
+    }
+
+    @Test
+    void amoFailureMeansNoEmail() {
+        Order order = order(true);
+        order.setEmail(null);
+        when(amoCrmGateway.getContactFromLead(777L)).thenThrow(new RuntimeException("amo down"));
+
+        notifier.notifyShipped(order, "1234567890");
+
+        verify(taskAdder, never()).addTask(any());
+        assertNull(order.getEmail());
+    }
+
+    @Test
+    void amoIsNotAskedWithoutLeadOrWhenAlreadyNotified() {
+        Order withoutLead = order(true);
+        withoutLead.setEmail(null);
+        withoutLead.setLeadId(null);
+        Order notified = order(true);
+        notified.setEmail(null);
+        notified.setLastDeliveryNotification(DeliveryNotification.SHIPPED);
+
+        notifier.notifyShipped(withoutLead, "1234567890");
+        notifier.notifyShipped(notified, "1234567890");
+
+        verifyNoInteractions(amoCrmGateway);
+        verify(taskAdder, never()).addTask(any());
     }
 
     @Test

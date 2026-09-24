@@ -5,8 +5,10 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.cdek.CdekDeliveryEta;
 import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
+import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.amo.AmoContact;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.repository.SaverOrder;
 import ru.anyforms.service.DeliveryBotNotifier;
@@ -23,6 +25,7 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
     private final TaskAdder taskAdder;
     private final SaverOrder saverOrder;
     private final DeliveryEtaResolver deliveryEtaResolver;
+    private final AmoCrmGateway amoCrmGateway;
 
     @Override
     public void notifyShipped(Order order, String tracker) {
@@ -76,12 +79,33 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
             log.info("Delivery email {} skipped for order #{}: already notified {}", notification, order.getId(), last);
             return false;
         }
-        String to = order.getEmail();
-        if (to == null || to.isBlank()) {
-            log.warn("Order #{} has no email, delivery notification {} not sent", order.getId(), notification);
-            return false;
+        if (isBlank(order.getEmail())) {
+            String fromAmo = emailFromAmo(order);
+            if (isBlank(fromAmo)) {
+                log.warn("Order #{} has no email, delivery notification {} not sent", order.getId(), notification);
+                return false;
+            }
+            order.setEmail(fromAmo);
+            log.info("Email for order #{} taken from AmoCRM contact of lead {}", order.getId(), order.getLeadId());
         }
         return true;
+    }
+
+    private String emailFromAmo(Order order) {
+        if (order.getLeadId() == null) {
+            return null;
+        }
+        try {
+            AmoContact contact = amoCrmGateway.getContactFromLead(order.getLeadId());
+            return contact != null ? contact.getDefaultEmail() : null;
+        } catch (Exception e) {
+            log.error("Failed to get email from AmoCRM for order #{} (lead {}): {}", order.getId(), order.getLeadId(), e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void sendEmail(Order order, DeliveryNotification notification, String tracker, CdekDeliveryEta eta) {
