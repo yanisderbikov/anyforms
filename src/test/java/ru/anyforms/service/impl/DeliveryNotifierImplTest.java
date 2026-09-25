@@ -34,7 +34,7 @@ class DeliveryNotifierImplTest {
     private final SaverOrder saverOrder = mock(SaverOrder.class);
     private final DeliveryEtaResolver deliveryEtaResolver = mock(DeliveryEtaResolver.class);
     private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
-    private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier, taskAdder, saverOrder, deliveryEtaResolver, amoCrmGateway);
+    private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier, new DeliveryEmailQueuer(taskAdder, saverOrder), deliveryEtaResolver, amoCrmGateway);
 
     private static AmoContact contactWithEmail(String value) {
         AmoContact.Email email = new AmoContact.Email();
