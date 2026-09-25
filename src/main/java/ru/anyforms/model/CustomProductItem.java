@@ -41,6 +41,10 @@ public class CustomProductItem {
     @Column(name = "modeler")
     private String modeler;
 
+    /** Позиция под NDA — нельзя показывать наружу, на карточке бейдж. */
+    @Column(name = "nda", nullable = false)
+    private boolean nda = false;
+
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 

@@ -9,6 +9,7 @@ import ru.anyforms.dto.CustomOrderCreateRequestDTO;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderSource;
+import ru.anyforms.model.amo.AmoContactShop;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomOrderCreator;
@@ -98,6 +99,7 @@ class CustomOrderCreatorImpl implements CustomOrderCreator {
             if (!fields.isEmpty()) {
                 amoCrmGateway.updateContactCustomField(contactId, fields);
             }
+            amoCrmGateway.updateContactCustomField(contactId, AmoCrmFieldId.SHOP_CONTACT.getId(), AmoContactShop.valueFor(null));
         } catch (Exception e) {
             log.error("Под заказ: не удалось заполнить контакт сделки {}: {}", leadId, e.getMessage());
         }

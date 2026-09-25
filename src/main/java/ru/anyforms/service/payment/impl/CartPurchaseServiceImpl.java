@@ -398,6 +398,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         order.setPublicId(PublicIdGenerator.generateUnique(orderRepository::existsByPublicId));
         order.setContactName(fullName);
         order.setContactPhone(request.getPhone());
+        order.setEmail(request.getEmail());
         order.setPvzSdekCity(request.getPvzCity());
         order.setPvzSdekStreet(request.getPvzStreet());
         order.setDeliveryMethod(PickupAddressDetector.isPickup(request.getPvzCity(), request.getPvzStreet())

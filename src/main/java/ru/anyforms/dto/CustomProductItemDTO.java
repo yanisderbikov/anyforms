@@ -33,6 +33,9 @@ public class CustomProductItemDTO {
     @Schema(description = "Кто моделирует позицию")
     private String modeler;
 
+    @Schema(description = "Позиция под NDA")
+    private boolean nda;
+
     private CustomProductStatus status;
 
     @Schema(description = "Человекочитаемый статус", example = "В производстве")

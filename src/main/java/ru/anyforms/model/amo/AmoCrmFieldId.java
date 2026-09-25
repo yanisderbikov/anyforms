@@ -7,6 +7,7 @@ public enum AmoCrmFieldId {
     // Поля для трекинга и доставки
     TRACKER(2348069L, "Трекер"),
     DELIVERY_STATUS(2601105L, "Статус доставки"),
+    DELIVERY_ETA(2973857L, "Время доставки"),
 
     RELEASED_AT(2757837L, "Завершен заказ"),
 
@@ -17,8 +18,10 @@ public enum AmoCrmFieldId {
 
     FIO_CONTACT(2449809L, "ФИО"),
     PHONE_CONTACT(2265635L, "Телефон"),
+    EMAIL_CONTACT(2265637L, "Email"),
     PVZ_STREET_CONTACT(2370939L, "ПВЗ СДЭК улица"),
     PVZ_CITY_CONTACT(2331841L, "ПВЗ СДЭК город"),
+    SHOP_CONTACT(2973861L, "Магазин"),
 
     // Поля для сделок
     PRODUCT_TYPE(2482683L, "Тип продукта (мультисписок)"),

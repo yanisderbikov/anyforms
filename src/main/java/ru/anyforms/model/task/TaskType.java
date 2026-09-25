@@ -4,6 +4,7 @@ import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
 import ru.anyforms.dto.amo.FailedPaymentAmoTaskPayload;
 import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
 import ru.anyforms.dto.amo.SalesbotRunTaskPayload;
+import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.dto.email.ReceiptEmailTaskPayload;
@@ -15,6 +16,8 @@ public enum TaskType {
     MARKETPLACE_ORDER_EMAIL(MarketplaceOrderEmailPayload.class),
     /** Письмо со ссылкой на чек Юкассы. */
     RECEIPT_EMAIL(ReceiptEmailTaskPayload.class),
+    /** Письмо розничному покупателю о статусе доставки. */
+    DELIVERY_STATUS_EMAIL(DeliveryStatusEmailPayload.class),
     AMO_GUIDE_LEAD(GuideAmoLeadTaskPayload.class),
     AMO_COURSE_BOUGHT(CourseAmoLeadTaskPayload.class),
     /** Сделка и задача «Пропущенное» в АМО о неуспешной оплате. */

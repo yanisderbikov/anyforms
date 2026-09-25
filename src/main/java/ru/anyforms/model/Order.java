@@ -34,11 +34,18 @@ public class Order {
     @Column(name = "contact_phone")
     private String contactPhone;
 
+    @Column(name = "email")
+    private String email;
+
     @Column(name = "tracker")
     private String tracker;
 
     @Column(name = "delivery_status")
     private String deliveryStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "last_delivery_notification", length = 32)
+    private DeliveryNotification lastDeliveryNotification;
 
     @Column(name = "pvz_sdek")
     private String pvzSdekStreet;

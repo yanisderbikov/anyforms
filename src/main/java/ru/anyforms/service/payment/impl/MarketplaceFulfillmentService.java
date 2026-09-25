@@ -5,12 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.anyforms.dto.amo.SalesbotRunTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderItem;
 import ru.anyforms.model.OrderPaymentStatus;
+import ru.anyforms.model.amo.AmoContactShop;
 import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PaymentTransaction;
@@ -32,8 +32,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 class MarketplaceFulfillmentService {
-
-    private static final Long MARKETPLACE_PAID_BOT_ID = 24541L;
 
     private final OrderRepository orderRepository;
     private final AmoCrmGateway amoCrmGateway;
@@ -133,18 +131,6 @@ class MarketplaceFulfillmentService {
             log.error("Маркетплейс: не удалось синкануть заказ #{} из АМО (lead {}): {}",
                     order.getId(), leadId, e.getMessage());
         }
-
-        if (isAnyformsShop(order.getShop())) {
-            taskAdder.addTask(SalesbotRunTaskPayload.builder()
-                    .leadId(leadId)
-                    .botId(MARKETPLACE_PAID_BOT_ID)
-                    .build());
-        }
-    }
-
-    private static boolean isAnyformsShop(Shop shop) {
-        return shop == null || shop.getSlug() == null || shop.getSlug().isBlank()
-                || Shop.DEFAULT_SLUG.equals(shop.getSlug());
     }
 
     /** Бюджет сделки, «Дата оплаты» (unix-секунды — так его парсит синк заказов) и чекбокс «Розница». */
@@ -185,9 +171,20 @@ class MarketplaceFulfillmentService {
             if (!fields.isEmpty()) {
                 amoCrmGateway.updateContactCustomField(contactId, fields);
             }
+            setContactShop(order, contactId);
         } catch (Exception e) {
             log.error("Маркетплейс: не удалось заполнить контакт сделки {}: {}", leadId, e.getMessage());
         }
+    }
+
+    private void setContactShop(Order order, Long contactId) {
+        String shop = AmoContactShop.valueFor(order.getShop());
+        if (shop == null) {
+            log.warn("Маркетплейс: магазин {} не заведён в списке поля «Магазин» контакта, заказ #{} — поле не заполнено",
+                    order.getShop() != null ? order.getShop().getSlug() : null, order.getId());
+            return;
+        }
+        amoCrmGateway.updateContactCustomField(contactId, AmoCrmFieldId.SHOP_CONTACT.getId(), shop);
     }
 
     /** Привязывает товары каталога АМО к сделке; позиции без маппинга — примечанием в сделку. */
