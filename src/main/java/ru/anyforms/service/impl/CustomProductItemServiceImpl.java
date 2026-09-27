@@ -81,6 +81,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setOrderId(null);
         dto.setLeadId(null);
         dto.setClientName(null);
+        dto.setStorageCell(null);
         return dto;
     }
 
@@ -142,6 +143,14 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         }
         CustomProductItem item = getOrThrow(itemId);
         item.setStatus(status);
+        return toDTO(itemRepository.save(item));
+    }
+
+    @Override
+    @Transactional
+    public CustomProductItemDTO updateStorageCell(Long itemId, String storageCell) {
+        CustomProductItem item = getOrThrow(itemId);
+        item.setStorageCell(normalizeStorageCell(storageCell));
         return toDTO(itemRepository.save(item));
     }
 
@@ -301,6 +310,13 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         String modeler = request.getModeler();
         item.setModeler(modeler != null && !modeler.isBlank() ? modeler.trim() : null);
         item.setNda(Boolean.TRUE.equals(request.getNda()));
+        if (request.getStorageCell() != null) {
+            item.setStorageCell(normalizeStorageCell(request.getStorageCell()));
+        }
+    }
+
+    private static String normalizeStorageCell(String storageCell) {
+        return storageCell == null || storageCell.isBlank() ? null : storageCell.trim();
     }
 
     private CustomProductItemDTO toDTO(CustomProductItem item) {
@@ -315,6 +331,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setQuantity(item.getQuantity());
         dto.setModeler(item.getModeler());
         dto.setNda(item.isNda());
+        dto.setStorageCell(item.getStorageCell());
         dto.setStatus(item.getStatus());
         dto.setStatusDescription(item.getStatus() != null ? item.getStatus().getDescription() : null);
         dto.setStatusUpdatedAt(item.getStatusUpdatedAt());

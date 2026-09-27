@@ -36,6 +36,9 @@ public class CustomProductItemDTO {
     @Schema(description = "Позиция под NDA")
     private boolean nda;
 
+    @Schema(description = "Ячейка хранения: где лежат мастер-модель и материалы. В публичном ответе null")
+    private String storageCell;
+
     private CustomProductStatus status;
 
     @Schema(description = "Человекочитаемый статус", example = "В производстве")
