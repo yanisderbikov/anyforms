@@ -42,4 +42,11 @@ public class PromoCodeCreateUpdateRequest {
 
     /** ISO-8601, исключительная граница; null — бессрочно. */
     private String validUntil;
+
+    @Schema(description = "Только на первый заказ в магазине; null — нет")
+    private Boolean firstOrderOnly;
+
+    @Positive(message = "Лимит использований должен быть больше нуля")
+    @Schema(description = "Сколько раз всего можно использовать код; null — без ограничений")
+    private Integer maxUses;
 }

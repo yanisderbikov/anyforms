@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -133,6 +134,27 @@ class MarketplaceFulfillmentServiceTest {
         verify(orderService).syncOrder(LEAD_ID);
         assertEquals(1, tasks(MarketplaceOrderEmailPayload.class).size());
         assertTrue(salesbotTasks().isEmpty());
+    }
+
+    @Test
+    void freeDeliveryOrderGetsLeadNoteAndFreeDeliveryEmail() {
+        order.setShop(shop(Shop.DEFAULT_SLUG));
+        order.setFreeDelivery(true);
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).addNoteToLead(LEAD_ID, MarketplaceFulfillmentService.FREE_DELIVERY_NOTE);
+        assertTrue(tasks(MarketplaceOrderEmailPayload.class).get(0).isFreeDelivery());
+    }
+
+    @Test
+    void regularOrderHasNoFreeDeliveryNote() {
+        order.setShop(shop(Shop.DEFAULT_SLUG));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway, never()).addNoteToLead(LEAD_ID, MarketplaceFulfillmentService.FREE_DELIVERY_NOTE);
+        assertFalse(tasks(MarketplaceOrderEmailPayload.class).get(0).isFreeDelivery());
     }
 
     private List<SalesbotRunTaskPayload> salesbotTasks() {

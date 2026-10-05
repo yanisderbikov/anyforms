@@ -7,7 +7,10 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.payment.PromoCodeCreateUpdateRequest;
 import ru.anyforms.dto.payment.PromoCodeDTO;
 import ru.anyforms.model.payment.PromoCode;
+import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.repository.GetterPromoCode;
+import ru.anyforms.repository.GetterPromoPopup;
+import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.PromoCodeDeleter;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.service.payment.PromoCodeAdminService;
@@ -17,6 +20,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,11 +29,13 @@ class PromoCodeAdminServiceImpl implements PromoCodeAdminService {
     private final GetterPromoCode getterPromoCode;
     private final SaverPromoCode saverPromoCode;
     private final PromoCodeDeleter promoCodeDeleter;
+    private final GetterPromoPopup getterPromoPopup;
+    private final GetterTransaction getterTransaction;
 
     @Override
     public List<PromoCodeDTO> listNotExpired() {
         return getterPromoCode.getAllNotExpired(Instant.now()).stream()
-                .map(PromoCodeDTO::from)
+                .map(p -> PromoCodeDTO.from(p, getterTransaction.countSucceededByPromoCode(p.getCode())))
                 .toList();
     }
 
@@ -62,6 +68,12 @@ class PromoCodeAdminServiceImpl implements PromoCodeAdminService {
         if (getterPromoCode.getById(id).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Промокод не найден: " + id);
         }
+        List<PromoPopup> popups = getterPromoPopup.getByPromoCodeId(id);
+        if (!popups.isEmpty()) {
+            String names = popups.stream().map(p -> "«" + p.getName() + "»").collect(Collectors.joining(", "));
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Промокод показывается в попапе " + names + " — сначала выберите там другой код или удалите попап.");
+        }
         promoCodeDeleter.deleteById(id);
     }
 
@@ -92,6 +104,8 @@ class PromoCodeAdminServiceImpl implements PromoCodeAdminService {
         promo.setActive(request.getActive());
         promo.setValidFrom(validFrom);
         promo.setValidUntil(validUntil);
+        promo.setFirstOrderOnly(Boolean.TRUE.equals(request.getFirstOrderOnly()));
+        promo.setMaxUses(request.getMaxUses());
     }
 
     private Instant parseInstant(String value, String field) {

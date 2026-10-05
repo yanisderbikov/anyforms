@@ -2,6 +2,7 @@ package ru.anyforms.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.anyforms.model.Order;
 
@@ -142,4 +143,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
          AND (o.deliveryStatus IS NULL OR o.deliveryStatus <> 'DELIVERED')
        """)
     long countRetailInDelivery();
+
+    @Query(value = """
+       SELECT EXISTS (
+           SELECT 1 FROM orders o
+           WHERE o.retail = TRUE
+             AND o.payment_status IN ('NONE', 'PAID', 'REFUNDED')
+             AND ((:email <> '' AND lower(coalesce(o.email, '')) = lower(:email))
+                  OR (:phoneLast10 <> ''
+                      AND right(regexp_replace(coalesce(o.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                  OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
+       )
+       """, nativeQuery = true)
+    boolean existsRetailOrderByCustomer(@Param("email") String email,
+                                        @Param("phoneLast10") String phoneLast10,
+                                        @Param("deviceId") String deviceId);
 }

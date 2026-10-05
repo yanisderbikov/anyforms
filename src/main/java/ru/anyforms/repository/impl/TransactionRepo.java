@@ -89,14 +89,70 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
                 LEFT JOIN orders o ON o.id = pt.order_id
                 WHERE pt.promo_code = :promoCode
                   AND pt.status IN ('SUCCEEDED', 'REFUNDED')
-                  AND (lower(pt.email) = lower(:email)
+                  AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
                        OR (:phoneLast10 <> ''
-                           AND right(regexp_replace(coalesce(o.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10))
+                           AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                       OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
             )
             """, nativeQuery = true)
     boolean promoUsedByCustomer(@Param("promoCode") String promoCode,
                                 @Param("email") String email,
-                                @Param("phoneLast10") String phoneLast10);
+                                @Param("phoneLast10") String phoneLast10,
+                                @Param("deviceId") String deviceId);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM payment_transaction pt
+            LEFT JOIN orders o ON o.id = pt.order_id
+            WHERE pt.promo_code = :promoCode
+              AND (pt.status IN ('SUCCEEDED', 'REFUNDED')
+                   OR (pt.status = 'PENDING'
+                       AND pt.created_at >= :pendingSince
+                       AND NOT ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
+                                OR (:phoneLast10 <> ''
+                                    AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                                OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))))
+            """, nativeQuery = true)
+    long countPromoUsesExceptCustomerPending(@Param("promoCode") String promoCode,
+                                             @Param("email") String email,
+                                             @Param("phoneLast10") String phoneLast10,
+                                             @Param("deviceId") String deviceId,
+                                             @Param("pendingSince") Instant pendingSince);
+
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM payment_transaction pt
+                JOIN promo_code pc ON pc.code = pt.promo_code
+                LEFT JOIN orders o ON o.id = pt.order_id
+                WHERE pc.popup_id = :popupId
+                  AND pt.status IN ('SUCCEEDED', 'REFUNDED')
+                  AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
+                       OR (:phoneLast10 <> ''
+                           AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                       OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
+            )
+            """, nativeQuery = true)
+    boolean popupCodeUsedByCustomer(@Param("popupId") UUID popupId,
+                                    @Param("email") String email,
+                                    @Param("phoneLast10") String phoneLast10,
+                                    @Param("deviceId") String deviceId);
+
+    @Query(value = """
+            SELECT CAST(pc.popup_id AS VARCHAR) AS popup_id, COUNT(*) AS uses
+            FROM payment_transaction pt
+            JOIN promo_code pc ON pc.code = pt.promo_code
+            WHERE pc.popup_id IS NOT NULL
+              AND pt.status = 'SUCCEEDED'
+            GROUP BY pc.popup_id
+            """, nativeQuery = true)
+    List<Object[]> countSucceededByPopup();
+
+    @Query(value = """
+            SELECT COUNT(*) FROM payment_transaction pt
+            WHERE pt.promo_code = :promoCode AND pt.status = 'SUCCEEDED'
+            """, nativeQuery = true)
+    long countSucceededByPromoCode(@Param("promoCode") String promoCode);
 
     List<PaymentTransaction> findByProviderAndStatusAndProductCodeAndCreatedAtBetweenOrderByCreatedAtAsc(
             PaymentProvider provider,

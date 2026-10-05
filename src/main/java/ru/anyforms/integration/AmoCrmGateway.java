@@ -193,6 +193,9 @@ public interface AmoCrmGateway {
     Long createLead(String leadName, String contactName, String phone, String email,
                     Long pipelineId, Long statusId, Long responsibleUserId);
 
+    Long createLead(String leadName, String contactName, String phone, String email,
+                    Long pipelineId, Long statusId, Long responsibleUserId, Map<String, String> utmByFieldCode);
+
     Long findContactIdByQuery(String query);
 
     List<Long> getLeadIdsByContact(Long contactId);

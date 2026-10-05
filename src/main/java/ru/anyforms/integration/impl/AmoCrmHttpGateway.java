@@ -1237,7 +1237,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     @Override
     public Long createLandingLead(String leadName, String contactName, String phone,
                                   Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
-        return createLead(leadName, contactName, phone, null,
+        return createLeadWithUtm(leadName, contactName, phone, null,
                 pipelineId != null ? pipelineId : landingPipelineId,
                 statusId != null ? statusId : landingStatusId,
                 null,
@@ -1246,24 +1246,32 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, null, pipelineId, statusId, null, Map.of());
+        return createLeadWithUtm(leadName, contactName, phone, null, pipelineId, statusId, null, Map.of());
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, String email,
                            Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, email, pipelineId, statusId, null, Map.of());
+        return createLeadWithUtm(leadName, contactName, phone, email, pipelineId, statusId, null, Map.of());
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, String email,
                            Long pipelineId, Long statusId, Long responsibleUserId) {
-        return createLead(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId, Map.of());
+        return createLeadWithUtm(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId, Map.of());
     }
 
-    private Long createLead(String leadName, String contactName, String phone, String email,
-                            Long pipelineId, Long statusId, Long responsibleUserId,
-                            Map<String, String> utmByFieldCode) {
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId, Long responsibleUserId,
+                           Map<String, String> utmByFieldCode) {
+        return createLeadWithUtm(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId,
+                utmByFieldCode);
+    }
+
+    private Long createLeadWithUtm(String leadName, String contactName, String phone, String email,
+                                   Long pipelineId, Long statusId, Long responsibleUserId,
+                                   Map<String, String> utmByFieldCode) {
         try {
             JsonObject lead = newLeadJson(leadName, pipelineId, statusId, responsibleUserId,
                     resolveContact(contactName, phone, email));

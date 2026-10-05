@@ -33,6 +33,10 @@ import java.util.stream.Collectors;
 @Slf4j
 class MarketplaceFulfillmentService {
 
+    static final String FREE_DELIVERY_NOTE =
+            "Бесплатная доставка: заказ прошёл порог акции, доставку СДЭК оплачиваем мы — "
+                    + "оформляйте отправление без оплаты доставки получателем.";
+
     private final OrderRepository orderRepository;
     private final AmoCrmGateway amoCrmGateway;
     private final OrderService orderService;
@@ -124,6 +128,7 @@ class MarketplaceFulfillmentService {
         fillLeadFields(leadId, transaction);
         fillContactFields(order, leadId);
         linkProducts(order, leadId, items);
+        noteFreeDelivery(order, leadId);
 
         try {
             orderService.syncOrder(leadId);
@@ -222,6 +227,18 @@ class MarketplaceFulfillmentService {
         }
     }
 
+    private void noteFreeDelivery(Order order, Long leadId) {
+        if (!order.isFreeDelivery()) {
+            return;
+        }
+        try {
+            amoCrmGateway.addNoteToLead(leadId, FREE_DELIVERY_NOTE);
+        } catch (Exception e) {
+            log.error("Маркетплейс: не удалось добавить примечание о бесплатной доставке в сделку {}: {}",
+                    leadId, e.getMessage());
+        }
+    }
+
     private Order findOrder(PaymentTransaction transaction) {
         if (transaction.getOrderId() == null) {
             log.error("Маркетплейс: у транзакции {} нет orderId", transaction.getId());
@@ -256,6 +273,7 @@ class MarketplaceFulfillmentService {
                 .supportTelegram(shop != null ? shop.getSupportTelegram() : Shop.DEFAULT_SUPPORT_TELEGRAM)
                 .shopSlug(shop != null ? shop.getSlug() : Shop.DEFAULT_SLUG)
                 .shopName(shop != null ? shop.getName() : Shop.DEFAULT_SLUG)
+                .freeDelivery(order.isFreeDelivery())
                 .items(emailItems)
                 .build();
     }

@@ -190,6 +190,9 @@ class PurchaseServiceImpl implements PurchaseService {
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
         }
+        if (promo.getShopSlug() != null || promo.isPersonal()) {
+            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует только в магазине.");
+        }
         if (!promo.meetsMinOrder(priceKopecks)) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует для заказов от "
                     + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".");

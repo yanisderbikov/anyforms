@@ -76,6 +76,11 @@ public class PaymentController {
                     .code(promo.getCode()).priceKopecks(price)
                     .message("Срок действия промокода истёк.").build());
         }
+        if (promo.getShopSlug() != null || promo.isPersonal()) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .code(promo.getCode()).priceKopecks(price)
+                    .message("Этот промокод действует только в магазине.").build());
+        }
         if (!promo.meetsMinOrder(price)) {
             return ResponseEntity.ok(PromoCheckResponse.builder()
                     .code(promo.getCode()).priceKopecks(price)
@@ -105,8 +110,10 @@ public class PaymentController {
             @RequestParam("code") String code,
             @RequestParam("email") String email,
             @RequestParam(value = "phone", required = false) String phone,
-            @RequestParam(value = "totalKopecks", required = false) Long totalKopecks) {
-        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone, totalKopecks));
+            @RequestParam(value = "totalKopecks", required = false) Long totalKopecks,
+            @RequestParam(value = "shopSlug", required = false) String shopSlug,
+            @RequestParam(value = "deviceId", required = false) String deviceId) {
+        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone, deviceId, shopSlug, totalKopecks));
     }
 
     @ExceptionHandler(InvalidPromoCodeException.class)

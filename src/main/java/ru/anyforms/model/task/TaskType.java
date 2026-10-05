@@ -4,10 +4,12 @@ import ru.anyforms.dto.amo.AmoReplyCheckTaskPayload;
 import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
 import ru.anyforms.dto.amo.FailedPaymentAmoTaskPayload;
 import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
+import ru.anyforms.dto.amo.PromoPopupAmoLeadTaskPayload;
 import ru.anyforms.dto.amo.SalesbotRunTaskPayload;
 import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
 import ru.anyforms.dto.email.EmailTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.dto.email.PromoPopupCodeEmailPayload;
 import ru.anyforms.dto.email.ReceiptEmailTaskPayload;
 
 public enum TaskType {
@@ -24,7 +26,9 @@ public enum TaskType {
     /** Сделка и задача «Пропущенное» в АМО о неуспешной оплате. */
     AMO_FAILED_PAYMENT(FailedPaymentAmoTaskPayload.class),
     AMO_SALESBOT_RUN(SalesbotRunTaskPayload.class),
-    AMO_REPLY_CHECK(AmoReplyCheckTaskPayload.class);
+    AMO_REPLY_CHECK(AmoReplyCheckTaskPayload.class),
+    AMO_PROMO_POPUP_LEAD(PromoPopupAmoLeadTaskPayload.class),
+    PROMO_POPUP_CODE_EMAIL(PromoPopupCodeEmailPayload.class);
 
     private final Class<?> payloadClass;
 

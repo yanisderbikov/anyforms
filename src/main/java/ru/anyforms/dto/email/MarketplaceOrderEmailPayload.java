@@ -26,6 +26,7 @@ public class MarketplaceOrderEmailPayload {
     private String supportTelegram;
     private String shopSlug;
     private String shopName;
+    private boolean freeDelivery;
     private List<Item> items;
 
     @Data

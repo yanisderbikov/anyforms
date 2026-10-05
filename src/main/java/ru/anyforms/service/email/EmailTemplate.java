@@ -4,7 +4,11 @@ import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.marketplace.Shop;
+import ru.anyforms.util.MoneyUtil;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -69,8 +73,15 @@ public final class EmailTemplate {
                 .replace("%TOTAL%", formatRub(payload.getTotalRub()))
                 .replace("%PVZ%", esc(buildPvz(payload)))
                 .replace("%CUSTOMER%", esc(payload.getCustomerName() == null ? "" : payload.getCustomerName()))
+                .replace("%DELIVERY_NOTE%", payload.isFreeDelivery() ? FREE_DELIVERY_NOTE : PAID_DELIVERY_NOTE)
                 .replace("%SUPPORT_TG%", esc(supportTelegram));
     }
+
+    private static final String PAID_DELIVERY_NOTE =
+            "Доставка до&nbsp;пункта выдачи оплачивается при&nbsp;получении.";
+
+    private static final String FREE_DELIVERY_NOTE =
+            "Доставка до&nbsp;пункта выдачи для&nbsp;вас бесплатная&nbsp;— её&nbsp;оплачиваем мы.";
 
     /**
      * Оформление строк чека: строки собираются в коде, поэтому палитра и отступы
@@ -169,6 +180,32 @@ public final class EmailTemplate {
                         %TEXT%
                     </td>
                 </tr>""";
+
+    public static String getPromoCodeSubject(String discount) {
+        return "Ваш промокод на скидку " + discount;
+    }
+
+    public static String getPromoCodeEmail(String code, String discount, String lastValidDay,
+                                           Long minOrderKopecks, boolean firstOrderOnly) {
+        List<String> conditions = new ArrayList<>();
+        if (lastValidDay != null) {
+            conditions.add("Промокод действует по&nbsp;" + esc(lastValidDay) + " включительно.");
+        }
+        if (firstOrderOnly) {
+            conditions.add("Скидка распространяется на&nbsp;первый заказ.");
+        }
+        if (minOrderKopecks != null) {
+            conditions.add("Минимальная сумма заказа — " + esc(MoneyUtil.formatRubles(minOrderKopecks)) + ".");
+        }
+        conditions.add("Код персональный: он&nbsp;сработает с&nbsp;теми телефоном или почтой, которые вы&nbsp;указали.");
+        String encodedCode = URLEncoder.encode(code, StandardCharsets.UTF_8);
+        return load("templates/email-promo-code.html")
+                .replace("%SUBJECT%", esc(getPromoCodeSubject(discount)))
+                .replace("%DISCOUNT%", esc(discount))
+                .replace("%CODE%", esc(code))
+                .replace("%CONDITIONS%", String.join("<br>", conditions))
+                .replace("%CTA_LINK%", "https://anyforms.ru/shop?promo=" + encodedCode);
+    }
 
     public static String getDeliveryStatusSubject(DeliveryNotification notification, String orderPublicId) {
         String order = "#" + upper(orderPublicId);

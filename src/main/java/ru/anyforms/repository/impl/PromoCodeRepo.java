@@ -15,6 +15,6 @@ import java.util.UUID;
 interface PromoCodeRepo extends JpaRepository<PromoCode, UUID> {
     Optional<PromoCode> findByCode(String code);
 
-    @Query("select p from PromoCode p where p.validUntil is null or p.validUntil > :now order by p.createdAt desc")
+    @Query("select p from PromoCode p where p.popupId is null and (p.validUntil is null or p.validUntil > :now) order by p.createdAt desc")
     List<PromoCode> findAllNotExpired(@Param("now") Instant now);
 }
