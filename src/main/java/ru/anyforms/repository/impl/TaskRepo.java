@@ -7,12 +7,15 @@ import ru.anyforms.model.task.Task;
 import ru.anyforms.model.task.TaskStatus;
 import ru.anyforms.model.task.TaskType;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 @Repository
 interface TaskRepo extends JpaRepository<Task, UUID> {
     List<Task> findByTypeAndStatusOrderByCreatedAtAsc(TaskType type, TaskStatus status, Pageable pageable);
+
+    List<Task> findByTypeAndStatusAndCreatedAtBeforeOrderByCreatedAtAsc(TaskType type, TaskStatus status, Instant createdAt, Pageable pageable);
 
     List<Task> findByTypeOrderByCreatedAtDesc(TaskType type, Pageable pageable);
 

@@ -5,6 +5,7 @@ import io.netty.resolver.DefaultAddressResolverGroup;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.util.Map;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "email.provider", havingValue = "notisend", matchIfMissing = true)
 class NotiSendEmailService implements EmailService {
 
     private static final String NOTISEND_BASE_URL = "https://api.notisend.ru/v1";

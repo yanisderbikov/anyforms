@@ -6,12 +6,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.amo.AmoNewMessageWebhookPayload;
+import ru.anyforms.dto.amo.AmoReplyCheckTaskPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoPipeline;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.service.amo.AmoNewMessageProcessor;
+import ru.anyforms.service.task.TaskAdder;
 import ru.anyforms.util.pattern.MessagePatternOrder;
 
 import java.util.Set;
@@ -23,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
 
     private final AmoCrmGateway amoCrmGateway;
+    private final TaskAdder taskAdder;
 
     /**
      * Кеш leadId, для которых уже вызывался setNewTask. TTL 1 час — повторно задачу не ставим.
@@ -52,9 +55,10 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
         var lead  = amoCrmGateway.getLead(payload.getMessage().getEntity().getId());
         var pipelineId = lead.getPipelineId();
         if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId())) {
-            if (!lead.getStatusId().equals(AmoLeadStatus.FIST_TOUCH.getStatusId()) && lead.getResponsibleUserId().equals(AmoTaskResponsibleUser.IAN.getResponsibleUserId())) {
-                setTaskIfAbsent(lead.getId(), "Похоже что нужно ответить");
-            }
+            taskAdder.addTask(AmoReplyCheckTaskPayload.builder()
+                    .leadId(lead.getId())
+                    .chatId(payload.getMessage().getChatId())
+                    .build());
             return;
         }
         if (MessagePatternOrder.isNeedToMove(message)) {

@@ -1,5 +1,6 @@
 package ru.anyforms.model.task;
 
+import ru.anyforms.dto.amo.AmoReplyCheckTaskPayload;
 import ru.anyforms.dto.amo.CourseAmoLeadTaskPayload;
 import ru.anyforms.dto.amo.FailedPaymentAmoTaskPayload;
 import ru.anyforms.dto.amo.GuideAmoLeadTaskPayload;
@@ -22,7 +23,8 @@ public enum TaskType {
     AMO_COURSE_BOUGHT(CourseAmoLeadTaskPayload.class),
     /** Сделка и задача «Пропущенное» в АМО о неуспешной оплате. */
     AMO_FAILED_PAYMENT(FailedPaymentAmoTaskPayload.class),
-    AMO_SALESBOT_RUN(SalesbotRunTaskPayload.class);
+    AMO_SALESBOT_RUN(SalesbotRunTaskPayload.class),
+    AMO_REPLY_CHECK(AmoReplyCheckTaskPayload.class);
 
     private final Class<?> payloadClass;
 

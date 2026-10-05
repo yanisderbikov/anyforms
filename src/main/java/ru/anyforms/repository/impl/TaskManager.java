@@ -11,6 +11,7 @@ import ru.anyforms.repository.GetterTask;
 import ru.anyforms.repository.GetterTaskByStatus;
 import ru.anyforms.repository.SaverTask;
 
+import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -54,6 +55,16 @@ class TaskManager implements GetterTask, GetterTaskByStatus, SaverTask {
     public List<Task> getByTaskTypeAndStatus(TaskType taskType, TaskStatus taskStatus, int batchSize) {
         try {
             return taskRepo.findByTypeAndStatusOrderByCreatedAtAsc(taskType, taskStatus, PageRequest.of(0, batchSize));
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<Task> getByTaskTypeAndStatusCreatedBefore(TaskType taskType, TaskStatus taskStatus, Instant createdBefore, int batchSize) {
+        try {
+            return taskRepo.findByTypeAndStatusAndCreatedAtBeforeOrderByCreatedAtAsc(taskType, taskStatus, createdBefore, PageRequest.of(0, batchSize));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
