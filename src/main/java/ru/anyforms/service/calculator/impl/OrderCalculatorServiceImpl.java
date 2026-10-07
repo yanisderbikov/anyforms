@@ -58,6 +58,7 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
             + "бонусную позицию, скидку на разработку и маржу ниже минимума — задаёт только основатель";
 
     private static final double EPSILON = 1e-9;
+    private static final double MAX_PROMO_PERCENT = 50;
 
     private final PriceCalculator priceCalculator;
     private final ParameterEstimator parameterEstimator;
@@ -86,7 +87,7 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
 
         double requestedForms = clampPercent(discount.getFormsPercent());
         double developmentPercent = clampPercent(discount.getDevelopmentPercent());
-        double promoPercent = clampPercent(discount.getPromoPercent());
+        double promoPercent = Math.min(clampPercent(discount.getPromoPercent()), MAX_PROMO_PERCENT);
         boolean allowBelow = isTrue(discount.getAllowBelowMinMargin());
 
         double appliedForms = requestedForms;
@@ -100,6 +101,10 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
                 }
             }
             totals = totals(drafts, new Discounts(appliedForms, developmentPercent, promoPercent), r);
+        }
+        if (!allowBelow && promoPercent > 0 && totals.belowMin(r)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Промокод снижает маржу ниже минимума — нужно решение основателя");
         }
         Discounts applied = new Discounts(appliedForms, developmentPercent, promoPercent);
         boolean capped = appliedForms < requestedForms - EPSILON;

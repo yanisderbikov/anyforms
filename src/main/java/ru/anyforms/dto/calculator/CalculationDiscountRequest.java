@@ -27,7 +27,7 @@ public class CalculationDiscountRequest {
     private Double developmentPercent;
 
     @DecimalMin(value = "0", message = "Промокод — от 0%")
-    @DecimalMax(value = "100", message = "Промокод — не больше 100%")
+    @DecimalMax(value = "50", message = "Промокод — не больше 50%")
     @Schema(description = "Промокод или акция поверх предложения, %")
     private Double promoPercent;
 

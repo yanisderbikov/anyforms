@@ -160,6 +160,31 @@ class OrderCalculatorServiceImplTest {
     }
 
     @Test
+    void promoDiscountIsCappedAtFiftyPercent() {
+        CalculationDiscountRequest discount = CalculationDiscountRequest.builder()
+                .promoPercent(100.0)
+                .allowBelowMinMargin(true)
+                .build();
+        OrderCalculationResult result = service.calculate(
+                order(onigiri(List.of(5)).build()).toBuilder().discount(discount).build(), FOUNDER);
+
+        assertEquals(50, result.summary().promoDiscount(), KOPECK);
+    }
+
+    @Test
+    void promoDiscountBelowMinimumMarginRequiresFounderApproval() {
+        CalculationVariantRequest highCostVariant = onigiriStocking().modelContractorPrice(100_000.0).build();
+        CalculationPositionRequest highCostPosition = onigiri(List.of(5))
+                .variants(List.of(highCostVariant))
+                .build();
+        CalculationDiscountRequest discount = CalculationDiscountRequest.builder().promoPercent(10.0).build();
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.calculate(order(highCostPosition).toBuilder().discount(discount).build(), MANAGER));
+        assertEquals(HttpStatus.BAD_REQUEST, e.getStatusCode());
+    }
+
+    @Test
     void smallDiscountIsAppliedToFormPriceAndRoundedToTens() {
         CalculationDiscountRequest discount = CalculationDiscountRequest.builder().formsPercent(5.0).build();
         OrderCalculationResult result = service.calculate(
