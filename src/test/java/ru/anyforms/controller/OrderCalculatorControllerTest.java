@@ -15,7 +15,6 @@ import ru.anyforms.dto.calculator.OrderCalculationRequest;
 import ru.anyforms.model.Role;
 import ru.anyforms.service.auth.UserAccess;
 import ru.anyforms.service.auth.UserAccessService;
-import ru.anyforms.service.calculator.CalculatorAiService;
 import ru.anyforms.service.calculator.CalculatorRatesService;
 import ru.anyforms.service.calculator.CalculatorReferenceService;
 import ru.anyforms.service.calculator.OrderCalculationJournalService;
@@ -50,9 +49,8 @@ class OrderCalculatorControllerTest {
 
     private final ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().build();
     private final CalculatorRatesService ratesService = mock(CalculatorRatesService.class);
-    private final CalculatorAiService aiService = mock(CalculatorAiService.class);
     private final UserAccessService userAccessService = mock(UserAccessService.class);
-    private final OrderCalculatorService calculatorService = CalculatorTestSupport.orderCalculator(ratesService, aiService);
+    private final OrderCalculatorService calculatorService = CalculatorTestSupport.orderCalculator(ratesService);
     private final OrderCalculationJournalService journalService = mock(OrderCalculationJournalService.class);
     private MockMvc mvc;
 
@@ -64,8 +62,7 @@ class OrderCalculatorControllerTest {
         when(userAccessService.resolve("founder@anyforms.ru")).thenReturn(Optional.of(
                 new UserAccess("founder@anyforms.ru", "Основатель", Role.ADMIN, false, null, null)));
         OrderCalculatorController controller = new OrderCalculatorController(calculatorService, ratesService,
-                journalService, mock(CalculatorReferenceService.class), aiService,
-                userAccessService);
+                journalService, mock(CalculatorReferenceService.class), userAccessService);
         mvc = MockMvcBuilders.standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
@@ -219,7 +216,6 @@ class OrderCalculatorControllerTest {
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8));
 
         assertTrue(json.path("founder").asBoolean());
-        assertFalse(json.path("aiAvailable").asBoolean());
         assertEquals("STOCKING", json.path("formTypes").get(0).path("code").asText());
     }
 

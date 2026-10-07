@@ -9,8 +9,6 @@ public record OrderCalculationSummary(
         @Schema(description = "Разработка в КП до скидок") double developmentKp,
         @Schema(description = "Формы в КП до скидок") double formsKp,
         @Schema(description = "Цена по расчёту (КП до скидок)") double totalKp,
-        @Schema(description = "Разработка после скидок") double developmentOffer,
-        @Schema(description = "Формы после скидок") double formsOffer,
         @Schema(description = "Итого к оплате после скидок") double totalOffer,
         @Schema(description = "Скидка в рублях") double discountRub,
         @Schema(description = "Запрошенная скидка на формы, %") double formsDiscountRequested,

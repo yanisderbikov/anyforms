@@ -26,7 +26,6 @@ import ru.anyforms.model.calculator.MasterType;
 import ru.anyforms.model.calculator.PourMaterial;
 import ru.anyforms.model.calculator.SiliconeType;
 import ru.anyforms.service.auth.UserAccess;
-import ru.anyforms.service.calculator.CalculatorAiService;
 import ru.anyforms.service.calculator.CalculatorPermissions;
 import ru.anyforms.service.calculator.CalculatorRatesService;
 import ru.anyforms.service.calculator.OrderCalculatorService;
@@ -63,7 +62,6 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
     private final PriceCalculator priceCalculator;
     private final ParameterEstimator parameterEstimator;
     private final CalculatorRatesService calculatorRatesService;
-    private final CalculatorAiService calculatorAiService;
 
     @Override
     public OrderCalculationResult calculate(OrderCalculationRequest request, UserAccess user) {
@@ -113,15 +111,14 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
         List<CalculationHint> hints = orderHints(request, discount, summary, preliminary, estimated, r);
 
         return new OrderCalculationResult(positions, summary, preliminary, estimated > 0, request.hasExceptions(),
-                hints, snapshot.versionId(), snapshot.updatedAt());
+                hints, snapshot.versionId());
     }
 
     @Override
     public CalculatorOptionsDTO options(UserAccess user) {
         return new CalculatorOptionsDTO(
                 Arrays.stream(FormType.values())
-                        .map(t -> new CalculatorOptionsDTO.FormTypeOption(t.name(), t.getLabel(), t.getHint(), t.isCut(),
-                                t.getBasePours(), t.getShellRule().name()))
+                        .map(t -> new CalculatorOptionsDTO.FormTypeOption(t.name(), t.getLabel(), t.getHint(), t.isCut()))
                         .toList(),
                 Arrays.stream(PourMaterial.values())
                         .map(m -> new CalculatorOptionsDTO.Option(m.name(), m.getLabel(),
@@ -136,8 +133,6 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
                 Arrays.stream(FormModifier.values())
                         .map(m -> new CalculatorOptionsDTO.Option(m.name(), m.getLabel(), m.getHint()))
                         .toList(),
-                calculatorAiService.available(),
-                calculatorAiService.providerName(),
                 CalculatorPermissions.isFounder(user));
     }
 
@@ -224,7 +219,7 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
         positionHints.addAll(hints.values());
 
         int estimatedFields = (int) options.get(selected).resolved().sources().values().stream()
-                .filter(s -> s == ParameterSource.ESTIMATE || s == ParameterSource.AI)
+                .filter(s -> s == ParameterSource.ESTIMATE)
                 .count();
 
         return new PositionDraft(index, p.getProductName(), digital, bonus, preliminary, options, selected,
@@ -340,8 +335,6 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
                 .developmentKp(t.developmentKp())
                 .formsKp(t.formsKp())
                 .totalKp(totalKp)
-                .developmentOffer(t.developmentOffer())
-                .formsOffer(t.formsOffer())
                 .totalOffer(totalOffer)
                 .discountRub(rub(totalKp - totalOffer))
                 .formsDiscountRequested(requestedForms)
@@ -434,9 +427,7 @@ class OrderCalculatorServiceImpl implements OrderCalculatorService {
     }
 
     private static boolean hasMeasuredGeometry(CalculationVariantRequest variant) {
-        List<String> aiFields = variant.getAiFields() == null ? List.of() : variant.getAiFields();
-        return (orZero(variant.getSlaAreaCm2()) > 0 && !aiFields.contains("slaAreaCm2"))
-                || (orZero(variant.getSlaMlManual()) > 0 && !aiFields.contains("slaMlManual"));
+        return orZero(variant.getSlaAreaCm2()) > 0 || orZero(variant.getSlaMlManual()) > 0;
     }
 
     static Double margin(double revenue, double cost, CalculatorRates r) {

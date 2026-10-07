@@ -36,7 +36,7 @@ class FormulaParameterEstimator implements ParameterEstimator {
                                    SiliconeType silicone,
                                    int tirage,
                                    CalculatorRates r) {
-        Sources sources = new Sources(variant.getAiFields());
+        Sources sources = new Sources();
         List<CalculationHint> hints = new ArrayList<>();
         FormType type = variant.getFormType();
         MasterType master = variant.getMasterType() == null ? MasterType.SLA : variant.getMasterType();
@@ -46,7 +46,7 @@ class FormulaParameterEstimator implements ParameterEstimator {
         boolean sharedPrint = isTrue(position.getSharedSlaPrint());
         Geometry g = Geometry.of(position, variant, r);
 
-        double contractor = sources.input("modelContractorPrice", variant.getModelContractorPrice(), 0);
+        double contractor = orZero(variant.getModelContractorPrice());
         double fdmProjectHours = sources.resolve("fdmProjectHours", variant.getFdmProjectHours(),
                 r.getEstimateFdmProjectHours(), ParameterSource.ESTIMATE);
 
@@ -76,14 +76,14 @@ class FormulaParameterEstimator implements ParameterEstimator {
         input.slaMlManual(orZero(variant.getSlaMlManual()))
                 .slaAreaCm2(estimateSla
                         ? sources.resolve("slaAreaCm2", variant.getSlaAreaCm2(), orZero(g.area()), ParameterSource.ESTIMATE)
-                        : sources.input("slaAreaCm2", variant.getSlaAreaCm2(), 0))
+                        : orZero(variant.getSlaAreaCm2()))
                 .slaVolumeCm3(estimateSla
                         ? sources.resolve("slaVolumeCm3", variant.getSlaVolumeCm3(), orZero(g.volume()), ParameterSource.ESTIMATE)
-                        : sources.input("slaVolumeCm3", variant.getSlaVolumeCm3(), 0))
+                        : orZero(variant.getSlaVolumeCm3()))
                 .slaHours(slaMaster
                         ? sources.resolve("slaHours", variant.getSlaHours(),
                         g.hasHeight() ? rub(g.heightMm() * r.getEstimateSlaHoursPerMm()) : 0, ParameterSource.ESTIMATE)
-                        : sources.input("slaHours", variant.getSlaHours(), 0));
+                        : orZero(variant.getSlaHours()));
 
         Double siliconeEstimate = estimateSiliconeGrams(type, g, variant, r);
         double siliconeGrams = sources.resolve("siliconeGrams", variant.getSiliconeGrams(),
@@ -354,35 +354,18 @@ class FormulaParameterEstimator implements ParameterEstimator {
 
     private static final class Sources {
         private final Map<String, ParameterSource> map = new LinkedHashMap<>();
-        private final Set<String> aiFields;
-
-        Sources(List<String> aiFields) {
-            this.aiFields = aiFields == null ? Set.of() : new HashSet<>(aiFields);
-        }
 
         double resolve(String field, Double value, double fallback, ParameterSource fallbackSource) {
             if (value != null) {
-                return input(field, value, 0);
+                return value;
             }
             map.put(field, fallbackSource);
             return fallback;
         }
 
-        double input(String field, Double value, double fallback) {
-            if (value == null) {
-                return fallback;
-            }
-            if (aiFields.contains(field)) {
-                map.put(field, ParameterSource.AI);
-            }
-            return value;
-        }
-
         void flag(String field, boolean provided) {
             if (!provided) {
                 map.put(field, ParameterSource.DEFAULT);
-            } else if (aiFields.contains(field)) {
-                map.put(field, ParameterSource.AI);
             }
         }
 

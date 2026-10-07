@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.PresignUploadRequestDTO;
 import ru.anyforms.dto.PresignUploadResponseDTO;
-import ru.anyforms.dto.calculator.AiSuggestionRequest;
 import ru.anyforms.dto.calculator.CalculatorOptionsDTO;
 import ru.anyforms.dto.calculator.CalculatorRates;
 import ru.anyforms.dto.calculator.CalculatorRatesDTO;
@@ -31,10 +30,8 @@ import ru.anyforms.dto.calculator.OrderCalculationDTO;
 import ru.anyforms.dto.calculator.OrderCalculationListItemDTO;
 import ru.anyforms.dto.calculator.OrderCalculationRequest;
 import ru.anyforms.dto.calculator.OrderCalculationResult;
-import ru.anyforms.dto.calculator.ai.CalculationAiSuggestion;
 import ru.anyforms.service.auth.UserAccess;
 import ru.anyforms.service.auth.UserAccessService;
-import ru.anyforms.service.calculator.CalculatorAiService;
 import ru.anyforms.service.calculator.CalculatorPermissions;
 import ru.anyforms.service.calculator.CalculatorRatesService;
 import ru.anyforms.service.calculator.CalculatorReferenceService;
@@ -56,11 +53,10 @@ public class OrderCalculatorController {
     private final CalculatorRatesService calculatorRatesService;
     private final OrderCalculationJournalService orderCalculationJournalService;
     private final CalculatorReferenceService calculatorReferenceService;
-    private final CalculatorAiService calculatorAiService;
     private final UserAccessService userAccessService;
 
     @Operation(summary = "Справочники калькулятора",
-            description = "Типы форм, материалы, силикон; подключён ли AI; основатель ли текущий пользователь",
+            description = "Типы форм, материалы, силикон; основатель ли текущий пользователь",
             security = @SecurityRequirement(name = "Bearer"))
     @GetMapping("/options")
     public ResponseEntity<CalculatorOptionsDTO> options(Principal principal) {
@@ -117,14 +113,6 @@ public class OrderCalculatorController {
     @PostMapping("/references/urls")
     public ResponseEntity<Map<String, String>> referenceUrls(@RequestBody List<String> keys) {
         return ResponseEntity.ok(calculatorReferenceService.viewUrls(keys == null ? List.of() : keys));
-    }
-
-    @Operation(summary = "AI-подсказка технических параметров по референсам",
-            description = "503 — AI-провайдер не подключён. Предложенные значения — оценка, требуют подтверждения",
-            security = @SecurityRequirement(name = "Bearer"))
-    @PostMapping("/ai-suggestion")
-    public ResponseEntity<CalculationAiSuggestion> aiSuggestion(@Valid @RequestBody AiSuggestionRequest request) {
-        return ResponseEntity.ok(calculatorAiService.suggest(request));
     }
 
     @Operation(summary = "Журнал расчётов", description = "Новые сверху; q — поиск по клиенту, изделиям и автору",

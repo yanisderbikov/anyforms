@@ -116,10 +116,6 @@ public class CalculationVariantRequest {
     @DecimalMax(value = "1", message = "Запас к весу — не больше 1 (100%)")
     private Double weightReserve;
 
-    @Schema(description = "Поля, заполненные AI-подсказкой и ещё не подтверждённые человеком")
-    @Size(max = 40, message = "Слишком много AI-полей")
-    private List<String> aiFields;
-
     @PositiveOrZero(message = "Цена модели не может быть отрицательной")
     @Schema(description = "Исключение: итоговая цена модели, задаёт основатель")
     private Double modelPriceOverride;

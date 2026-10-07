@@ -18,7 +18,6 @@ import ru.anyforms.model.calculator.FormType;
 import ru.anyforms.model.calculator.PourMaterial;
 import ru.anyforms.model.calculator.SiliconeType;
 import ru.anyforms.service.auth.UserAccess;
-import ru.anyforms.service.calculator.CalculatorAiService;
 import ru.anyforms.service.calculator.CalculatorRatesService;
 import ru.anyforms.service.calculator.RatesSnapshot;
 
@@ -41,9 +40,8 @@ class OrderCalculatorServiceImplTest {
     private static final UserAccess FOUNDER = new UserAccess("founder@anyforms.ru", "Основатель", Role.ADMIN, false, null, null);
 
     private final CalculatorRatesService ratesService = mock(CalculatorRatesService.class);
-    private final CalculatorAiService aiService = mock(CalculatorAiService.class);
     private final OrderCalculatorServiceImpl service = new OrderCalculatorServiceImpl(
-            new PriceCalculatorImpl(), new FormulaParameterEstimator(), ratesService, aiService);
+            new PriceCalculatorImpl(), new FormulaParameterEstimator(), ratesService);
 
     @BeforeEach
     void setUp() {
@@ -318,35 +316,10 @@ class OrderCalculatorServiceImplTest {
     }
 
     @Test
-    void optionsExposeFounderFlagAndAiAvailability() {
-        when(aiService.available()).thenReturn(false);
-
+    void optionsExposeFounderFlag() {
         assertTrue(service.options(FOUNDER).founder());
         assertFalse(service.options(MANAGER).founder());
-        assertFalse(service.options(MANAGER).aiAvailable());
         assertEquals(FormType.values().length, service.options(MANAGER).formTypes().size());
-    }
-
-    @Test
-    void aiEstimatedGeometryKeepsPreliminaryOffer() {
-        CalculationVariantRequest aiGuess = CalculationVariantRequest.builder()
-                .formType(FormType.STOCKING)
-                .modelContractorPrice(3000.0)
-                .slaAreaCm2(273.0)
-                .slaVolumeCm3(127.0)
-                .aiFields(List.of("slaAreaCm2", "slaVolumeCm3"))
-                .build();
-        CalculationPositionRequest guessed = onigiri(List.of(5)).variants(List.of(aiGuess)).build();
-        CalculationPositionRequest measured = onigiri(List.of(5))
-                .variants(List.of(aiGuess.toBuilder().aiFields(List.of()).build()))
-                .build();
-
-        OrderCalculationResult byAi = service.calculate(order(guessed), MANAGER);
-        OrderCalculationResult byModel = service.calculate(order(measured), MANAGER);
-
-        assertTrue(byAi.preliminary());
-        assertEquals(ParameterSource.AI, byAi.positions().get(0).options().get(0).sources().get("slaAreaCm2"));
-        assertFalse(byModel.preliminary());
     }
 
     @Test

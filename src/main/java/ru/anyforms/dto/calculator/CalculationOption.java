@@ -14,7 +14,7 @@ public record CalculationOption(
         SiliconeType silicone,
         int tirage,
         @Schema(description = "Параметры после подстановки оценок") PriceInput input,
-        @Schema(description = "Откуда взялись незаполненные поля: оценка, значение по умолчанию или AI") Map<String, ParameterSource> sources,
+        @Schema(description = "Откуда взялись незаполненные поля: оценка или значение по умолчанию") Map<String, ParameterSource> sources,
         @Schema(description = "Разбивка цены — только основателю") PriceBreakdown price,
         @Schema(description = "Цены для КП до скидок") KpPrice kp,
         @Schema(description = "Цены для КП после скидок заказа") KpPrice offer,
