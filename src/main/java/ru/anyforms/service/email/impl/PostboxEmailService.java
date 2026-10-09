@@ -80,10 +80,10 @@ class PostboxEmailService implements EmailService {
         try {
             response = client.sendEmail(request);
         } catch (SdkException e) {
-            log.error("Postbox отклонил письмо на {}: {}", to, e.getMessage());
-            throw new RuntimeException("Postbox не принял письмо на " + to + ": " + e.getMessage(), e);
+            log.error("Postbox отклонил письмо: {}", e.getMessage());
+            throw new RuntimeException("Postbox не принял письмо: " + e.getMessage(), e);
         }
-        log.info("Postbox принял письмо на {}: messageId {}", to, response.messageId());
+        log.info("Postbox принял письмо: messageId {}", response.messageId());
     }
 
     private byte[] buildMime(String to, String subject, String html, String senderName, String replyTo) {
@@ -101,7 +101,7 @@ class PostboxEmailService implements EmailService {
             message.writeTo(out);
             return out.toByteArray();
         } catch (MessagingException | IOException e) {
-            throw new RuntimeException("Не получилось собрать письмо на " + to + ": " + e.getMessage(), e);
+            throw new RuntimeException("Не получилось собрать письмо: " + e.getMessage(), e);
         }
     }
 }

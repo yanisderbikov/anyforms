@@ -76,7 +76,11 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional(readOnly = true)
     public CustomProductItemDTO getPublicByPublicId(String publicId) {
-        CustomProductItemDTO dto = toDTO(getByPublicIdOrThrow(publicId));
+        CustomProductItem item = getByPublicIdOrThrow(publicId);
+        if (item.isNda()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Позиция не найдена: " + publicId);
+        }
+        CustomProductItemDTO dto = toDTO(item);
         dto.setId(null);
         dto.setOrderId(null);
         dto.setLeadId(null);

@@ -45,6 +45,7 @@ import ru.anyforms.service.delivery.FreeDeliveryService;
 import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
+import ru.anyforms.service.payment.PromoReservationService;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.service.product.ShopService;
@@ -96,6 +97,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final HttpServletRequest httpRequest;
     private final ShopService shopService;
     private final PromoClientChecker promoClientChecker;
+    private final PromoReservationService promoReservationService;
     private final FreeDeliveryService freeDeliveryService;
 
     @Value("${payment.default-domain}")
@@ -190,11 +192,12 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         if (rawCode == null || rawCode.isBlank()) {
             return null;
         }
-        PromoCode promo = getterPromoCode.getByCode(rawCode)
-                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode)));
+        PromoCode promo = lockedForCheckout(getterPromoCode.getByCode(rawCode)
+                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode))));
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
         }
+        promoReservationService.releaseOwnReservations(promo, client);
         Optional<String> rejection = promoClientChecker.checkoutRejection(promo, client, shopSlug);
         if (rejection.isPresent()) {
             throw new InvalidPromoCodeException(rejection.get());
@@ -203,6 +206,13 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             throw new InvalidPromoCodeException(minOrderMessage(promo));
         }
         return promo;
+    }
+
+    private PromoCode lockedForCheckout(PromoCode promo) {
+        if (promo.getMaxUses() == null && promo.getPopupId() == null && !promo.isPersonal()) {
+            return promo;
+        }
+        return getterPromoCode.getByCodeForUpdate(promo.getCode()).orElse(promo);
     }
 
     private String minOrderMessage(PromoCode promo) {

@@ -50,14 +50,18 @@ public interface GetterTransaction {
 
     boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10, String deviceId);
 
-    long countPromoUsesExceptCustomerPending(String promoCode, String email, String phoneLast10, String deviceId,
-                                             Instant pendingSince);
+    long countPromoUses(String promoCode, Instant pendingSince);
+
+    List<PaymentTransaction> getPendingByPromoCodeAndCustomer(String promoCode, String email, String phoneLast10,
+                                                              String deviceId, Instant since);
 
     boolean popupCodeUsedByCustomer(UUID popupId, String email, String phoneLast10, String deviceId);
 
     Map<UUID, Long> countSucceededByPopup();
 
     long countSucceededByPromoCode(String promoCode);
+
+    Map<String, Long> countSucceededByPromoCodes(Collection<String> promoCodes);
 
     /** Транзакции провайдера и продукта в статусе, созданные в окне [from, to], старые сверху */
     List<PaymentTransaction> getByProviderStatusAndProductCodeCreatedBetween(PaymentProvider provider,

@@ -28,6 +28,7 @@ import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentConfirmService;
 import ru.anyforms.service.payment.PurchaseService;
+import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 
 import java.util.List;
@@ -45,6 +46,7 @@ public class PaymentController {
     private final PaymentConfirmService paymentConfirmService;
     private final GetterPaymentProduct getterPaymentProduct;
     private final GetterPromoCode getterPromoCode;
+    private final PromoClientChecker promoClientChecker;
 
     @Operation(summary = "Доступные продукты для покупки")
     @GetMapping("/products")
@@ -88,6 +90,11 @@ public class PaymentController {
                     .message("Промокод действует для заказов от "
                             + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".")
                     .build());
+        }
+        if (promoClientChecker.exhausted(promo)) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .code(promo.getCode()).priceKopecks(price)
+                    .message("Промокод уже использован.").build());
         }
         return ResponseEntity.ok(PromoCheckResponse.builder()
                 .valid(true)

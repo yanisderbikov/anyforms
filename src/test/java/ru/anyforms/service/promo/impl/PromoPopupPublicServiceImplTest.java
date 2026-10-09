@@ -31,6 +31,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.repository.SaverPromoPopupLead;
 import ru.anyforms.repository.SaverPromoPopupView;
+import ru.anyforms.repository.TransactionLock;
 import ru.anyforms.service.promo.PromoClient;
 import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.service.task.TaskAdder;
@@ -76,10 +77,11 @@ class PromoPopupPublicServiceImplTest {
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final TaskAdder taskAdder = mock(TaskAdder.class);
     private final ClaimRateLimiter claimRateLimiter = mock(ClaimRateLimiter.class);
+    private final TransactionLock transactionLock = mock(TransactionLock.class);
 
     private final PromoPopupPublicServiceImpl service = new PromoPopupPublicServiceImpl(
             getterPromoPopup, getterPromoPopupLead, saverPromoPopupLead, getterPromoPopupView, saverPromoPopupView,
-            getterPromoCode, saverPromoCode, checker, orderRepository, taskAdder, claimRateLimiter);
+            getterPromoCode, saverPromoCode, checker, orderRepository, taskAdder, claimRateLimiter, transactionLock);
 
     private PromoPopup contactPopup;
     private PromoPopup uniquePopup;
@@ -208,6 +210,10 @@ class PromoPopupPublicServiceImplTest {
     void claimIssuesSingleUseCodeBoundToContactAndDevice() {
         PromoPopupClaimResponse response = service.claim(POPUP_ID, claimRequest(), "1.2.3.4", "UA");
 
+        verify(transactionLock).lockAll(List.of(
+                "promo-popup:" + POPUP_ID + ":email:buyer@example.com",
+                "promo-popup:" + POPUP_ID + ":phone:9991234567",
+                "promo-popup:" + POPUP_ID + ":device:" + DEVICE));
         PromoCode promo = capturedPromo();
         assertTrue(promo.getCode().matches("SHOP-[" + PromoPopupPublicServiceImpl.CODE_ALPHABET + "]{5}"));
         assertEquals(1, promo.getMaxUses());
@@ -338,13 +344,15 @@ class PromoPopupPublicServiceImplTest {
     void issueGeneratesSingleUseCodeForDeviceWithoutContacts() {
         PromoPopupClaimResponse response = service.issue(UNIQUE_ID, issueRequest(), "1.2.3.4", "UA");
 
+        verify(transactionLock).lock("promo-popup:" + UNIQUE_ID + ":device:" + DEVICE);
         PromoCode promo = capturedPromo();
         assertTrue(promo.getCode().startsWith("ONE-"));
         assertEquals(1, promo.getMaxUses());
         assertEquals(DEVICE, promo.getOwnerDeviceId());
         assertNull(promo.getOwnerEmail());
         assertNull(promo.getOwnerPhoneLast10());
-        assertFalse(promo.isPersonal());
+        assertTrue(promo.isPersonal());
+        assertFalse(promo.hasContactOwner());
         assertEquals(Duration.ofDays(7), Duration.between(promo.getValidFrom(), promo.getValidUntil()));
 
         PromoPopupLead lead = capturedLead();
@@ -380,7 +388,7 @@ class PromoPopupPublicServiceImplTest {
                         .deviceId(DEVICE).code("ONE-CCCCC").build()));
         when(getterPromoCode.getById(promoId)).thenReturn(Optional.of(PromoCode.builder().id(promoId)
                 .code("ONE-CCCCC").discountPercent(10).active(true).maxUses(1).build()));
-        when(checker.exhausted(any(), any())).thenReturn(true);
+        when(checker.exhausted(any())).thenReturn(true);
 
         assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
                 () -> service.issue(UNIQUE_ID, issueRequest(), "1.2.3.4", "UA")).getStatusCode());
@@ -531,6 +539,7 @@ class PromoPopupPublicServiceImplTest {
         AfterPurchasePromoOutcome outcome = service.afterPurchase(afterPurchaseRequest(), "1.2.3.4");
 
         assertEquals(AfterPurchasePromoOutcome.Status.READY, outcome.status());
+        verify(transactionLock).lock("promo-popup:" + AFTER_ID + ":order:42");
         PromoCode promo = capturedPromo();
         assertTrue(promo.getCode().startsWith("NEXT-"));
         assertEquals(1, promo.getMaxUses());

@@ -33,6 +33,7 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.repository.SaverPromoPopupLead;
 import ru.anyforms.repository.SaverPromoPopupView;
+import ru.anyforms.repository.TransactionLock;
 import ru.anyforms.service.promo.PromoClient;
 import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.service.promo.PromoPopupPublicService;
@@ -42,6 +43,8 @@ import ru.anyforms.util.PhoneUtil;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,6 +76,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
     private final OrderRepository orderRepository;
     private final TaskAdder taskAdder;
     private final ClaimRateLimiter claimRateLimiter;
+    private final TransactionLock transactionLock;
     private final SecureRandom random = new SecureRandom();
 
     @Value("${promo.popup.consent-version}")
@@ -130,6 +134,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
         if (phoneDigits == null || client.phoneLast10().isEmpty()) {
             throw badRequest("Проверьте номер телефона.");
         }
+        transactionLock.lockAll(clientLockKeys(popup.getId(), client));
 
         Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForClient(
                 popup.getId(), client.email(), client.phoneLast10(), client.deviceId());
@@ -174,6 +179,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
         if (!client.hasDevice()) {
             throw badRequest("Не удалось определить устройство. Обновите страницу и попробуйте ещё раз.");
         }
+        transactionLock.lock(deviceLockKey(popup.getId(), client));
 
         Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForClient(
                 popup.getId(), "", "", client.deviceId());
@@ -224,6 +230,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                 ? order.getDeviceId()
                 : request.getDeviceId();
         PromoClient client = PromoClient.of(order.getEmail(), order.getContactPhone(), deviceId);
+        transactionLock.lock("promo-popup:" + popup.getId() + ":order:" + order.getId());
 
         Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForOrder(popup.getId(), order.getId());
         if (previous.isPresent()) {
@@ -232,7 +239,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                     : getterPromoCode.getById(previous.get().getPromoCodeId())
                     .filter(PromoCode::isCurrentlyValid)
                     .filter(promo -> !promoClientChecker.usedCode(promo.getCode(), client))
-                    .filter(promo -> !promoClientChecker.exhausted(promo, client))
+                    .filter(promo -> !promoClientChecker.exhausted(promo))
                     .map(promo -> AfterPurchasePromoOutcome.ready(AfterPurchasePromoDTO.of(popup, promo, true)))
                     .orElseGet(AfterPurchasePromoOutcome::none);
         }
@@ -269,7 +276,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
             return showablePromo(popup, shopSlug)
                     .filter(promo -> !(promo.isFirstOrderOnly() && promoClientChecker.hasOrders(client)))
                     .filter(promo -> !promoClientChecker.usedCode(promo.getCode(), client))
-                    .filter(promo -> !promoClientChecker.exhausted(promo, client))
+                    .filter(promo -> !promoClientChecker.exhausted(promo))
                     .map(promo -> PublicPromoPopupDTO.forPublicCode(popup, promo));
         }
         if (Boolean.TRUE.equals(popup.getFirstOrderOnly()) && promoClientChecker.hasOrders(client)) {
@@ -294,7 +301,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
         return lead.getPromoCodeId() != null && getterPromoCode.getById(lead.getPromoCodeId())
                 .filter(PromoCode::isCurrentlyValid)
                 .filter(promo -> !promoClientChecker.usedCode(promo.getCode(), client))
-                .filter(promo -> !promoClientChecker.exhausted(promo, client))
+                .filter(promo -> !promoClientChecker.exhausted(promo))
                 .isPresent();
     }
 
@@ -396,7 +403,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                 : getterPromoCode.getById(lead.getPromoCodeId()).orElse(null);
         if (promo == null || !promo.isCurrentlyValid()
                 || promoClientChecker.usedCode(promo.getCode(), client)
-                || promoClientChecker.exhausted(promo, client)) {
+                || promoClientChecker.exhausted(promo)) {
             throw conflict("Вы уже получали скидку по этой акции.");
         }
         return response(promo, true);
@@ -425,6 +432,24 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
             }
         }
         throw new IllegalStateException("Не удалось сгенерировать уникальный промокод с префиксом " + normalizedPrefix);
+    }
+
+    private static List<String> clientLockKeys(UUID popupId, PromoClient client) {
+        List<String> keys = new ArrayList<>();
+        if (!client.email().isEmpty()) {
+            keys.add("promo-popup:" + popupId + ":email:" + client.email());
+        }
+        if (!client.phoneLast10().isEmpty()) {
+            keys.add("promo-popup:" + popupId + ":phone:" + client.phoneLast10());
+        }
+        if (client.hasDevice()) {
+            keys.add(deviceLockKey(popupId, client));
+        }
+        return keys;
+    }
+
+    private static String deviceLockKey(UUID popupId, PromoClient client) {
+        return "promo-popup:" + popupId + ":device:" + client.deviceId();
     }
 
     private static ResponseStatusException badRequest(String message) {

@@ -96,16 +96,25 @@ public class PromoCode {
     }
 
     public boolean isPersonal() {
-        return ownerEmail != null || ownerPhoneLast10 != null;
+        return hasContactOwner() || has(ownerDeviceId);
     }
 
-    public boolean belongsTo(String email, String phoneLast10) {
+    public boolean hasContactOwner() {
+        return has(ownerEmail) || has(ownerPhoneLast10);
+    }
+
+    public boolean belongsTo(String email, String phoneLast10, String deviceId) {
         if (!isPersonal()) {
             return true;
         }
-        boolean emailMatches = ownerEmail != null && email != null && ownerEmail.equalsIgnoreCase(email.trim());
-        boolean phoneMatches = ownerPhoneLast10 != null && ownerPhoneLast10.equals(phoneLast10);
-        return emailMatches || phoneMatches;
+        boolean emailMatches = has(ownerEmail) && email != null && ownerEmail.trim().equalsIgnoreCase(email.trim());
+        boolean phoneMatches = has(ownerPhoneLast10) && ownerPhoneLast10.equals(phoneLast10);
+        boolean deviceMatches = has(ownerDeviceId) && deviceId != null && ownerDeviceId.equals(deviceId.trim());
+        return emailMatches || phoneMatches || deviceMatches;
+    }
+
+    private static boolean has(String value) {
+        return value != null && !value.isBlank();
     }
 
     public boolean allowedInShop(String shopSlug) {

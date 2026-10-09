@@ -24,6 +24,7 @@ import ru.anyforms.dto.promo.PromoPopupClaimResponse;
 import ru.anyforms.dto.promo.PromoPopupIssueRequest;
 import ru.anyforms.dto.promo.PromoPopupViewRequest;
 import ru.anyforms.dto.promo.PublicPromoPopupDTO;
+import ru.anyforms.service.ClientIpResolver;
 import ru.anyforms.service.promo.PromoPopupPublicService;
 
 import java.util.Map;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 public class PublicPromoPopupController {
 
     private final PromoPopupPublicService promoPopupPublicService;
+    private final ClientIpResolver clientIpResolver;
 
     @Operation(summary = "Попап для посетителя витрины",
             description = "Попап с наибольшим приоритетом, который сейчас работает в магазине и подходит посетителю "
@@ -108,11 +110,7 @@ public class PublicPromoPopupController {
                 .body(Map.of("message", message.isBlank() ? "Проверьте данные формы." : message));
     }
 
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+    private String clientIp(HttpServletRequest request) {
+        return clientIpResolver.resolve(request);
     }
 }

@@ -64,11 +64,11 @@ class PromoClientCheckerImplTest {
     @Test
     void singleUseCodeIsExhaustedAfterOneUse() {
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1).build();
-        when(getterTransaction.countPromoUsesExceptCustomerPending(eq("ONE-AAAAA"), anyString(), anyString(),
-                anyString(), any())).thenReturn(1L);
+        when(getterTransaction.countPromoUses(eq("ONE-AAAAA"), any())).thenReturn(1L);
 
-        assertTrue(checker.exhausted(promo, client));
-        assertFalse(checker.exhausted(PromoCode.builder().code("ANY-10").build(), client));
+        assertTrue(checker.exhausted(promo));
+        assertFalse(checker.exhausted(PromoCode.builder().code("ANY-10").build()));
+        verify(getterTransaction, never()).countPromoUses(eq("ANY-10"), any());
     }
 
     @Test
@@ -90,6 +90,18 @@ class PromoClientCheckerImplTest {
     }
 
     @Test
+    void checkoutRejectsDeviceCodeFromAnotherDevice() {
+        PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1)
+                .ownerDeviceId("0aa1bb2c-3dd4-4ee5-8ff6-112233445566").build();
+
+        Optional<String> rejection = checker.checkoutRejection(promo, client, "anyforms");
+
+        assertTrue(rejection.orElseThrow().contains("другое устройство"));
+        assertTrue(checker.checkoutRejection(
+                PromoCode.builder().code("ONE-BBBBB").maxUses(1).ownerDeviceId(DEVICE).build(), client, "anyforms").isEmpty());
+    }
+
+    @Test
     void checkoutRejectsCodeUsedByClientOrByOthers() {
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1).build();
         when(getterTransaction.promoUsedByCustomer("ONE-AAAAA", "buyer@example.com", "9991234567", DEVICE))
@@ -97,8 +109,7 @@ class PromoClientCheckerImplTest {
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("уже был использован"));
 
         when(getterTransaction.promoUsedByCustomer(anyString(), anyString(), anyString(), anyString())).thenReturn(false);
-        when(getterTransaction.countPromoUsesExceptCustomerPending(eq("ONE-AAAAA"), anyString(), anyString(),
-                anyString(), any())).thenReturn(1L);
+        when(getterTransaction.countPromoUses(eq("ONE-AAAAA"), any())).thenReturn(1L);
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("уже использован"));
     }
 

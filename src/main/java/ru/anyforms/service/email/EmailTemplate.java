@@ -245,7 +245,7 @@ public final class EmailTemplate {
                 details = detailRow("трек-номер СДЭК", tracker)
                         + detailRow("ориентировочный срок доставки", eta)
                         + detailRow("пункт выдачи", pvz);
-                next = "Когда посылка приедет в&nbsp;пункт выдачи, мы&nbsp;пришлём ещё одно письмо. Доставка оплачивается при&nbsp;получении.";
+                next = "Когда посылка приедет в&nbsp;пункт выдачи, мы&nbsp;пришлём ещё одно письмо. " + deliveryNote(payload);
                 ctaText = "Отследить посылку";
                 ctaLink = trackingLink;
             }
@@ -254,7 +254,7 @@ public final class EmailTemplate {
                 preheader = "Посылка уже в пункте выдачи СДЭК — можно забирать.";
                 intro = greeting + " Ваша посылка приехала в&nbsp;пункт выдачи СДЭК — можно забирать. Для&nbsp;получения назовите трек-номер или номер телефона получателя.";
                 details = detailRow("пункт выдачи", pvz) + detailRow("трек-номер СДЭК", tracker);
-                next = "Доставка оплачивается при&nbsp;получении. Срок хранения посылки в&nbsp;пункте выдачи ограничен — постарайтесь забрать её в&nbsp;ближайшие дни.";
+                next = deliveryNote(payload) + " Срок хранения посылки в&nbsp;пункте выдачи ограничен — постарайтесь забрать её в&nbsp;ближайшие дни.";
                 ctaText = "Отследить посылку";
                 ctaLink = trackingLink;
             }
@@ -282,6 +282,10 @@ public final class EmailTemplate {
                 .replace("%SUPPORT_PHONE_BLOCK%", supportPhoneBlock(supportPhone))
                 .replace("%SUPPORT_TG%", esc(supportTelegram))
                 .replace("%ORDER%", order);
+    }
+
+    private static String deliveryNote(DeliveryStatusEmailPayload payload) {
+        return payload.isFreeDelivery() ? FREE_DELIVERY_NOTE : PAID_DELIVERY_NOTE;
     }
 
     private static String detailRow(String label, String value) {

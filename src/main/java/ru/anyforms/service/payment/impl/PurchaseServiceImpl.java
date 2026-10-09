@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.payment.Amount;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
 import ru.anyforms.dto.payment.PurchaseRequest;
@@ -27,9 +28,12 @@ import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.SaverTransaction;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
+import ru.anyforms.service.payment.PromoReservationService;
 import ru.anyforms.service.payment.PurchaseService;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
+import ru.anyforms.service.promo.PromoClient;
+import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 
@@ -62,6 +66,8 @@ class PurchaseServiceImpl implements PurchaseService {
     private final GetterPromoCode getterPromoCode;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
+    private final PromoClientChecker promoClientChecker;
+    private final PromoReservationService promoReservationService;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -76,6 +82,7 @@ class PurchaseServiceImpl implements PurchaseService {
     private String trainingProvider;
 
     @Override
+    @Transactional
     public PaymentUrlResponse purchase(PurchaseRequest request) {
         PaymentProduct product = getterPaymentProduct.getByCode(request.getProductCode())
                 .orElseThrow(() -> new RuntimeException("Продукт не найден: " + request.getProductCode()));
@@ -83,7 +90,7 @@ class PurchaseServiceImpl implements PurchaseService {
             throw new RuntimeException("Продукт неактивен: " + product.getCode());
         }
 
-        PromoCode promo = resolvePromo(request.getPromoCode(), product.getPriceKopecks());
+        PromoCode promo = resolvePromo(request, product.getPriceKopecks());
         long priceKopecks = promo != null
                 ? MoneyUtil.applyPromoDiscount(product.getPriceKopecks(), promo.getDiscountPercent(),
                         promo.getDiscountAmountKopecks())
@@ -181,12 +188,13 @@ class PurchaseServiceImpl implements PurchaseService {
     }
 
     /** Null, если код не передан; исключение, если передан, но невалиден — молча игнорировать нельзя. */
-    private PromoCode resolvePromo(String rawCode, long priceKopecks) {
+    private PromoCode resolvePromo(PurchaseRequest request, long priceKopecks) {
+        String rawCode = request.getPromoCode();
         if (rawCode == null || rawCode.isBlank()) {
             return null;
         }
-        PromoCode promo = getterPromoCode.getByCode(rawCode)
-                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode)));
+        PromoCode promo = lockedForCheckout(getterPromoCode.getByCode(rawCode)
+                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode))));
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
         }
@@ -197,7 +205,18 @@ class PurchaseServiceImpl implements PurchaseService {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует для заказов от "
                     + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".");
         }
+        promoReservationService.releaseOwnReservations(promo, PromoClient.of(request.getEmail(), request.getPhone(), null));
+        if (promoClientChecker.exhausted(promo)) {
+            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже использован.");
+        }
         return promo;
+    }
+
+    private PromoCode lockedForCheckout(PromoCode promo) {
+        if (promo.getMaxUses() == null) {
+            return promo;
+        }
+        return getterPromoCode.getByCodeForUpdate(promo.getCode()).orElse(promo);
     }
 
     private PaymentTransactionStatus resolveYooKassaStatus(String yooKassaStatus) {

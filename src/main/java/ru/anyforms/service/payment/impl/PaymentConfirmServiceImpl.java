@@ -109,4 +109,21 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
                 transaction.getId(), lastStatus, newStatus);
         return true;
     }
+
+    @Override
+    public boolean supersede(String externalPaymentId) {
+        PaymentTransaction transaction = getterTransaction
+                .getByExternalPaymentId(externalPaymentId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Транзакция не найдена по external id: " + externalPaymentId));
+        if (transaction.getStatus() != PaymentTransactionStatus.PENDING) {
+            log.debug("Платёж {} уже в статусе {}, вытеснять нечего", transaction.getId(), transaction.getStatus());
+            return false;
+        }
+        transaction.setStatus(PaymentTransactionStatus.CANCELED);
+        saverTransaction.save(transaction);
+        paymentFulfillmentService.supersede(transaction);
+        log.info("Платёж {} вытеснен новым оформлением: PENDING -> CANCELED", transaction.getId());
+        return true;
+    }
 }

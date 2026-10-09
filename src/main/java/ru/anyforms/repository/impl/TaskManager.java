@@ -54,7 +54,7 @@ class TaskManager implements GetterTask, GetterTaskByStatus, SaverTask {
     @Override
     public List<Task> getByTaskTypeAndStatus(TaskType taskType, TaskStatus taskStatus, int batchSize) {
         try {
-            return taskRepo.findByTypeAndStatusOrderByCreatedAtAsc(taskType, taskStatus, PageRequest.of(0, batchSize));
+            return taskRepo.findDue(taskType, taskStatus, Instant.now(), PageRequest.of(0, batchSize));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
@@ -64,7 +64,7 @@ class TaskManager implements GetterTask, GetterTaskByStatus, SaverTask {
     @Override
     public List<Task> getByTaskTypeAndStatusCreatedBefore(TaskType taskType, TaskStatus taskStatus, Instant createdBefore, int batchSize) {
         try {
-            return taskRepo.findByTypeAndStatusAndCreatedAtBeforeOrderByCreatedAtAsc(taskType, taskStatus, createdBefore, PageRequest.of(0, batchSize));
+            return taskRepo.findDueCreatedBefore(taskType, taskStatus, createdBefore, Instant.now(), PageRequest.of(0, batchSize));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

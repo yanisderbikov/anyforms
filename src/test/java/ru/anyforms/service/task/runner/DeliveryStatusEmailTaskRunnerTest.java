@@ -11,17 +11,22 @@ import ru.anyforms.repository.GetterTaskByStatus;
 import ru.anyforms.repository.SaverTask;
 import ru.anyforms.service.email.EmailService;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,10 +107,58 @@ class DeliveryStatusEmailTaskRunnerTest {
     }
 
     @Test
-    void missingNotificationFailsTask() {
+    void paidDeliveryIsMentionedWhenOrderHadNoFreeDelivery() {
+        run("{\"to\":\"buyer@mail.ru\",\"notification\":\"SHIPPED\",\"orderPublicId\":\"ab12cd\",\"tracker\":\"1234567890\"}");
+
+        ArgumentCaptor<String> html = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendEmail(eq("buyer@mail.ru"), anyString(), html.capture(), eq(null));
+        assertTrue(html.getValue().contains("оплачивается при&nbsp;получении"));
+        assertFalse(html.getValue().contains("бесплатная"));
+    }
+
+    @Test
+    void freeDeliveryIsMentionedInShippedAndArrivedEmails() {
+        run("{\"to\":\"buyer@mail.ru\",\"notification\":\"SHIPPED\",\"orderPublicId\":\"ab12cd\",\"tracker\":\"1234567890\","
+                + "\"freeDelivery\":true}");
+        run("{\"to\":\"buyer@mail.ru\",\"notification\":\"ARRIVED_AT_PVZ\",\"orderPublicId\":\"ab12cd\",\"tracker\":\"1234567890\","
+                + "\"freeDelivery\":true}");
+
+        ArgumentCaptor<String> html = ArgumentCaptor.forClass(String.class);
+        verify(emailService, times(2)).sendEmail(eq("buyer@mail.ru"), anyString(), html.capture(), eq(null));
+        for (String body : html.getAllValues()) {
+            assertTrue(body.contains("бесплатная"));
+            assertFalse(body.contains("оплачивается при&nbsp;получении"));
+        }
+    }
+
+    @Test
+    void missingNotificationFailsTaskWithoutRetry() {
         Task task = run("{\"to\":\"buyer@mail.ru\",\"orderPublicId\":\"ab12cd\"}");
 
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString(), any());
         assertEquals(TaskStatus.FAILED, task.getStatus());
+        assertEquals(1, task.getAttempts());
+        assertNull(task.getNextAttemptAt());
+    }
+
+    @Test
+    void mailFailureIsRetriedLaterAndFailsOnlyAfterLastAttempt() {
+        doThrow(new RuntimeException("postbox down")).when(emailService).sendEmail(anyString(), anyString(), anyString(), any());
+        String payload = "{\"to\":\"buyer@mail.ru\",\"notification\":\"SHIPPED\",\"orderPublicId\":\"ab12cd\"}";
+
+        Task task = run(payload);
+
+        assertEquals(TaskStatus.NEW, task.getStatus());
+        assertEquals(1, task.getAttempts());
+        assertEquals("postbox down", task.getComment());
+        assertTrue(task.getNextAttemptAt().isAfter(Instant.now().plus(Duration.ofMinutes(4))));
+
+        task.setAttempts(DeliveryStatusEmailTaskRunner.MAX_ATTEMPTS - 1);
+        when(getterTaskByStatus.getByTaskTypeAndStatus(TaskType.DELIVERY_STATUS_EMAIL, TaskStatus.NEW, 10))
+                .thenReturn(List.of(task));
+        runner.runBatch();
+
+        assertEquals(TaskStatus.FAILED, task.getStatus());
+        assertEquals(DeliveryStatusEmailTaskRunner.MAX_ATTEMPTS, task.getAttempts());
     }
 }

@@ -72,9 +72,17 @@ class MissedReplyCheckerImplTest {
     }
 
     private static AmoChatMessage msg(int minutesAgo, AmoChatMessage.Direction direction) {
+        return msg(minutesAgo, direction, null);
+    }
+
+    private static AmoChatMessage failedOut(int minutesAgo) {
+        return msg(minutesAgo, AmoChatMessage.Direction.OUT, "4: Message was not delivered");
+    }
+
+    private static AmoChatMessage msg(int minutesAgo, AmoChatMessage.Direction direction, String error) {
         return new AmoChatMessage("m" + minutesAgo + direction, Instant.now().minusSeconds(minutesAgo * 60L), direction, null,
                 direction == AmoChatMessage.Direction.OUT ? AmoChatMessage.AuthorType.MANAGER : AmoChatMessage.AuthorType.CLIENT,
-                "text", "", null, null, null, null);
+                "text", "", null, null, null, error);
     }
 
     private void verifyNoTask() {
@@ -93,6 +101,26 @@ class MissedReplyCheckerImplTest {
         checker.check(payload);
 
         verifyTask(LEAD_ID, RESPONSIBLE);
+    }
+
+    @Test
+    void undeliveredReplyDoesNotCountAsAnswer() {
+        leadInPipeline(1L);
+        chat(in(15), failedOut(14));
+
+        checker.check(payload);
+
+        verifyTask(LEAD_ID, RESPONSIBLE);
+    }
+
+    @Test
+    void deliveredReplyAfterFailedOneCountsAsAnswer() {
+        leadInPipeline(1L);
+        chat(in(15), failedOut(14), out(13));
+
+        checker.check(payload);
+
+        verifyNoTask();
     }
 
     @Test

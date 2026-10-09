@@ -18,6 +18,7 @@ import ru.anyforms.service.payment.PromoCodeAdminService;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,8 +35,10 @@ class PromoCodeAdminServiceImpl implements PromoCodeAdminService {
 
     @Override
     public List<PromoCodeDTO> listNotExpired() {
-        return getterPromoCode.getAllNotExpired(Instant.now()).stream()
-                .map(p -> PromoCodeDTO.from(p, getterTransaction.countSucceededByPromoCode(p.getCode())))
+        List<PromoCode> codes = getterPromoCode.getAllNotExpired(Instant.now());
+        Map<String, Long> uses = getterTransaction.countSucceededByPromoCodes(codes.stream().map(PromoCode::getCode).toList());
+        return codes.stream()
+                .map(p -> PromoCodeDTO.from(p, uses.getOrDefault(p.getCode(), 0L)))
                 .toList();
     }
 

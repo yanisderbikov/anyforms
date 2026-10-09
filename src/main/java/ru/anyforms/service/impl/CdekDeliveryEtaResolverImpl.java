@@ -1,7 +1,7 @@
 package ru.anyforms.service.impl;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.anyforms.dto.cdek.CdekDeliveryEta;
 import ru.anyforms.dto.cdek.CdekOrderInfo;
@@ -10,15 +10,32 @@ import ru.anyforms.integration.CdekCalculatorGateway;
 import ru.anyforms.integration.CdekTrackingGateway;
 import ru.anyforms.service.DeliveryEtaResolver;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Log4j2
 @Service
-@RequiredArgsConstructor
 class CdekDeliveryEtaResolverImpl implements DeliveryEtaResolver {
+
+    static final ZoneId MSK = ZoneId.of("Europe/Moscow");
 
     private final CdekTrackingGateway cdekTrackingGateway;
     private final CdekCalculatorGateway cdekCalculatorGateway;
+    private final Clock clock;
+
+    @Autowired
+    CdekDeliveryEtaResolverImpl(CdekTrackingGateway cdekTrackingGateway, CdekCalculatorGateway cdekCalculatorGateway) {
+        this(cdekTrackingGateway, cdekCalculatorGateway, Clock.systemUTC());
+    }
+
+    CdekDeliveryEtaResolverImpl(CdekTrackingGateway cdekTrackingGateway,
+                                CdekCalculatorGateway cdekCalculatorGateway,
+                                Clock clock) {
+        this.cdekTrackingGateway = cdekTrackingGateway;
+        this.cdekCalculatorGateway = cdekCalculatorGateway;
+        this.clock = clock;
+    }
 
     @Override
     public CdekDeliveryEta resolve(String tracker) {
@@ -35,7 +52,7 @@ class CdekDeliveryEtaResolverImpl implements DeliveryEtaResolver {
         if (info == null) {
             return null;
         }
-        CdekDeliveryEta byDate = CdekDeliveryEta.ofPlannedDate(info.plannedDeliveryDate(), LocalDate.now());
+        CdekDeliveryEta byDate = CdekDeliveryEta.ofPlannedDate(info.plannedDeliveryDate(), LocalDate.now(clock.withZone(MSK)));
         if (byDate != null) {
             log.info("Delivery ETA for tracker {} from planned date: {}", tracker, byDate.describe());
             return byDate;

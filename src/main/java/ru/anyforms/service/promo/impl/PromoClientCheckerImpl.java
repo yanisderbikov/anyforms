@@ -11,7 +11,6 @@ import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.promo.PromoClient;
 import ru.anyforms.service.promo.PromoClientChecker;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,8 +18,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 class PromoClientCheckerImpl implements PromoClientChecker {
-
-    static final Duration PENDING_RESERVATION = Duration.ofMinutes(30);
 
     private final OrderRepository orderRepository;
     private final GetterTransaction getterTransaction;
@@ -46,13 +43,11 @@ class PromoClientCheckerImpl implements PromoClientChecker {
     }
 
     @Override
-    public boolean exhausted(PromoCode promo, PromoClient client) {
+    public boolean exhausted(PromoCode promo) {
         if (promo.getMaxUses() == null) {
             return false;
         }
-        long uses = getterTransaction.countPromoUsesExceptCustomerPending(promo.getCode(), client.email(),
-                client.phoneLast10(), client.deviceId(), Instant.now().minus(PENDING_RESERVATION));
-        return uses >= promo.getMaxUses();
+        return getterTransaction.countPromoUses(promo.getCode(), Instant.now().minus(PENDING_RESERVATION)) >= promo.getMaxUses();
     }
 
     private boolean oneDiscountPerClient(UUID popupId) {
@@ -66,13 +61,15 @@ class PromoClientCheckerImpl implements PromoClientChecker {
         if (!promo.allowedInShop(shop)) {
             return Optional.of("Промокод " + code + " действует только в другом магазине.");
         }
-        if (!promo.belongsTo(client.email(), client.phoneLast10())) {
-            return Optional.of("Промокод " + code + " персональный: укажите телефон или почту, на которые он выдан.");
+        if (!promo.belongsTo(client.email(), client.phoneLast10(), client.deviceId())) {
+            return Optional.of(promo.hasContactOwner()
+                    ? "Промокод " + code + " персональный: укажите телефон или почту, на которые он выдан."
+                    : "Промокод " + code + " выдан на другое устройство: откройте магазин в том браузере, где получили код.");
         }
         if (usedCode(code, client)) {
             return Optional.of("Промокод " + code + " уже был использован.");
         }
-        if (exhausted(promo, client)) {
+        if (exhausted(promo)) {
             return Optional.of("Промокод " + code + " уже использован.");
         }
         if (promo.getPopupId() != null && oneDiscountPerClient(promo.getPopupId())

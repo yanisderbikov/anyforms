@@ -103,21 +103,30 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     @Query(value = """
             SELECT COUNT(*)
             FROM payment_transaction pt
-            LEFT JOIN orders o ON o.id = pt.order_id
             WHERE pt.promo_code = :promoCode
               AND (pt.status IN ('SUCCEEDED', 'REFUNDED')
-                   OR (pt.status = 'PENDING'
-                       AND pt.created_at >= :pendingSince
-                       AND NOT ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
-                                OR (:phoneLast10 <> ''
-                                    AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
-                                OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))))
+                   OR (pt.status = 'PENDING' AND pt.created_at >= :pendingSince))
             """, nativeQuery = true)
-    long countPromoUsesExceptCustomerPending(@Param("promoCode") String promoCode,
-                                             @Param("email") String email,
-                                             @Param("phoneLast10") String phoneLast10,
-                                             @Param("deviceId") String deviceId,
-                                             @Param("pendingSince") Instant pendingSince);
+    long countPromoUses(@Param("promoCode") String promoCode, @Param("pendingSince") Instant pendingSince);
+
+    @Query(value = """
+            SELECT pt.*
+            FROM payment_transaction pt
+            LEFT JOIN orders o ON o.id = pt.order_id
+            WHERE pt.promo_code = :promoCode
+              AND pt.status = 'PENDING'
+              AND pt.created_at >= :since
+              AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
+                   OR (:phoneLast10 <> ''
+                       AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                   OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
+            ORDER BY pt.created_at
+            """, nativeQuery = true)
+    List<PaymentTransaction> findPendingByPromoCodeAndCustomer(@Param("promoCode") String promoCode,
+                                                               @Param("email") String email,
+                                                               @Param("phoneLast10") String phoneLast10,
+                                                               @Param("deviceId") String deviceId,
+                                                               @Param("since") Instant since);
 
     @Query(value = """
             SELECT EXISTS (
@@ -153,6 +162,15 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
             WHERE pt.promo_code = :promoCode AND pt.status = 'SUCCEEDED'
             """, nativeQuery = true)
     long countSucceededByPromoCode(@Param("promoCode") String promoCode);
+
+    @Query(value = """
+            SELECT pt.promo_code AS promo_code, COUNT(*) AS uses
+            FROM payment_transaction pt
+            WHERE pt.status = 'SUCCEEDED'
+              AND pt.promo_code IN (:promoCodes)
+            GROUP BY pt.promo_code
+            """, nativeQuery = true)
+    List<Object[]> countSucceededByPromoCodes(@Param("promoCodes") Collection<String> promoCodes);
 
     List<PaymentTransaction> findByProviderAndStatusAndProductCodeAndCreatedAtBetweenOrderByCreatedAtAsc(
             PaymentProvider provider,

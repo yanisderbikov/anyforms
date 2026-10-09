@@ -22,11 +22,16 @@ class CdekDeliveryEtaTest {
     }
 
     @Test
-    void pastPlannedDateIsToday() {
-        CdekDeliveryEta eta = CdekDeliveryEta.ofPlannedDate(LocalDate.of(2026, 9, 20), TODAY);
+    void plannedDateTodayIsToday() {
+        CdekDeliveryEta eta = CdekDeliveryEta.ofPlannedDate(TODAY, TODAY);
 
         assertEquals("0 дней", eta.daysText());
-        assertEquals("сегодня (20.09.2026)", eta.describe());
+        assertEquals("сегодня (21.09.2026)", eta.describe());
+    }
+
+    @Test
+    void pastPlannedDateGivesNoEta() {
+        assertNull(CdekDeliveryEta.ofPlannedDate(LocalDate.of(2026, 9, 20), TODAY));
     }
 
     @Test

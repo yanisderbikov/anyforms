@@ -70,13 +70,13 @@ class NotiSendEmailService implements EmailService {
                 .block();
 
         if (result == null) {
-            throw new RuntimeException("NotiSend: пустой ответ при отправке письма на " + request.to());
+            throw new RuntimeException("NotiSend: пустой ответ при отправке письма");
         }
         if (result.status() < 200 || result.status() >= 300) {
-            log.error("NotiSend отклонил письмо на {}: HTTP {} body: {}", request.to(), result.status(), result.body());
+            log.error("NotiSend отклонил письмо: HTTP {} body: {}", result.status(), result.body());
             throw new RuntimeException("NotiSend вернул HTTP " + result.status() + ": " + result.body());
         }
-        log.info("NotiSend принял письмо на {}: HTTP {}", request.to(), result.status());
+        log.info("NotiSend принял письмо: HTTP {}", result.status());
     }
 
     private record NotisendEmailRequest(

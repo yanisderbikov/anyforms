@@ -11,7 +11,10 @@ import ru.anyforms.integration.CdekCalculatorGateway;
 import ru.anyforms.integration.CdekTrackingGateway;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,9 +27,13 @@ import static org.mockito.Mockito.when;
 
 class CdekDeliveryEtaResolverImplTest {
 
+    private static final Instant NOW = Instant.parse("2026-09-21T22:30:00Z");
+    private static final LocalDate TODAY_MSK = LocalDate.of(2026, 9, 22);
+
     private final CdekTrackingGateway tracking = mock(CdekTrackingGateway.class);
     private final CdekCalculatorGateway calculator = mock(CdekCalculatorGateway.class);
-    private final CdekDeliveryEtaResolverImpl resolver = new CdekDeliveryEtaResolverImpl(tracking, calculator);
+    private final CdekDeliveryEtaResolverImpl resolver =
+            new CdekDeliveryEtaResolverImpl(tracking, calculator, Clock.fixed(NOW, ZoneOffset.UTC));
 
     private static final CdekLocation FROM = new CdekLocation("RU", "190000", "Санкт-Петербург", null);
     private static final CdekLocation TO = new CdekLocation("RU", "101000", "Москва", null);
@@ -34,12 +41,28 @@ class CdekDeliveryEtaResolverImplTest {
 
     @Test
     void plannedDateWinsOverCalculator() {
-        when(tracking.getOrderInfo("111")).thenReturn(new CdekOrderInfo(LocalDate.now().plusDays(2), 136, FROM, TO, PACKAGES));
+        when(tracking.getOrderInfo("111")).thenReturn(new CdekOrderInfo(TODAY_MSK.plusDays(2), 136, FROM, TO, PACKAGES));
 
         CdekDeliveryEta eta = resolver.resolve("111");
 
         assertEquals("2 дня", eta.daysText());
         verifyNoInteractions(calculator);
+    }
+
+    @Test
+    void todayIsTakenInMoscowZone() {
+        when(tracking.getOrderInfo("111")).thenReturn(new CdekOrderInfo(TODAY_MSK, 136, FROM, TO, PACKAGES));
+
+        assertEquals("сегодня (22.09.2026)", resolver.resolve("111").describe());
+        verifyNoInteractions(calculator);
+    }
+
+    @Test
+    void pastPlannedDateFallsBackToCalculator() {
+        when(tracking.getOrderInfo("111")).thenReturn(new CdekOrderInfo(TODAY_MSK.minusDays(1), 136, FROM, TO, PACKAGES));
+        when(calculator.calculate(136, FROM, TO, PACKAGES)).thenReturn(new CdekTariffQuote(BigDecimal.TEN, 1, 2));
+
+        assertEquals("1-2 дня", resolver.resolve("111").daysText());
     }
 
     @Test

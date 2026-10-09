@@ -46,7 +46,7 @@ public class Order {
     private String deliveryStatus;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "last_delivery_notification", length = 32)
+    @Column(name = "last_delivery_notification", length = 32, updatable = false)
     private DeliveryNotification lastDeliveryNotification;
 
     @Column(name = "pvz_sdek")

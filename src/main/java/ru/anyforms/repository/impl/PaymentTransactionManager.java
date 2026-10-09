@@ -181,15 +181,29 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public long countPromoUsesExceptCustomerPending(String promoCode, String email, String phoneLast10,
-                                                    String deviceId, Instant pendingSince) {
+    public long countPromoUses(String promoCode, Instant pendingSince) {
         try {
-            return transactionRepo.countPromoUsesExceptCustomerPending(promoCode, email, phoneLast10, deviceId,
-                    pendingSince);
+            return transactionRepo.countPromoUses(promoCode, pendingSince);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
         }
+    }
+
+    @Override
+    public List<PaymentTransaction> getPendingByPromoCodeAndCustomer(String promoCode, String email, String phoneLast10,
+                                                                     String deviceId, Instant since) {
+        try {
+            return transactionRepo.findPendingByPromoCodeAndCustomer(promoCode, nullToEmpty(email),
+                    nullToEmpty(phoneLast10), nullToEmpty(deviceId), since);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     @Override
@@ -208,6 +222,23 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
             Map<UUID, Long> counts = new HashMap<>();
             for (Object[] row : transactionRepo.countSucceededByPopup()) {
                 counts.put(UUID.fromString(String.valueOf(row[0])), ((Number) row[1]).longValue());
+            }
+            return counts;
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public Map<String, Long> countSucceededByPromoCodes(Collection<String> promoCodes) {
+        if (promoCodes == null || promoCodes.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Long> counts = new HashMap<>();
+            for (Object[] row : transactionRepo.countSucceededByPromoCodes(promoCodes)) {
+                counts.put(String.valueOf(row[0]), ((Number) row[1]).longValue());
             }
             return counts;
         } catch (Exception e) {

@@ -24,34 +24,37 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
 
     @Override
     public void notifyShipped(Order order, String tracker) {
-        if (order.isRetail()) {
-            if (canSendEmail(order, DeliveryNotification.SHIPPED)) {
-                sendEmail(order, DeliveryNotification.SHIPPED, tracker, deliveryEta(order, tracker));
-            }
-        } else {
+        if (!order.isRetail()) {
             deliveryBotNotifier.notifyShipped(order.getLeadId(), tracker, deliveryEta(order, tracker));
+            return;
+        }
+        String to = emailFor(order, DeliveryNotification.SHIPPED);
+        if (to != null) {
+            deliveryEmailQueuer.queue(order, to, DeliveryNotification.SHIPPED, tracker, deliveryEta(order, tracker));
         }
     }
 
     @Override
     public void notifyArrivedAtPvz(Order order) {
-        if (order.isRetail()) {
-            if (canSendEmail(order, DeliveryNotification.ARRIVED_AT_PVZ)) {
-                sendEmail(order, DeliveryNotification.ARRIVED_AT_PVZ, order.getTracker(), null);
-            }
-        } else {
+        if (!order.isRetail()) {
             deliveryBotNotifier.notifyCdekReadyToPickup(order.getLeadId());
+            return;
+        }
+        String to = emailFor(order, DeliveryNotification.ARRIVED_AT_PVZ);
+        if (to != null) {
+            deliveryEmailQueuer.queue(order, to, DeliveryNotification.ARRIVED_AT_PVZ, order.getTracker(), null);
         }
     }
 
     @Override
     public void notifyReadyForPickup(Order order) {
-        if (order.isRetail()) {
-            if (canSendEmail(order, DeliveryNotification.READY_FOR_PICKUP)) {
-                sendEmail(order, DeliveryNotification.READY_FOR_PICKUP, null, null);
-            }
-        } else {
+        if (!order.isRetail()) {
             deliveryBotNotifier.notifyPickupReady(order.getLeadId());
+            return;
+        }
+        String to = emailFor(order, DeliveryNotification.READY_FOR_PICKUP);
+        if (to != null) {
+            deliveryEmailQueuer.queue(order, to, DeliveryNotification.READY_FOR_PICKUP, null, null);
         }
     }
 
@@ -68,22 +71,22 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
         }
     }
 
-    private boolean canSendEmail(Order order, DeliveryNotification notification) {
+    private String emailFor(Order order, DeliveryNotification notification) {
         DeliveryNotification last = order.getLastDeliveryNotification();
         if (last != null && last.compareTo(notification) >= 0) {
             log.info("Delivery email {} skipped for order #{}: already notified {}", notification, order.getId(), last);
-            return false;
+            return null;
         }
-        if (isBlank(order.getEmail())) {
-            String fromAmo = emailFromAmo(order);
-            if (isBlank(fromAmo)) {
-                log.warn("Order #{} has no email, delivery notification {} not sent", order.getId(), notification);
-                return false;
-            }
-            order.setEmail(fromAmo);
-            log.info("Email for order #{} taken from AmoCRM contact of lead {}", order.getId(), order.getLeadId());
+        if (!isBlank(order.getEmail())) {
+            return order.getEmail();
         }
-        return true;
+        String fromAmo = emailFromAmo(order);
+        if (isBlank(fromAmo)) {
+            log.warn("Order #{} has no email, delivery notification {} not sent", order.getId(), notification);
+            return null;
+        }
+        log.info("Email for order #{} taken from AmoCRM contact of lead {}", order.getId(), order.getLeadId());
+        return fromAmo;
     }
 
     private String emailFromAmo(Order order) {
@@ -101,9 +104,5 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
-    }
-
-    private void sendEmail(Order order, DeliveryNotification notification, String tracker, CdekDeliveryEta eta) {
-        deliveryEmailQueuer.queue(order, notification, tracker, eta);
     }
 }

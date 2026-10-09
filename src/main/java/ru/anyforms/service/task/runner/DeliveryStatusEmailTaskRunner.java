@@ -1,6 +1,7 @@
 package ru.anyforms.service.task.runner;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -14,11 +15,14 @@ import ru.anyforms.repository.SaverTask;
 import ru.anyforms.service.email.EmailService;
 import ru.anyforms.service.email.EmailTemplate;
 
+import java.time.Duration;
 import java.util.List;
 
 @Slf4j
 @Component
 class DeliveryStatusEmailTaskRunner extends AbstractRunnableTask {
+
+    static final int MAX_ATTEMPTS = 5;
 
     private final GetterTaskByStatus getterTaskByStatus;
     private final EmailService emailService;
@@ -41,9 +45,24 @@ class DeliveryStatusEmailTaskRunner extends AbstractRunnableTask {
     }
 
     @Override
+    protected int maxAttempts() {
+        return MAX_ATTEMPTS;
+    }
+
+    @Override
+    protected boolean retryable(Exception ex) {
+        return !(ex instanceof IllegalArgumentException || ex instanceof JsonParseException);
+    }
+
+    @Override
+    protected Duration retryDelay(int attempt) {
+        return Duration.ofMinutes(5L * attempt);
+    }
+
+    @Override
     protected void process(Task task) {
         DeliveryStatusEmailPayload payload = gson.fromJson(task.getPayload(), DeliveryStatusEmailPayload.class);
-        if (payload.getNotification() == null) {
+        if (payload == null || payload.getNotification() == null) {
             throw new IllegalArgumentException("У таски " + task.getId() + " не задан тип уведомления о доставке");
         }
         String html = EmailTemplate.getDeliveryStatusEmail(payload, supportPhone);

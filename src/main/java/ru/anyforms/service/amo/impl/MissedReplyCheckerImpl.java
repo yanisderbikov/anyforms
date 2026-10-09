@@ -143,6 +143,9 @@ class MissedReplyCheckerImpl implements MissedReplyChecker {
     static Optional<Instant> firstUnansweredAt(List<AmoChatMessage> chronological) {
         Instant firstIncoming = null;
         for (AmoChatMessage m : chronological) {
+            if (m.error() != null) {
+                continue;
+            }
             if (m.direction() == AmoChatMessage.Direction.OUT) {
                 firstIncoming = null;
             } else if (firstIncoming == null && m.createdAt() != null) {

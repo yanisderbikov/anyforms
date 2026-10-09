@@ -9,10 +9,10 @@ public record CdekDeliveryEta(int daysMin, int daysMax, LocalDate plannedDate) {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     public static CdekDeliveryEta ofPlannedDate(LocalDate plannedDate, LocalDate today) {
-        if (plannedDate == null) {
+        if (plannedDate == null || plannedDate.isBefore(today)) {
             return null;
         }
-        int days = (int) Math.max(ChronoUnit.DAYS.between(today, plannedDate), 0);
+        int days = (int) ChronoUnit.DAYS.between(today, plannedDate);
         return new CdekDeliveryEta(days, days, plannedDate);
     }
 

@@ -3,6 +3,7 @@ package ru.anyforms.service.payment.impl;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import ru.anyforms.dto.payment.PromoCodeDTO;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.repository.GetterPromoCode;
@@ -12,6 +13,7 @@ import ru.anyforms.repository.PromoCodeDeleter;
 import ru.anyforms.repository.SaverPromoCode;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,20 @@ class PromoCodeAdminServiceImplTest {
 
     private final PromoCodeAdminServiceImpl service = new PromoCodeAdminServiceImpl(
             getterPromoCode, saverPromoCode, promoCodeDeleter, getterPromoPopup, getterTransaction);
+
+    @Test
+    void listCountsUsesWithOneGroupedQuery() {
+        PromoCode used = PromoCode.builder().id(UUID.randomUUID()).code("WEEKEND20").build();
+        PromoCode fresh = PromoCode.builder().id(UUID.randomUUID()).code("ANY-10").build();
+        when(getterPromoCode.getAllNotExpired(any())).thenReturn(List.of(used, fresh));
+        when(getterTransaction.countSucceededByPromoCodes(List.of("WEEKEND20", "ANY-10"))).thenReturn(Map.of("WEEKEND20", 3L));
+
+        List<PromoCodeDTO> list = service.listNotExpired();
+
+        assertEquals(3L, list.get(0).usesCount());
+        assertEquals(0L, list.get(1).usesCount());
+        verify(getterTransaction, never()).countSucceededByPromoCode(any());
+    }
 
     @Test
     void refusesToDeleteCodeShownInPopup() {

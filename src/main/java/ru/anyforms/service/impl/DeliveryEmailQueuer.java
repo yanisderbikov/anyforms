@@ -9,8 +9,10 @@ import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
 import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.marketplace.Shop;
-import ru.anyforms.repository.SaverOrder;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.task.TaskAdder;
+
+import java.util.List;
 
 @Log4j2
 @Component
@@ -18,27 +20,45 @@ import ru.anyforms.service.task.TaskAdder;
 class DeliveryEmailQueuer {
 
     private final TaskAdder taskAdder;
-    private final SaverOrder saverOrder;
+    private final OrderRepository orderRepository;
 
     @Transactional
-    public void queue(Order order, DeliveryNotification notification, String tracker, CdekDeliveryEta eta) {
-        String to = order.getEmail();
-        Shop shop = order.getShop();
-        taskAdder.addTask(DeliveryStatusEmailPayload.builder()
+    public boolean queue(Order order, String to, DeliveryNotification notification, String tracker, CdekDeliveryEta eta) {
+        if (!claim(order.getId(), notification)) {
+            log.info("Delivery email {} skipped for order #{}: already claimed by another run", notification, order.getId());
+            return false;
+        }
+        Order managed = orderRepository.findById(order.getId())
+                .orElseThrow(() -> new IllegalStateException("Order not found: " + order.getId()));
+        if (managed.getEmail() == null || managed.getEmail().isBlank()) {
+            managed.setEmail(to);
+        }
+        Shop shop = managed.getShop();
+        taskAdder.addTaskOrThrow(DeliveryStatusEmailPayload.builder()
                 .to(to)
                 .notification(notification)
-                .orderPublicId(order.getPublicId())
-                .customerName(order.getContactName())
+                .orderPublicId(managed.getPublicId())
+                .customerName(managed.getContactName())
                 .tracker(tracker)
                 .deliveryEta(eta != null ? eta.describe() : null)
-                .pvzCity(order.getPvzSdekCity())
-                .pvzStreet(order.getPvzSdekStreet())
+                .pvzCity(managed.getPvzSdekCity())
+                .pvzStreet(managed.getPvzSdekStreet())
                 .supportTelegram(shop != null ? shop.getSupportTelegram() : Shop.DEFAULT_SUPPORT_TELEGRAM)
                 .shopSlug(shop != null ? shop.getSlug() : Shop.DEFAULT_SLUG)
                 .shopName(shop != null ? shop.getName() : Shop.DEFAULT_SLUG)
+                .freeDelivery(managed.isFreeDelivery())
                 .build());
         order.setLastDeliveryNotification(notification);
-        saverOrder.save(order);
-        log.info("Delivery email {} queued for order #{} to {}", notification, order.getId(), to);
+        order.setEmail(to);
+        log.info("Delivery email {} queued for order #{}", notification, order.getId());
+        return true;
+    }
+
+    private boolean claim(Long orderId, DeliveryNotification notification) {
+        List<String> earlier = notification.earlierNames();
+        int claimed = earlier.isEmpty()
+                ? orderRepository.claimFirstDeliveryNotification(orderId, notification.name())
+                : orderRepository.claimNextDeliveryNotification(orderId, notification.name(), earlier);
+        return claimed > 0;
     }
 }

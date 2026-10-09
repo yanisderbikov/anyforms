@@ -136,24 +136,27 @@ class PromoClientQueriesDbTest {
     }
 
     @Test
-    void singleUseCodeCountsPaidUsesAndForeignPendingReservations() {
+    void singleUseCodeCountsPaidUsesAndEveryFreshPendingReservation() {
         Instant now = Instant.now();
+        Instant window = now.minus(Duration.ofMinutes(30));
         Order buyer = order("buyer@b.ru", "+79991234567", DEVICE, OrderPaymentStatus.AWAITING_PAYMENT);
         Order stranger = order("x@b.ru", "+79210000000", OTHER_DEVICE, OrderPaymentStatus.AWAITING_PAYMENT);
 
-        payment(buyer, "ONE-AAAAA", PaymentTransactionStatus.PENDING, now);
-        assertEquals(0, transactionRepo.countPromoUsesExceptCustomerPending("ONE-AAAAA", "buyer@b.ru",
-                "9991234567", DEVICE, now.minus(Duration.ofMinutes(30))));
-        assertEquals(1, transactionRepo.countPromoUsesExceptCustomerPending("ONE-AAAAA", "x@b.ru",
-                "9210000000", OTHER_DEVICE, now.minus(Duration.ofMinutes(30))));
+        PaymentTransaction reservation = payment(buyer, "ONE-AAAAA", PaymentTransactionStatus.PENDING, now);
+        assertEquals(1, transactionRepo.countPromoUses("ONE-AAAAA", window));
+        assertEquals(List.of(reservation.getId()), transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA",
+                "BUYER@B.RU", "", "", window).stream().map(PaymentTransaction::getId).toList());
+        assertEquals(1, transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "", "9991234567", "", window).size());
+        assertEquals(1, transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "", "", DEVICE, window).size());
+        assertTrue(transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "x@b.ru", "9210000000", OTHER_DEVICE, window).isEmpty());
+        assertTrue(transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "", "", "", window).isEmpty());
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.PENDING, now.minus(Duration.ofHours(2)));
-        assertEquals(0, transactionRepo.countPromoUsesExceptCustomerPending("ONE-BBBBB", "buyer@b.ru",
-                "9991234567", DEVICE, now.minus(Duration.ofMinutes(30))));
+        assertEquals(0, transactionRepo.countPromoUses("ONE-BBBBB", window));
+        assertTrue(transactionRepo.findPendingByPromoCodeAndCustomer("ONE-BBBBB", "x@b.ru", "", "", window).isEmpty());
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.SUCCEEDED, now);
-        assertEquals(1, transactionRepo.countPromoUsesExceptCustomerPending("ONE-BBBBB", "buyer@b.ru",
-                "9991234567", DEVICE, now.minus(Duration.ofMinutes(30))));
+        assertEquals(1, transactionRepo.countPromoUses("ONE-BBBBB", window));
         assertTrue(transactionRepo.promoUsedByCustomer("ONE-BBBBB", "", "", OTHER_DEVICE));
         assertTrue(transactionRepo.promoUsedByCustomer("ONE-BBBBB", "X@B.RU", "", ""));
         assertFalse(transactionRepo.promoUsedByCustomer("ONE-BBBBB", "buyer@b.ru", "9991234567", DEVICE));

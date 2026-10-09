@@ -9,18 +9,24 @@ import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.amo.AmoContact;
 import ru.anyforms.model.marketplace.Shop;
-import ru.anyforms.repository.SaverOrder;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.DeliveryEtaResolver;
 import ru.anyforms.service.task.TaskAdder;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,12 +35,15 @@ import static org.mockito.Mockito.when;
 
 class DeliveryNotifierImplTest {
 
+    private static final long ORDER_ID = 5L;
+
     private final DeliveryBotNotifier deliveryBotNotifier = mock(DeliveryBotNotifier.class);
     private final TaskAdder taskAdder = mock(TaskAdder.class);
-    private final SaverOrder saverOrder = mock(SaverOrder.class);
+    private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final DeliveryEtaResolver deliveryEtaResolver = mock(DeliveryEtaResolver.class);
     private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
-    private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier, new DeliveryEmailQueuer(taskAdder, saverOrder), deliveryEtaResolver, amoCrmGateway);
+    private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier,
+            new DeliveryEmailQueuer(taskAdder, orderRepository), deliveryEtaResolver, amoCrmGateway);
 
     private static AmoContact contactWithEmail(String value) {
         AmoContact.Email email = new AmoContact.Email();
@@ -44,9 +53,9 @@ class DeliveryNotifierImplTest {
         return contact;
     }
 
-    private static Order order(boolean retail) {
+    private Order order(boolean retail) {
         Order order = new Order();
-        order.setId(5L);
+        order.setId(ORDER_ID);
         order.setLeadId(777L);
         order.setRetail(retail);
         order.setEmail("buyer@mail.ru");
@@ -55,13 +64,21 @@ class DeliveryNotifierImplTest {
         order.setPvzSdekCity("Москва");
         order.setPvzSdekStreet("ул. Ленина, 1");
         order.setTracker("1234567890");
+        when(orderRepository.claimFirstDeliveryNotification(eq(ORDER_ID), anyString())).thenReturn(1);
+        when(orderRepository.claimNextDeliveryNotification(eq(ORDER_ID), anyString(), any())).thenReturn(1);
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
         return order;
     }
 
     private DeliveryStatusEmailPayload emailTask() {
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-        verify(taskAdder).addTask(captor.capture());
+        verify(taskAdder).addTaskOrThrow(captor.capture());
         return (DeliveryStatusEmailPayload) captor.getValue();
+    }
+
+    private void verifyNothingQueued() {
+        verify(taskAdder, never()).addTaskOrThrow(any());
+        verify(taskAdder, never()).addTask(any());
     }
 
     @Test
@@ -83,8 +100,31 @@ class DeliveryNotifierImplTest {
         assertEquals("AfPastryBot", payload.getSupportTelegram());
         assertEquals("af_pastry", payload.getShopSlug());
         assertEquals(DeliveryNotification.SHIPPED, order.getLastDeliveryNotification());
-        verify(saverOrder).save(order);
+        verify(orderRepository).claimFirstDeliveryNotification(ORDER_ID, "SHIPPED");
         verifyNoInteractions(deliveryBotNotifier);
+    }
+
+    @Test
+    void shopAndFreeDeliveryAreReadFromTheOrderLoadedInsideTheTransaction() {
+        Order detached = order(true);
+        Order managed = new Order();
+        managed.setId(ORDER_ID);
+        managed.setEmail("buyer@mail.ru");
+        managed.setPublicId("ab12cd");
+        managed.setFreeDelivery(true);
+        Shop shop = new Shop();
+        shop.setSlug("lunasvecha");
+        shop.setName("Луна Свеча");
+        shop.setSupportTelegram("LunaBot");
+        managed.setShop(shop);
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(managed));
+
+        notifier.notifyShipped(detached, "1234567890");
+
+        DeliveryStatusEmailPayload payload = emailTask();
+        assertEquals("lunasvecha", payload.getShopSlug());
+        assertEquals("LunaBot", payload.getSupportTelegram());
+        assertTrue(payload.isFreeDelivery());
     }
 
     @Test
@@ -128,6 +168,7 @@ class DeliveryNotifierImplTest {
         assertEquals("1234567890", payload.getTracker());
         assertEquals(Shop.DEFAULT_SUPPORT_TELEGRAM, payload.getSupportTelegram());
         assertEquals(Shop.DEFAULT_SLUG, payload.getShopSlug());
+        verify(orderRepository).claimNextDeliveryNotification(ORDER_ID, "ARRIVED_AT_PVZ", List.of("SHIPPED"));
         verifyNoInteractions(deliveryBotNotifier);
     }
 
@@ -138,6 +179,7 @@ class DeliveryNotifierImplTest {
         notifier.notifyReadyForPickup(order);
 
         assertEquals(DeliveryNotification.READY_FOR_PICKUP, emailTask().getNotification());
+        verify(orderRepository).claimNextDeliveryNotification(ORDER_ID, "READY_FOR_PICKUP", List.of("SHIPPED", "ARRIVED_AT_PVZ"));
         verifyNoInteractions(deliveryBotNotifier);
     }
 
@@ -148,8 +190,8 @@ class DeliveryNotifierImplTest {
 
         notifier.notifyShipped(order, "1234567890");
 
-        verify(taskAdder, never()).addTask(any());
-        verify(saverOrder, never()).save(any());
+        verifyNothingQueued();
+        verify(orderRepository, never()).claimFirstDeliveryNotification(anyLong(), anyString());
     }
 
     @Test
@@ -159,7 +201,7 @@ class DeliveryNotifierImplTest {
 
         notifier.notifyShipped(order, "1234567890");
 
-        verify(taskAdder, never()).addTask(any());
+        verifyNothingQueued();
         assertEquals(DeliveryNotification.ARRIVED_AT_PVZ, order.getLastDeliveryNotification());
     }
 
@@ -175,6 +217,28 @@ class DeliveryNotifierImplTest {
     }
 
     @Test
+    void concurrentRunThatLosesTheClaimSendsNothing() {
+        Order order = order(true);
+        when(orderRepository.claimFirstDeliveryNotification(eq(ORDER_ID), anyString())).thenReturn(0);
+
+        notifier.notifyShipped(order, "1234567890");
+
+        verifyNothingQueued();
+        assertNull(order.getLastDeliveryNotification());
+        verify(orderRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    void taskPersistenceFailurePropagatesSoTheClaimRollsBack() {
+        Order order = order(true);
+        doThrow(new RuntimeException("db down")).when(taskAdder).addTaskOrThrow(any());
+
+        assertThrows(RuntimeException.class, () -> notifier.notifyShipped(order, "1234567890"));
+
+        assertNull(order.getLastDeliveryNotification());
+    }
+
+    @Test
     void retailWithoutEmailSendsNothing() {
         Order order = order(true);
         order.setEmail(null);
@@ -182,8 +246,8 @@ class DeliveryNotifierImplTest {
         notifier.notifyShipped(order, "1234567890");
 
         verify(amoCrmGateway).getContactFromLead(777L);
-        verify(taskAdder, never()).addTask(any());
-        verify(saverOrder, never()).save(any());
+        verifyNothingQueued();
+        verify(orderRepository, never()).claimFirstDeliveryNotification(anyLong(), anyString());
         verifyNoInteractions(deliveryBotNotifier);
     }
 
@@ -207,7 +271,6 @@ class DeliveryNotifierImplTest {
 
         assertEquals("amo@mail.ru", emailTask().getTo());
         assertEquals("amo@mail.ru", order.getEmail());
-        verify(saverOrder).save(order);
     }
 
     @Test
@@ -218,7 +281,7 @@ class DeliveryNotifierImplTest {
 
         notifier.notifyShipped(order, "1234567890");
 
-        verify(taskAdder, never()).addTask(any());
+        verifyNothingQueued();
         assertNull(order.getEmail());
     }
 
@@ -235,7 +298,7 @@ class DeliveryNotifierImplTest {
         notifier.notifyShipped(notified, "1234567890");
 
         verifyNoInteractions(amoCrmGateway);
-        verify(taskAdder, never()).addTask(any());
+        verifyNothingQueued();
     }
 
     @Test
@@ -253,6 +316,7 @@ class DeliveryNotifierImplTest {
         assertEquals("2 дня", etaCaptor.getValue().daysText());
         verify(deliveryBotNotifier).notifyCdekReadyToPickup(777L);
         verify(deliveryBotNotifier).notifyPickupReady(777L);
-        verify(taskAdder, never()).addTask(any());
+        verifyNothingQueued();
+        verify(orderRepository, never()).claimFirstDeliveryNotification(anyLong(), anyString());
     }
 }

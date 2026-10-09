@@ -22,4 +22,5 @@ public class DeliveryStatusEmailPayload {
     private String supportTelegram;
     private String shopSlug;
     private String shopName;
+    private boolean freeDelivery;
 }

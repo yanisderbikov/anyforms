@@ -31,11 +31,8 @@ class PromoPopupAmoLeadServiceImpl implements PromoPopupAmoLeadService {
     private final GetterPromoCode getterPromoCode;
     private final SaverPromoPopupLead saverPromoPopupLead;
 
-    @Value("${amocrm.promo-popup.pipeline.id}")
-    private Long pipelineId;
-
-    @Value("${amocrm.promo-popup.status.id}")
-    private Long statusId;
+    private final Long pipelineId = 10557858L;
+    private final Long statusId = 83286998L;
 
     @Override
     public void pushLead(PromoPopupLead lead) {

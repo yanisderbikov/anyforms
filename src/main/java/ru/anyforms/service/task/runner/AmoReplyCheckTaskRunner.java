@@ -1,6 +1,7 @@
 package ru.anyforms.service.task.runner;
 
 import com.google.gson.Gson;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import ru.anyforms.dto.amo.AmoReplyCheckTaskPayload;
@@ -13,6 +14,9 @@ import ru.anyforms.service.amo.MissedReplyChecker;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Component
 class AmoReplyCheckTaskRunner extends AbstractRunnableTask {
@@ -21,6 +25,11 @@ class AmoReplyCheckTaskRunner extends AbstractRunnableTask {
     private final MissedReplyChecker missedReplyChecker;
     private final int timeoutMinutes;
     private final Gson gson = new Gson();
+    private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "amo-reply-check");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     AmoReplyCheckTaskRunner(GetterTaskByStatus getterTaskByStatus,
                             MissedReplyChecker missedReplyChecker,
@@ -39,7 +48,17 @@ class AmoReplyCheckTaskRunner extends AbstractRunnableTask {
     }
 
     @Override
+    protected Executor batchExecutor() {
+        return worker;
+    }
+
+    @Override
     protected void process(Task task) {
         missedReplyChecker.check(gson.fromJson(task.getPayload(), AmoReplyCheckTaskPayload.class));
+    }
+
+    @PreDestroy
+    void shutdown() {
+        worker.shutdownNow();
     }
 }
