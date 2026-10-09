@@ -226,10 +226,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
             return AfterPurchasePromoOutcome.none();
         }
         PromoPopup popup = live.get();
-        String deviceId = PromoClient.normalizeDeviceId(request.getDeviceId()).isEmpty()
-                ? order.getDeviceId()
-                : request.getDeviceId();
-        PromoClient client = PromoClient.of(order.getEmail(), order.getContactPhone(), deviceId);
+        String deviceId = normalizeDeviceId(order.getDeviceId());
         transactionLock.lock("promo-popup:" + popup.getId() + ":order:" + order.getId());
 
         Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForOrder(popup.getId(), order.getId());
