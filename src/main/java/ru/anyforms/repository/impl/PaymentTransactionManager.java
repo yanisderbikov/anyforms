@@ -47,6 +47,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public Optional<PaymentTransaction> getByExternalPaymentIdForUpdate(String externalPaymentId) {
+        try {
+            return transactionRepo.findByExternalPaymentIdForUpdate(externalPaymentId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<PaymentTransaction> getByOrderId(Long orderId) {
         try {
             return transactionRepo.findByOrderId(orderId);
