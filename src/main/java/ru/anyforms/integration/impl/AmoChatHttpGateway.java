@@ -207,10 +207,10 @@ class AmoChatHttpGateway implements AmoChatGateway {
 
     private List<AmoChatMessage> fetchPage(String chatId, int offset, int limit) {
         String uri = "/messages/" + getAmojoId() + "/merge?stand=v16&offset=" + offset + "&limit=" + limit + "&chat_id[]=" + chatId;
-        for (int attempt = 0; ; attempt++) {
-            String token = getSessionToken(attempt > 0);
-            AmojoResponse res = amojoClient.get()
-                    .uri(uri)
+        acquireSlot();
+        String response = amojoClient.get()
+                .uri(uri)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + getSessionToken(false))
                     .header("X-Auth-Token", token)
                     .accept(MediaType.APPLICATION_JSON)
                     .exchangeToMono(r -> r.bodyToMono(String.class).defaultIfEmpty("")
