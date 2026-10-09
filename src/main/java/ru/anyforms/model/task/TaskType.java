@@ -18,6 +18,7 @@ public enum TaskType {
     /** Письмо-чек заказа маркетплейса. */
     MARKETPLACE_ORDER_EMAIL(MarketplaceOrderEmailPayload.class),
     /** Письмо со ссылкой на чек Юкассы. */
+    @Deprecated
     RECEIPT_EMAIL(ReceiptEmailTaskPayload.class),
     /** Письмо розничному покупателю о статусе доставки. */
     DELIVERY_STATUS_EMAIL(DeliveryStatusEmailPayload.class),

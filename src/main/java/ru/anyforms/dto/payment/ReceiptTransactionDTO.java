@@ -5,6 +5,7 @@ import ru.anyforms.model.payment.PaymentTransaction;
 
 import java.time.Instant;
 
+@Deprecated
 @Schema(description = "Оплаченная через Юкассу покупка гайда/курса")
 public record ReceiptTransactionDTO(
         @Schema(description = "ID платежа в Юкассе") String externalPaymentId,

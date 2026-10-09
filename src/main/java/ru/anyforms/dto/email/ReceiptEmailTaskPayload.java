@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
  * Тело таски на письмо со ссылкой на чек Юкассы. Email и ссылку админ вставляет
  * вручную в админке («Чеки Юра»), письмо рендерит раннер в момент исполнения таски.
  */
+@Deprecated
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

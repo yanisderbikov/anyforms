@@ -47,6 +47,7 @@ public final class EmailTemplate {
                             </tr>""";
 
     /** Письмо со ссылкой на чек Юкассы; previewImageUrl — картинка-превью чека, может быть null. */
+    @Deprecated
     public static String getReceiptEmail(String link, String previewImageUrl) {
         String preview = previewImageUrl == null
                 ? ""
