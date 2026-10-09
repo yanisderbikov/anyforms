@@ -226,7 +226,10 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
             return AfterPurchasePromoOutcome.none();
         }
         PromoPopup popup = live.get();
-        String deviceId = normalizeDeviceId(order.getDeviceId());
+        String deviceId = PromoClient.normalizeDeviceId(request.getDeviceId()).isEmpty()
+                ? order.getDeviceId()
+                : request.getDeviceId();
+        PromoClient client = PromoClient.of(order.getEmail(), order.getContactPhone(), deviceId);
         transactionLock.lock("promo-popup:" + popup.getId() + ":order:" + order.getId());
 
         Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForOrder(popup.getId(), order.getId());
@@ -239,6 +242,11 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                     .filter(promo -> !promoClientChecker.exhausted(promo))
                     .map(promo -> AfterPurchasePromoOutcome.ready(AfterPurchasePromoDTO.of(popup, promo, true)))
                     .orElseGet(AfterPurchasePromoOutcome::none);
+        }
+        if (reachedClientLimit(popup, client)) {
+            log.info("Попап {}: по заказу {} код не выдан — клиент уже получал код {} раз",
+                    popup.getId(), order.getPublicId(), popup.getMaxShows());
+            return AfterPurchasePromoOutcome.none();
         }
 
         PromoCode promo = issueCode(popup, client, client.hasContact());
@@ -292,6 +300,14 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                     : Optional.empty();
         }
         return issued.isPresent() ? Optional.empty() : Optional.of(PublicPromoPopupDTO.forContact(popup, consentVersion));
+    }
+
+    private boolean reachedClientLimit(PromoPopup popup, PromoClient client) {
+        if (popup.getMaxShows() == null || client.isAnonymous()) {
+            return false;
+        }
+        return getterPromoPopupLead.countForClient(popup.getId(), client.email(), client.phoneLast10(),
+                client.deviceId()) >= popup.getMaxShows();
     }
 
     private boolean stillUsable(PromoPopupLead lead, PromoClient client) {

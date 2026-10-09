@@ -15,6 +15,8 @@ public interface GetterPromoPopupLead {
 
     Optional<PromoPopupLead> getLatestForOrder(UUID popupId, Long orderId);
 
+    long countForClient(UUID popupId, String email, String phoneLast10, String deviceId);
+
     List<PromoPopupLead> getRecent(UUID popupId, int limit);
 
     Map<UUID, Long> countByPopup();

@@ -583,6 +583,39 @@ class PromoPopupPublicServiceImplTest {
     }
 
     @Test
+    void afterPurchaseStopsIssuingWhenClientReachedLimit() {
+        paidOrder(OrderPaymentStatus.PAID);
+        afterPurchasePopup.setMaxShows(2);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup));
+        when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", DEVICE)).thenReturn(2L);
+
+        assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+        verify(saverPromoCode, never()).save(any());
+        verify(saverPromoPopupLead, never()).save(any());
+
+        when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", DEVICE)).thenReturn(1L);
+        assertEquals(AfterPurchasePromoOutcome.Status.READY, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+        verify(saverPromoCode).save(any());
+    }
+
+    @Test
+    void afterPurchaseKeepsIssuedCodeForSameOrderDespiteLimit() {
+        paidOrder(OrderPaymentStatus.PAID);
+        afterPurchasePopup.setMaxShows(1);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup));
+        UUID promoId = UUID.randomUUID();
+        when(getterPromoPopupLead.getLatestForOrder(AFTER_ID, 42L)).thenReturn(Optional.of(
+                PromoPopupLead.builder().popupId(AFTER_ID).promoCodeId(promoId).orderId(42L).code("NEXT-BBBBB").build()));
+        when(getterPromoCode.getById(promoId)).thenReturn(Optional.of(PromoCode.builder().id(promoId).code("NEXT-BBBBB")
+                .discountPercent(10).active(true).maxUses(1).validUntil(Instant.now().plus(Duration.ofDays(20))).build()));
+
+        AfterPurchasePromoOutcome outcome = service.afterPurchase(afterPurchaseRequest(), "1.2.3.4");
+
+        assertEquals("NEXT-BBBBB", outcome.promo().code());
+        verify(getterPromoPopupLead, never()).countForClient(any(), anyString(), anyString(), anyString());
+    }
+
+    @Test
     void afterPurchaseWaitsForPaymentAndSkipsUnpaidOrders() {
         paidOrder(OrderPaymentStatus.AWAITING_PAYMENT);
         assertEquals(AfterPurchasePromoOutcome.Status.AWAITING_PAYMENT,

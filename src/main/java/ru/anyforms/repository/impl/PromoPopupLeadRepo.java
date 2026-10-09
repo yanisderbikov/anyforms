@@ -28,6 +28,18 @@ interface PromoPopupLeadRepo extends JpaRepository<PromoPopupLead, UUID> {
                                        @Param("deviceId") String deviceId,
                                        Pageable pageable);
 
+    @Query("""
+            select count(l) from PromoPopupLead l
+            where l.popupId = :popupId
+              and ((:email <> '' and lower(l.email) = lower(:email))
+                   or (:phoneLast10 <> '' and l.phoneLast10 = :phoneLast10)
+                   or (:deviceId <> '' and l.deviceId = :deviceId))
+            """)
+    long countForClient(@Param("popupId") UUID popupId,
+                        @Param("email") String email,
+                        @Param("phoneLast10") String phoneLast10,
+                        @Param("deviceId") String deviceId);
+
     Optional<PromoPopupLead> findFirstByPopupIdAndOrderIdOrderByCreatedAtDesc(UUID popupId, Long orderId);
 
     List<PromoPopupLead> findAllByOrderByCreatedAtDesc(Pageable pageable);

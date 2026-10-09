@@ -67,6 +67,7 @@ public class PromoPopupCreateUpdateRequest {
     @Max(value = 8760, message = "Повтор показа — от 0 до 8760 часов")
     private Integer repeatAfterHours;
 
+    @Schema(description = "Для AFTER_PURCHASE — сколько кодов выдать одному клиенту")
     @Min(value = 1, message = "Число показов — от 1 до 1000")
     @Max(value = 1000, message = "Число показов — от 1 до 1000")
     private Integer maxShows;

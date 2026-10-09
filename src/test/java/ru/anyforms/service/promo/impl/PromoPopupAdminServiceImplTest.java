@@ -155,7 +155,7 @@ class PromoPopupAdminServiceImplTest {
         assertFalse(popup.getHideForKnownContacts());
         assertEquals(0, popup.getDelaySeconds());
         assertEquals(0, popup.getRepeatAfterHours());
-        assertNull(popup.getMaxShows());
+        assertEquals(3, popup.getMaxShows());
         assertNull(popup.getAmoResponsibleUserId());
     }
 

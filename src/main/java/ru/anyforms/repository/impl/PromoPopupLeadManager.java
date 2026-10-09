@@ -55,6 +55,17 @@ class PromoPopupLeadManager implements GetterPromoPopupLead, SaverPromoPopupLead
     }
 
     @Override
+    public long countForClient(UUID popupId, String email, String phoneLast10, String deviceId) {
+        try {
+            return promoPopupLeadRepo.countForClient(popupId, email == null ? "" : email,
+                    phoneLast10 == null ? "" : phoneLast10, deviceId == null ? "" : deviceId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<PromoPopupLead> getRecent(UUID popupId, int limit) {
         try {
             PageRequest page = PageRequest.of(0, limit);

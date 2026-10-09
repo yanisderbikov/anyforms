@@ -174,7 +174,6 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
         popup.setHideForKnownContacts(false);
         popup.setDelaySeconds(0);
         popup.setRepeatAfterHours(0);
-        popup.setMaxShows(null);
     }
 
     private void applyPublicCode(PromoPopup popup, PromoPopupCreateUpdateRequest request, String shopSlug) {

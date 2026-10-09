@@ -25,7 +25,7 @@ public record PromoPopupDTO(
         String successText,
         Integer delaySeconds,
         @Schema(description = "Через сколько часов показывать снова; 0 — в каждый визит") Integer repeatAfterHours,
-        @Schema(description = "Сколько раз показывать одному посетителю; null — без ограничений") Integer maxShows,
+        @Schema(description = "Сколько раз показывать одному посетителю; для AFTER_PURCHASE — сколько кодов выдать одному клиенту (по почте, телефону или устройству); null — без ограничений") Integer maxShows,
         @Schema(description = "ISO-8601; null — без нижней границы") String validFrom,
         @Schema(description = "ISO-8601, исключительная граница; null — бессрочно") String validUntil,
         Integer discountPercent,
