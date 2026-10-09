@@ -124,8 +124,12 @@ public class PromoPopup {
         return popupType == PromoPopupType.CONTACT;
     }
 
+    public boolean isAfterPurchase() {
+        return popupType == PromoPopupType.AFTER_PURCHASE;
+    }
+
     public boolean issuesCodes() {
-        return isContact() || isUniqueCode();
+        return isContact() || isUniqueCode() || isAfterPurchase();
     }
 
     public boolean hidesKnownContacts() {

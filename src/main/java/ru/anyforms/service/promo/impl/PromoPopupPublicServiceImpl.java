@@ -9,11 +9,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.amo.PromoPopupAmoLeadTaskPayload;
 import ru.anyforms.dto.email.PromoPopupCodeEmailPayload;
+import ru.anyforms.dto.promo.AfterPurchasePromoDTO;
+import ru.anyforms.dto.promo.AfterPurchasePromoOutcome;
 import ru.anyforms.dto.promo.PromoPopupActiveRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimRequest;
+import ru.anyforms.dto.promo.PromoPopupAfterPurchaseRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimResponse;
 import ru.anyforms.dto.promo.PromoPopupIssueRequest;
 import ru.anyforms.dto.promo.PublicPromoPopupDTO;
+import ru.anyforms.model.Order;
+import ru.anyforms.model.OrderPaymentStatus;
+import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.model.promo.PromoPopup;
@@ -23,6 +29,7 @@ import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterPromoPopupLead;
 import ru.anyforms.repository.GetterPromoPopupView;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.repository.SaverPromoPopupLead;
 import ru.anyforms.repository.SaverPromoPopupView;
@@ -35,8 +42,10 @@ import ru.anyforms.util.PhoneUtil;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +60,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
     private static final int MAX_STORED_LENGTH = 255;
     private static final int MAX_PAGE_URL_LENGTH = 1024;
     private static final int MAX_USER_AGENT_LENGTH = 512;
+    private static final Pattern ORDER_NUMBER = Pattern.compile("[A-Z0-9]{6}");
 
     private final GetterPromoPopup getterPromoPopup;
     private final GetterPromoPopupLead getterPromoPopupLead;
@@ -60,6 +70,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
     private final GetterPromoCode getterPromoCode;
     private final SaverPromoCode saverPromoCode;
     private final PromoClientChecker promoClientChecker;
+    private final OrderRepository orderRepository;
     private final TaskAdder taskAdder;
     private final ClaimRateLimiter claimRateLimiter;
     private final SecureRandom random = new SecureRandom();
@@ -179,7 +190,75 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
         return response(promo, false);
     }
 
+    @Override
+    @Transactional
+    public AfterPurchasePromoOutcome afterPurchase(PromoPopupAfterPurchaseRequest request, String ip) {
+        rejectBots(null, null, "after-purchase", ClaimRateLimiter.ISSUE_ATTEMPTS, ip);
+        String orderNumber = request.getOrderNumber() == null
+                ? ""
+                : request.getOrderNumber().trim().toUpperCase(Locale.ROOT);
+        if (!ORDER_NUMBER.matcher(orderNumber).matches()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден.");
+        }
+        Order order = orderRepository.findByPublicId(orderNumber)
+                .filter(o -> o.getSource() == OrderSource.MARKETPLACE)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден."));
+        if (order.getPaymentStatus() == OrderPaymentStatus.AWAITING_PAYMENT) {
+            return AfterPurchasePromoOutcome.awaitingPayment();
+        }
+        if (order.getPaymentStatus() != OrderPaymentStatus.PAID) {
+            return AfterPurchasePromoOutcome.none();
+        }
+        String shopSlug = order.getShop() == null || order.getShop().getSlug() == null
+                ? Shop.DEFAULT_SLUG
+                : order.getShop().getSlug();
+        Instant now = Instant.now();
+        Optional<PromoPopup> live = getterPromoPopup.getLive(shopSlug, now).stream()
+                .filter(PromoPopup::isAfterPurchase)
+                .findFirst();
+        if (live.isEmpty()) {
+            return AfterPurchasePromoOutcome.none();
+        }
+        PromoPopup popup = live.get();
+        String deviceId = PromoClient.normalizeDeviceId(request.getDeviceId()).isEmpty()
+                ? order.getDeviceId()
+                : request.getDeviceId();
+        PromoClient client = PromoClient.of(order.getEmail(), order.getContactPhone(), deviceId);
+
+        Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForOrder(popup.getId(), order.getId());
+        if (previous.isPresent()) {
+            return previous.get().getPromoCodeId() == null
+                    ? AfterPurchasePromoOutcome.none()
+                    : getterPromoCode.getById(previous.get().getPromoCodeId())
+                    .filter(PromoCode::isCurrentlyValid)
+                    .filter(promo -> !promoClientChecker.usedCode(promo.getCode(), client))
+                    .filter(promo -> !promoClientChecker.exhausted(promo, client))
+                    .map(promo -> AfterPurchasePromoOutcome.ready(AfterPurchasePromoDTO.of(popup, promo, true)))
+                    .orElseGet(AfterPurchasePromoOutcome::none);
+        }
+
+        PromoCode promo = issueCode(popup, client, client.hasContact());
+        PromoPopupLead lead = saverPromoPopupLead.save(PromoPopupLead.builder()
+                .popupId(popup.getId())
+                .promoCodeId(promo.getId())
+                .code(promo.getCode())
+                .shopSlug(popup.getShopSlug())
+                .orderId(order.getId())
+                .email(client.email().isEmpty() ? null : client.email())
+                .phone(blankToNull(order.getContactPhone()))
+                .phoneLast10(client.phoneLast10().isEmpty() ? null : client.phoneLast10())
+                .deviceId(client.deviceIdOrNull())
+                .ip(crop(ip, 64))
+                .build());
+        log.info("Попап {}: по оплаченному заказу {} выдан код {} (заявка {})",
+                popup.getId(), order.getPublicId(), promo.getCode(), lead.getId());
+        return AfterPurchasePromoOutcome.ready(AfterPurchasePromoDTO.of(popup, promo, false));
+    }
+
     private Optional<PublicPromoPopupDTO> showFor(PromoPopup popup, PromoClient client, String shopSlug, Instant now) {
+        if (popup.isAfterPurchase()) {
+            return Optional.empty();
+        }
         if (popup.hidesKnownContacts() && client.hasContact()) {
             return Optional.empty();
         }
@@ -354,6 +433,10 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
 
     private static ResponseStatusException conflict(String message) {
         return new ResponseStatusException(HttpStatus.CONFLICT, message);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static String crop(String value, int maxLength) {

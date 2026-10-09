@@ -45,22 +45,29 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
     @Override
     public void process(AmoNewMessageWebhookPayload payload) {
         var contactId = payload.getMessage().getContactId();
+        var entityId = payload.getMessage().getEntity().getId();
+        var chatId = payload.getMessage().getChatId();
         if (skippingContactIds.contains(contactId)) {
+            log.info("Новое сообщение: контакт {} в списке исключений, сделка {} — пропуск", contactId, entityId);
             return;
         }
         var message = payload.getMessage().getText();
         if (message != null && message.contains(SYSTEM_WZ_MARKER)) {
+            log.info("Новое сообщение: системное сообщение WZ по сделке {} — пропуск", entityId);
             return;
         }
-        var lead  = amoCrmGateway.getLead(payload.getMessage().getEntity().getId());
+        var lead  = amoCrmGateway.getLead(entityId);
         var pipelineId = lead.getPipelineId();
         if (!pipelineId.equals(AmoPipeline.TRASH.getPipelineId())) {
             taskAdder.addTask(AmoReplyCheckTaskPayload.builder()
                     .leadId(lead.getId())
-                    .chatId(payload.getMessage().getChatId())
+                    .chatId(chatId)
+                    .contactId(contactId)
                     .build());
+            log.info("Новое сообщение по сделке {} (воронка {}, чат {}) — поставлена отложенная проверка ответа менеджера", lead.getId(), pipelineId, chatId);
             return;
         }
+        log.info("Новое сообщение по сделке {} в воронке «Мусор», чат {} — проверяем шаблон заказа", lead.getId(), chatId);
         if (MessagePatternOrder.isNeedToMove(message)) {
             amoCrmGateway.updateLeadStatus(lead.getId(), AmoLeadStatus.FIST_TOUCH);
             setTaskIfAbsent(lead.getId(), "Проверка");
@@ -71,9 +78,11 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
 
     private void setTaskIfAbsent(Long leadId, String text) {
         if (leadIdTaskCache.getIfPresent(leadId) != null) {
+            log.info("Задача «{}» по сделке {} уже ставилась недавно — пропуск", text, leadId);
             return;
         }
         if (amoCrmGateway.hasIncompleteTask(leadId, AmoTaskId.LOST_MESSAGE.getTaskId())) {
+            log.info("По сделке {} уже есть незакрытая задача «Пропущенное» — «{}» не ставим", leadId, text);
             leadIdTaskCache.put(leadId, Boolean.TRUE);
             return;
         }
@@ -85,5 +94,6 @@ class AmoNewMessageProcessorImpl implements AmoNewMessageProcessor {
                 10
         );
         leadIdTaskCache.put(leadId, Boolean.TRUE);
+        log.info("Сделка {} перенесена в «Первое касание», поставлена задача «{}»", leadId, text);
     }
 }

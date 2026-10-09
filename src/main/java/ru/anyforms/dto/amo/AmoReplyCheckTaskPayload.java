@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class AmoReplyCheckTaskPayload {
     private Long leadId;
     private String chatId;
+    private Long contactId;
 }

@@ -7,6 +7,7 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.amo.AmoChatMessage;
 import ru.anyforms.model.amo.AmoChatMessages;
 import ru.anyforms.model.amo.AmoLead;
+import ru.anyforms.model.amo.AmoLeadStatus;
 import ru.anyforms.model.amo.AmoPipeline;
 import ru.anyforms.model.amo.AmoTaskId;
 
@@ -21,26 +22,41 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MissedReplyCheckerImplTest {
 
     private static final long LEAD_ID = 100L;
+    private static final long SECOND_LEAD_ID = 200L;
+    private static final long CONTACT_ID = 777L;
     private static final long RESPONSIBLE = 555L;
+    private static final long SECOND_RESPONSIBLE = 666L;
+    private static final String TASK_TEXT = "Пропущенное: ответ более 10 минут";
 
     private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
     private final AmoChatGateway amoChatGateway = mock(AmoChatGateway.class);
     private final MissedReplyCheckerImpl checker = new MissedReplyCheckerImpl(amoCrmGateway, amoChatGateway, 10);
 
-    private final AmoReplyCheckTaskPayload payload = new AmoReplyCheckTaskPayload(LEAD_ID, "chat-1");
+    private final AmoReplyCheckTaskPayload payload = new AmoReplyCheckTaskPayload(LEAD_ID, "chat-1", CONTACT_ID);
+
+    private AmoLead lead(long id, long pipelineId, long responsible) {
+        AmoLead lead = new AmoLead();
+        lead.setId(id);
+        lead.setPipelineId(pipelineId);
+        lead.setResponsibleUserId(responsible);
+        when(amoCrmGateway.getLead(id)).thenReturn(lead);
+        return lead;
+    }
 
     private void leadInPipeline(long pipelineId) {
-        AmoLead lead = new AmoLead();
-        lead.setId(LEAD_ID);
-        lead.setPipelineId(pipelineId);
-        lead.setResponsibleUserId(RESPONSIBLE);
-        when(amoCrmGateway.getLead(LEAD_ID)).thenReturn(lead);
+        lead(LEAD_ID, pipelineId, RESPONSIBLE);
+        when(amoCrmGateway.getLeadIdsByContact(CONTACT_ID)).thenReturn(List.of(LEAD_ID));
+    }
+
+    private void contactLeads(Long... ids) {
+        when(amoCrmGateway.getLeadIdsByContact(CONTACT_ID)).thenReturn(List.of(ids));
     }
 
     private void chat(AmoChatMessage... messages) {
@@ -65,6 +81,10 @@ class MissedReplyCheckerImplTest {
         verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), anyLong(), anyInt());
     }
 
+    private void verifyTask(long leadId, long responsible) {
+        verify(amoCrmGateway).setNewTask(eq(responsible), eq(AmoTaskId.LOST_MESSAGE.getTaskId()), eq(TASK_TEXT), eq(leadId), eq(0));
+    }
+
     @Test
     void createsMissedTaskWhenClientWaitsLongerThanTimeout() {
         leadInPipeline(1L);
@@ -72,8 +92,7 @@ class MissedReplyCheckerImplTest {
 
         checker.check(payload);
 
-        verify(amoCrmGateway).setNewTask(eq(RESPONSIBLE), eq(AmoTaskId.LOST_MESSAGE.getTaskId()),
-                eq("Пропущенное: ответ более 10 минут"), eq(LEAD_ID), eq(0));
+        verifyTask(LEAD_ID, RESPONSIBLE);
     }
 
     @Test
@@ -115,6 +134,90 @@ class MissedReplyCheckerImplTest {
 
         verify(amoChatGateway, never()).getChatMessages(anyString());
         verifyNoTask();
+    }
+
+    @Test
+    void createsTaskInEveryOpenLeadOfContactForItsOwnResponsible() {
+        lead(LEAD_ID, AmoPipeline.MAIN.getPipelineId(), RESPONSIBLE);
+        lead(SECOND_LEAD_ID, AmoPipeline.RETAIL.getPipelineId(), SECOND_RESPONSIBLE);
+        contactLeads(LEAD_ID, SECOND_LEAD_ID);
+        chat(in(15));
+
+        checker.check(payload);
+
+        verifyTask(LEAD_ID, RESPONSIBLE);
+        verifyTask(SECOND_LEAD_ID, SECOND_RESPONSIBLE);
+        verify(amoChatGateway, times(1)).getChatMessages("chat-1");
+    }
+
+    @Test
+    void createsTaskInEachLeadEvenWhenSameManagerIsResponsible() {
+        lead(LEAD_ID, AmoPipeline.MAIN.getPipelineId(), RESPONSIBLE);
+        lead(SECOND_LEAD_ID, AmoPipeline.RETAIL.getPipelineId(), RESPONSIBLE);
+        contactLeads(LEAD_ID, SECOND_LEAD_ID);
+        chat(in(15));
+
+        checker.check(payload);
+
+        verifyTask(LEAD_ID, RESPONSIBLE);
+        verifyTask(SECOND_LEAD_ID, RESPONSIBLE);
+    }
+
+    @Test
+    void skipsContactLeadsInTrashOrClosed() {
+        lead(LEAD_ID, AmoPipeline.MAIN.getPipelineId(), RESPONSIBLE);
+        lead(SECOND_LEAD_ID, AmoPipeline.TRASH.getPipelineId(), SECOND_RESPONSIBLE);
+        AmoLead closed = lead(300L, AmoPipeline.RETAIL.getPipelineId(), SECOND_RESPONSIBLE);
+        closed.setStatusId(AmoLeadStatus.REALIZED.getStatusId());
+        contactLeads(LEAD_ID, SECOND_LEAD_ID, 300L);
+        chat(in(15));
+
+        checker.check(payload);
+
+        verifyTask(LEAD_ID, RESPONSIBLE);
+        verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), eq(SECOND_LEAD_ID), anyInt());
+        verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), eq(300L), anyInt());
+    }
+
+    @Test
+    void stillNotifiesOtherOpenLeadWhenWebhookLeadWentToTrash() {
+        lead(LEAD_ID, AmoPipeline.TRASH.getPipelineId(), RESPONSIBLE);
+        lead(SECOND_LEAD_ID, AmoPipeline.RETAIL.getPipelineId(), SECOND_RESPONSIBLE);
+        contactLeads(LEAD_ID, SECOND_LEAD_ID);
+        chat(in(15));
+
+        checker.check(payload);
+
+        verifyTask(SECOND_LEAD_ID, SECOND_RESPONSIBLE);
+        verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), eq(LEAD_ID), anyInt());
+    }
+
+    @Test
+    void duplicateCheckIsPerLead() {
+        lead(LEAD_ID, AmoPipeline.MAIN.getPipelineId(), RESPONSIBLE);
+        lead(SECOND_LEAD_ID, AmoPipeline.RETAIL.getPipelineId(), SECOND_RESPONSIBLE);
+        contactLeads(LEAD_ID, SECOND_LEAD_ID);
+        when(amoCrmGateway.hasIncompleteTask(LEAD_ID, AmoTaskId.LOST_MESSAGE.getTaskId())).thenReturn(true);
+        chat(in(15));
+
+        checker.check(payload);
+
+        verify(amoCrmGateway, never()).setNewTask(anyLong(), anyLong(), anyString(), eq(LEAD_ID), anyInt());
+        verifyTask(SECOND_LEAD_ID, SECOND_RESPONSIBLE);
+    }
+
+    @Test
+    void resolvesContactFromLeadWhenPayloadHasNoContact() {
+        lead(LEAD_ID, AmoPipeline.MAIN.getPipelineId(), RESPONSIBLE);
+        lead(SECOND_LEAD_ID, AmoPipeline.RETAIL.getPipelineId(), SECOND_RESPONSIBLE);
+        when(amoCrmGateway.getContactIdFromLead(LEAD_ID)).thenReturn(CONTACT_ID);
+        contactLeads(LEAD_ID, SECOND_LEAD_ID);
+        chat(in(15));
+
+        checker.check(new AmoReplyCheckTaskPayload(LEAD_ID, "chat-1", null));
+
+        verifyTask(LEAD_ID, RESPONSIBLE);
+        verifyTask(SECOND_LEAD_ID, SECOND_RESPONSIBLE);
     }
 
     @Test

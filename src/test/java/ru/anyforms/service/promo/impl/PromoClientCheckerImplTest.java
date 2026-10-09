@@ -2,6 +2,9 @@ package ru.anyforms.service.promo.impl;
 
 import org.junit.jupiter.api.Test;
 import ru.anyforms.model.payment.PromoCode;
+import ru.anyforms.model.promo.PromoPopup;
+import ru.anyforms.model.promo.PromoPopupType;
+import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.promo.PromoClient;
@@ -26,7 +29,9 @@ class PromoClientCheckerImplTest {
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final GetterTransaction getterTransaction = mock(GetterTransaction.class);
-    private final PromoClientCheckerImpl checker = new PromoClientCheckerImpl(orderRepository, getterTransaction);
+    private final GetterPromoPopup getterPromoPopup = mock(GetterPromoPopup.class);
+    private final PromoClientCheckerImpl checker = new PromoClientCheckerImpl(orderRepository, getterTransaction,
+            getterPromoPopup);
 
     private final PromoClient client = PromoClient.of(" Buyer@Example.com ", "+7 (999) 123-45-67", DEVICE);
 
@@ -113,5 +118,18 @@ class PromoClientCheckerImplTest {
 
         when(orderRepository.existsRetailOrderByCustomer(anyString(), anyString(), anyString())).thenReturn(false);
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").isEmpty());
+    }
+
+    @Test
+    void afterPurchaseCodesAreNotLimitedToOneDiscountPerClient() {
+        UUID popupId = UUID.randomUUID();
+        PromoCode promo = PromoCode.builder().code("NEXT-AAAAA").popupId(popupId).maxUses(1).build();
+        when(getterPromoPopup.getById(popupId)).thenReturn(Optional.of(
+                PromoPopup.builder().id(popupId).popupType(PromoPopupType.AFTER_PURCHASE).build()));
+        when(getterTransaction.popupCodeUsedByCustomer(popupId, "buyer@example.com", "9991234567", DEVICE))
+                .thenReturn(true);
+
+        assertTrue(checker.checkoutRejection(promo, client, "anyforms").isEmpty());
+        verify(getterTransaction, never()).popupCodeUsedByCustomer(any(), anyString(), anyString(), anyString());
     }
 }

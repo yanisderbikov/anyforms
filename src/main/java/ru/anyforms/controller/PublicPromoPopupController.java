@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,8 +15,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import ru.anyforms.dto.promo.AfterPurchasePromoDTO;
+import ru.anyforms.dto.promo.AfterPurchasePromoOutcome;
 import ru.anyforms.dto.promo.PromoPopupActiveRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimRequest;
+import ru.anyforms.dto.promo.PromoPopupAfterPurchaseRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimResponse;
 import ru.anyforms.dto.promo.PromoPopupIssueRequest;
 import ru.anyforms.dto.promo.PromoPopupViewRequest;
@@ -71,6 +75,21 @@ public class PublicPromoPopupController {
                                                          HttpServletRequest httpRequest) {
         return ResponseEntity.ok(promoPopupPublicService.claim(id, request,
                 clientIp(httpRequest), httpRequest.getHeader("User-Agent")));
+    }
+
+    @Operation(summary = "Промокод на следующий заказ после оплаты",
+            description = "Для оплаченного заказа выдаёт одноразовый код из попапа «после покупки» (один код на заказ, "
+                    + "повторный запрос возвращает тот же код). 202 — оплата ещё не подтверждена, повторите позже; "
+                    + "204 — показывать нечего")
+    @PostMapping("/after-purchase")
+    public ResponseEntity<AfterPurchasePromoDTO> afterPurchase(@Valid @RequestBody PromoPopupAfterPurchaseRequest request,
+                                                               HttpServletRequest httpRequest) {
+        AfterPurchasePromoOutcome outcome = promoPopupPublicService.afterPurchase(request, clientIp(httpRequest));
+        return switch (outcome.status()) {
+            case READY -> ResponseEntity.ok(outcome.promo());
+            case AWAITING_PAYMENT -> ResponseEntity.status(HttpStatus.ACCEPTED).build();
+            case NONE -> ResponseEntity.noContent().build();
+        };
     }
 
     @ExceptionHandler(ResponseStatusException.class)

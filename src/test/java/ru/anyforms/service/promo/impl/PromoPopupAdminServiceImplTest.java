@@ -117,8 +117,52 @@ class PromoPopupAdminServiceImplTest {
         assertNull(popup.getSuccessTitle());
         assertNull(popup.getAmoResponsibleUserId());
         assertNull(popup.getAmoTaskTypeId());
-        assertTrue(popup.getFirstOrderOnly());
+        assertFalse(popup.getFirstOrderOnly());
         assertTrue(popup.getHideForKnownContacts());
+    }
+
+    @Test
+    void generatedCodeIsForFirstOrderOnlyWhenAsked() {
+        service.create(base(PromoPopupType.UNIQUE_CODE)
+                .discountPercent(10)
+                .codePrefix("ONE")
+                .codeTtlDays(7)
+                .firstOrderOnly(true)
+                .build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup).save(saved.capture());
+        assertTrue(saved.getValue().getFirstOrderOnly());
+    }
+
+    @Test
+    void afterPurchasePopupIgnoresFrequencyAndFirstOrderSettings() {
+        service.create(base(PromoPopupType.AFTER_PURCHASE)
+                .discountPercent(10)
+                .codePrefix("next")
+                .codeTtlDays(30)
+                .firstOrderOnly(true)
+                .hideForKnownContacts(true)
+                .build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup).save(saved.capture());
+        PromoPopup popup = saved.getValue();
+        assertEquals(PromoPopupType.AFTER_PURCHASE, popup.getPopupType());
+        assertEquals("NEXT", popup.getCodePrefix());
+        assertEquals(30, popup.getCodeTtlDays());
+        assertFalse(popup.getFirstOrderOnly());
+        assertFalse(popup.getHideForKnownContacts());
+        assertEquals(0, popup.getDelaySeconds());
+        assertEquals(0, popup.getRepeatAfterHours());
+        assertNull(popup.getMaxShows());
+        assertNull(popup.getAmoResponsibleUserId());
+    }
+
+    @Test
+    void afterPurchasePopupRequiresCodeSettings() {
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.AFTER_PURCHASE).build()));
+        verify(saverPromoPopup, never()).save(any());
     }
 
     @Test
@@ -205,7 +249,7 @@ class PromoPopupAdminServiceImplTest {
         verify(saverPromoPopup).save(saved.capture());
         PromoPopup popup = saved.getValue();
         assertEquals("SHOP", popup.getCodePrefix());
-        assertTrue(popup.getFirstOrderOnly());
+        assertFalse(popup.getFirstOrderOnly());
         assertEquals(60, popup.getAmoTaskDeadlineMinutes());
         assertNull(popup.getPromoCodeId());
     }

@@ -12,7 +12,8 @@ import java.util.UUID;
 public record PromoPopupDTO(
         UUID id,
         String name,
-        @Schema(description = "CONTACT — персональный код за контакт, PUBLIC_CODE — готовый промокод для всех")
+        @Schema(description = "CONTACT — персональный код за контакт, UNIQUE_CODE — одноразовый код устройству, "
+                + "PUBLIC_CODE — готовый промокод для всех, AFTER_PURCHASE — код на следующий заказ после оплаты")
         PromoPopupType popupType,
         Boolean active,
         Integer priority,

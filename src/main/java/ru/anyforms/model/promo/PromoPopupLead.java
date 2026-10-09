@@ -84,6 +84,9 @@ public class PromoPopupLead {
     @Column(name = "amo_lead_id")
     private Long amoLeadId;
 
+    @Column(name = "order_id")
+    private Long orderId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

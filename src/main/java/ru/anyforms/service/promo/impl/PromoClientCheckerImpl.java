@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PromoCode;
+import ru.anyforms.model.promo.PromoPopup;
+import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.promo.PromoClient;
@@ -22,6 +24,7 @@ class PromoClientCheckerImpl implements PromoClientChecker {
 
     private final OrderRepository orderRepository;
     private final GetterTransaction getterTransaction;
+    private final GetterPromoPopup getterPromoPopup;
 
     @Override
     public boolean hasOrders(PromoClient client) {
@@ -52,6 +55,10 @@ class PromoClientCheckerImpl implements PromoClientChecker {
         return uses >= promo.getMaxUses();
     }
 
+    private boolean oneDiscountPerClient(UUID popupId) {
+        return getterPromoPopup.getById(popupId).map(PromoPopup::isAfterPurchase).map(after -> !after).orElse(true);
+    }
+
     @Override
     public Optional<String> checkoutRejection(PromoCode promo, PromoClient client, String shopSlug) {
         String shop = shopSlug == null || shopSlug.isBlank() ? Shop.DEFAULT_SLUG : shopSlug.trim();
@@ -68,7 +75,8 @@ class PromoClientCheckerImpl implements PromoClientChecker {
         if (exhausted(promo, client)) {
             return Optional.of("Промокод " + code + " уже использован.");
         }
-        if (promo.getPopupId() != null && usedPopup(promo.getPopupId(), client)) {
+        if (promo.getPopupId() != null && oneDiscountPerClient(promo.getPopupId())
+                && usedPopup(promo.getPopupId(), client)) {
             return Optional.of("Скидка по этой акции уже использована.");
         }
         if (promo.isFirstOrderOnly() && hasOrders(client)) {

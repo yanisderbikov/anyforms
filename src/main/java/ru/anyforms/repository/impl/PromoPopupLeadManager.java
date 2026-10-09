@@ -45,6 +45,16 @@ class PromoPopupLeadManager implements GetterPromoPopupLead, SaverPromoPopupLead
     }
 
     @Override
+    public Optional<PromoPopupLead> getLatestForOrder(UUID popupId, Long orderId) {
+        try {
+            return promoPopupLeadRepo.findFirstByPopupIdAndOrderIdOrderByCreatedAtDesc(popupId, orderId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<PromoPopupLead> getRecent(UUID popupId, int limit) {
         try {
             PageRequest page = PageRequest.of(0, limit);

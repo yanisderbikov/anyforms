@@ -163,8 +163,18 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
         switch (request.getPopupType()) {
             case PUBLIC_CODE -> applyPublicCode(popup, request, shopSlug);
             case UNIQUE_CODE -> applyGeneratedCode(popup, request, false);
+            case AFTER_PURCHASE -> applyAfterPurchase(popup, request);
             case CONTACT -> applyGeneratedCode(popup, request, true);
         }
+    }
+
+    private void applyAfterPurchase(PromoPopup popup, PromoPopupCreateUpdateRequest request) {
+        applyGeneratedCode(popup, request, false);
+        popup.setFirstOrderOnly(false);
+        popup.setHideForKnownContacts(false);
+        popup.setDelaySeconds(0);
+        popup.setRepeatAfterHours(0);
+        popup.setMaxShows(null);
     }
 
     private void applyPublicCode(PromoPopup popup, PromoPopupCreateUpdateRequest request, String shopSlug) {
@@ -221,7 +231,7 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
         popup.setMinOrderKopecks(request.getMinOrderKopecks());
         popup.setCodePrefix(PromoCode.normalize(request.getCodePrefix()));
         popup.setCodeTtlDays(request.getCodeTtlDays());
-        popup.setFirstOrderOnly(!Boolean.FALSE.equals(request.getFirstOrderOnly()));
+        popup.setFirstOrderOnly(Boolean.TRUE.equals(request.getFirstOrderOnly()));
         popup.setAmoResponsibleUserId(withAmo ? request.getAmoResponsibleUserId() : null);
         popup.setAmoTaskTypeId(withAmo ? request.getAmoTaskTypeId() : null);
         popup.setAmoTaskDeadlineMinutes(!withAmo || request.getAmoTaskDeadlineMinutes() == null

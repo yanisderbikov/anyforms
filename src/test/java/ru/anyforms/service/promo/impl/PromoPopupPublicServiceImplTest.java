@@ -8,11 +8,16 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.amo.PromoPopupAmoLeadTaskPayload;
 import ru.anyforms.dto.email.PromoPopupCodeEmailPayload;
+import ru.anyforms.dto.promo.AfterPurchasePromoOutcome;
 import ru.anyforms.dto.promo.PromoPopupActiveRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimRequest;
+import ru.anyforms.dto.promo.PromoPopupAfterPurchaseRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimResponse;
 import ru.anyforms.dto.promo.PromoPopupIssueRequest;
 import ru.anyforms.dto.promo.PublicPromoPopupDTO;
+import ru.anyforms.model.Order;
+import ru.anyforms.model.OrderPaymentStatus;
+import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.model.promo.PromoPopupLead;
@@ -22,6 +27,7 @@ import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterPromoPopupLead;
 import ru.anyforms.repository.GetterPromoPopupView;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.repository.SaverPromoPopupLead;
 import ru.anyforms.repository.SaverPromoPopupView;
@@ -57,6 +63,7 @@ class PromoPopupPublicServiceImplTest {
     private static final String OTHER_DEVICE = "0aa1bb2c-3dd4-4ee5-8ff6-112233445566";
     private static final UUID POPUP_ID = UUID.randomUUID();
     private static final UUID UNIQUE_ID = UUID.randomUUID();
+    private static final UUID AFTER_ID = UUID.randomUUID();
 
     private final GetterPromoPopup getterPromoPopup = mock(GetterPromoPopup.class);
     private final GetterPromoPopupLead getterPromoPopupLead = mock(GetterPromoPopupLead.class);
@@ -66,15 +73,17 @@ class PromoPopupPublicServiceImplTest {
     private final GetterPromoCode getterPromoCode = mock(GetterPromoCode.class);
     private final SaverPromoCode saverPromoCode = mock(SaverPromoCode.class);
     private final PromoClientChecker checker = mock(PromoClientChecker.class);
+    private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final TaskAdder taskAdder = mock(TaskAdder.class);
     private final ClaimRateLimiter claimRateLimiter = mock(ClaimRateLimiter.class);
 
     private final PromoPopupPublicServiceImpl service = new PromoPopupPublicServiceImpl(
             getterPromoPopup, getterPromoPopupLead, saverPromoPopupLead, getterPromoPopupView, saverPromoPopupView,
-            getterPromoCode, saverPromoCode, checker, taskAdder, claimRateLimiter);
+            getterPromoCode, saverPromoCode, checker, orderRepository, taskAdder, claimRateLimiter);
 
     private PromoPopup contactPopup;
     private PromoPopup uniquePopup;
+    private PromoPopup afterPurchasePopup;
 
     @BeforeEach
     void setUp() {
@@ -108,8 +117,26 @@ class PromoPopupPublicServiceImplTest {
                 .hideForKnownContacts(true)
                 .repeatAfterHours(0)
                 .build();
+        afterPurchasePopup = PromoPopup.builder()
+                .id(AFTER_ID)
+                .name("−10% на следующий заказ")
+                .popupType(PromoPopupType.AFTER_PURCHASE)
+                .active(true)
+                .priority(100)
+                .shopSlug("anyforms")
+                .title("спасибо за заказ")
+                .buttonText("Вернуться в магазин")
+                .discountPercent(10)
+                .codePrefix("NEXT")
+                .codeTtlDays(30)
+                .firstOrderOnly(false)
+                .hideForKnownContacts(false)
+                .repeatAfterHours(0)
+                .build();
         when(getterPromoPopup.getById(POPUP_ID)).thenReturn(Optional.of(contactPopup));
         when(getterPromoPopup.getById(UNIQUE_ID)).thenReturn(Optional.of(uniquePopup));
+        when(getterPromoPopup.getById(AFTER_ID)).thenReturn(Optional.of(afterPurchasePopup));
+        when(getterPromoPopupLead.getLatestForOrder(any(), any())).thenReturn(Optional.empty());
         when(claimRateLimiter.tryAcquire(any(), anyInt())).thenReturn(true);
         when(getterPromoPopupLead.getLatestForClient(any(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -141,6 +168,24 @@ class PromoPopupPublicServiceImplTest {
 
     private static PromoPopupIssueRequest issueRequest() {
         return PromoPopupIssueRequest.builder().deviceId(DEVICE).pageUrl("https://anyforms.ru/shop").build();
+    }
+
+    private static PromoPopupAfterPurchaseRequest afterPurchaseRequest() {
+        return PromoPopupAfterPurchaseRequest.builder().orderNumber(" a1b2c3 ").deviceId(DEVICE).build();
+    }
+
+    private Order paidOrder(OrderPaymentStatus status) {
+        Order order = new Order();
+        order.setId(42L);
+        order.setPublicId("A1B2C3");
+        order.setSource(OrderSource.MARKETPLACE);
+        order.setRetail(true);
+        order.setPaymentStatus(status);
+        order.setEmail("Buyer@Example.com");
+        order.setContactPhone("+7 (999) 123-45-67");
+        order.setDeviceId(OTHER_DEVICE);
+        when(orderRepository.findByPublicId("A1B2C3")).thenReturn(Optional.of(order));
+        return order;
     }
 
     private static PromoPopupActiveRequest activeRequest(String phone) {
@@ -476,5 +521,92 @@ class PromoPopupPublicServiceImplTest {
         service.recordView(POPUP_ID, OTHER_DEVICE);
         service.recordView(POPUP_ID, "not a device");
         verify(saverPromoPopupView, times(1)).save(any(PromoPopupView.class));
+    }
+
+    @Test
+    void afterPurchaseIssuesCodeBoundToOrderContactsAndDevice() {
+        paidOrder(OrderPaymentStatus.PAID);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup, uniquePopup));
+
+        AfterPurchasePromoOutcome outcome = service.afterPurchase(afterPurchaseRequest(), "1.2.3.4");
+
+        assertEquals(AfterPurchasePromoOutcome.Status.READY, outcome.status());
+        PromoCode promo = capturedPromo();
+        assertTrue(promo.getCode().startsWith("NEXT-"));
+        assertEquals(1, promo.getMaxUses());
+        assertEquals("buyer@example.com", promo.getOwnerEmail());
+        assertEquals("9991234567", promo.getOwnerPhoneLast10());
+        assertEquals(DEVICE, promo.getOwnerDeviceId());
+        assertFalse(promo.isFirstOrderOnly());
+        assertEquals(Duration.ofDays(30), Duration.between(promo.getValidFrom(), promo.getValidUntil()));
+
+        PromoPopupLead lead = capturedLead();
+        assertEquals(42L, lead.getOrderId());
+        assertEquals("buyer@example.com", lead.getEmail());
+        assertEquals("9991234567", lead.getPhoneLast10());
+        assertEquals(DEVICE, lead.getDeviceId());
+        assertNull(lead.getConsentVersion());
+        verify(taskAdder, never()).addTask(any());
+        assertEquals(promo.getCode(), outcome.promo().code());
+        assertEquals("спасибо за заказ", outcome.promo().title());
+        assertFalse(outcome.promo().repeated());
+    }
+
+    @Test
+    void afterPurchaseReturnsSameCodeForSameOrder() {
+        paidOrder(OrderPaymentStatus.PAID);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup));
+        UUID promoId = UUID.randomUUID();
+        when(getterPromoPopupLead.getLatestForOrder(AFTER_ID, 42L)).thenReturn(Optional.of(
+                PromoPopupLead.builder().popupId(AFTER_ID).promoCodeId(promoId).orderId(42L).code("NEXT-AAAAA").build()));
+        PromoCode promo = PromoCode.builder().id(promoId).code("NEXT-AAAAA").discountPercent(10).active(true)
+                .maxUses(1).validUntil(Instant.now().plus(Duration.ofDays(20))).build();
+        when(getterPromoCode.getById(promoId)).thenReturn(Optional.of(promo));
+
+        AfterPurchasePromoOutcome outcome = service.afterPurchase(afterPurchaseRequest(), "1.2.3.4");
+
+        assertEquals("NEXT-AAAAA", outcome.promo().code());
+        assertTrue(outcome.promo().repeated());
+        verify(saverPromoCode, never()).save(any());
+
+        when(checker.usedCode(eq("NEXT-AAAAA"), any())).thenReturn(true);
+        assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+    }
+
+    @Test
+    void afterPurchaseWaitsForPaymentAndSkipsUnpaidOrders() {
+        paidOrder(OrderPaymentStatus.AWAITING_PAYMENT);
+        assertEquals(AfterPurchasePromoOutcome.Status.AWAITING_PAYMENT,
+                service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+
+        paidOrder(OrderPaymentStatus.CANCELED);
+        assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+
+        paidOrder(OrderPaymentStatus.PAID);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(uniquePopup, contactPopup));
+        assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+        verify(saverPromoCode, never()).save(any());
+    }
+
+    @Test
+    void afterPurchaseRejectsUnknownOrderAndFloods() {
+        PromoPopupAfterPurchaseRequest unknown = PromoPopupAfterPurchaseRequest.builder().orderNumber("ZZZZZZ").build();
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> service.afterPurchase(unknown, "1.2.3.4")).getStatusCode());
+
+        PromoPopupAfterPurchaseRequest malformed = PromoPopupAfterPurchaseRequest.builder().orderNumber("<b>").build();
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> service.afterPurchase(malformed, "1.2.3.4")).getStatusCode());
+
+        when(claimRateLimiter.tryAcquire(eq("after-purchase:5.6.7.8"), anyInt())).thenReturn(false);
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, assertThrows(ResponseStatusException.class,
+                () -> service.afterPurchase(afterPurchaseRequest(), "5.6.7.8")).getStatusCode());
+    }
+
+    @Test
+    void activeNeverShowsAfterPurchasePopup() {
+        when(getterPromoPopup.getLive(any(), any())).thenReturn(List.of(afterPurchasePopup, contactPopup));
+
+        assertEquals(POPUP_ID, service.getActive(activeRequest(null)).orElseThrow().id());
     }
 }

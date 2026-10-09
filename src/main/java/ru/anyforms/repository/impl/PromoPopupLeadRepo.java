@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import ru.anyforms.model.promo.PromoPopupLead;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -26,6 +27,8 @@ interface PromoPopupLeadRepo extends JpaRepository<PromoPopupLead, UUID> {
                                        @Param("phoneLast10") String phoneLast10,
                                        @Param("deviceId") String deviceId,
                                        Pageable pageable);
+
+    Optional<PromoPopupLead> findFirstByPopupIdAndOrderIdOrderByCreatedAtDesc(UUID popupId, Long orderId);
 
     List<PromoPopupLead> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
