@@ -16,6 +16,8 @@ public interface GetterTransaction {
 
     Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId);
 
+    Optional<PaymentTransaction> getByExternalPaymentIdForUpdate(String externalPaymentId);
+
     List<PaymentTransaction> getByOrderId(Long orderId);
 
     List<PaymentTransaction> getRecentByProductCode(String productCode, int limit);

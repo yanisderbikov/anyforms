@@ -1,7 +1,9 @@
 package ru.anyforms.repository.impl;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -19,6 +21,11 @@ import java.util.UUID;
 @Repository
 interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     Optional<PaymentTransaction> findByExternalPaymentId(String externalPaymentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from PaymentTransaction t where t.externalPaymentId = :externalPaymentId")
+    Optional<PaymentTransaction> findByExternalPaymentIdForUpdate(
+            @Param("externalPaymentId") String externalPaymentId);
 
     List<PaymentTransaction> findByOrderId(Long orderId);
 
