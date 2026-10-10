@@ -19,4 +19,6 @@ public interface PromoClientChecker {
     boolean exhausted(PromoCode promo);
 
     Optional<String> checkoutRejection(PromoCode promo, PromoClient client, String shopSlug);
+
+    Optional<String> previewRejection(PromoCode promo, PromoClient client, String shopSlug);
 }

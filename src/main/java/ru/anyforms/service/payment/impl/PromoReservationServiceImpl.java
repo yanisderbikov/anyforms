@@ -1,12 +1,13 @@
 package ru.anyforms.service.payment.impl;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.anyforms.dto.payment.tinkoff.TinkoffCancelRequest;
+import ru.anyforms.dto.payment.tinkoff.TinkoffCancelResponse;
 import ru.anyforms.dto.payment.tinkoff.TinkoffGetStateResponse;
-import ru.anyforms.model.payment.PaymentProvider;
-import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.repository.GetterTransaction;
@@ -19,56 +20,69 @@ import ru.anyforms.service.promo.PromoClientChecker;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 class PromoReservationServiceImpl implements PromoReservationService {
+
+    static final Set<String> CANCELLABLE_BANK_STATUSES = Set.of("NEW", "FORM_SHOWED");
 
     private final GetterTransaction getterTransaction;
     private final TinkoffService tinkoffService;
     private final PaymentStatusConverter paymentStatusConverter;
     private final PaymentConfirmService paymentConfirmService;
+    private final TransactionTemplate separateTransaction;
 
-    @Override
-    public void releaseOwnReservations(PromoCode promo, PromoClient client) {
-        if (promo.getMaxUses() == null || !client.hasDevice()) {
-            return;
-        }
-        List<PaymentTransaction> pending = getterTransaction.getPendingByPromoCodeAndDevice(promo.getCode(),
-                client.deviceId(), Instant.now().minus(PromoClientChecker.PENDING_RESERVATION));
-        for (PaymentTransaction transaction : pending) {
-            try {
-                release(promo, transaction);
-            } catch (Exception e) {
-                log.warn("Резерв промокода {} платежом {} остаётся: {}", promo.getCode(), transaction.getId(), e.getMessage());
-            }
-        }
+    PromoReservationServiceImpl(GetterTransaction getterTransaction,
+                                TinkoffService tinkoffService,
+                                PaymentStatusConverter paymentStatusConverter,
+                                PaymentConfirmService paymentConfirmService,
+                                PlatformTransactionManager transactionManager) {
+        this.getterTransaction = getterTransaction;
+        this.tinkoffService = tinkoffService;
+        this.paymentStatusConverter = paymentStatusConverter;
+        this.paymentConfirmService = paymentConfirmService;
+        this.separateTransaction = new TransactionTemplate(transactionManager);
+        this.separateTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    private void release(PromoCode promo, PaymentTransaction transaction) {
-        if (transaction.getProvider() != PaymentProvider.TINKOFF) {
-            log.info("Резерв промокода {} платежом {} ({}) остаётся до конца окна резервирования",
-                    promo.getCode(), transaction.getId(), transaction.getProvider());
-            return;
+    @Override
+    public boolean releaseOwnReservations(PromoCode promo, PromoClient client) {
+        if (promo.getMaxUses() == null || !client.hasDevice()) {
+            return false;
         }
-        TinkoffGetStateResponse state = tinkoffService.getState(transaction.getExternalPaymentId());
-        PaymentTransactionStatus bankStatus = paymentStatusConverter.fromTinkoff(state.getStatus());
-        if (bankStatus == PaymentTransactionStatus.FAILED) {
-            log.warn("Резерв промокода {} платежом {} остаётся: неизвестный статус Т-Кассы '{}'",
-                    promo.getCode(), transaction.getId(), state.getStatus());
-            return;
+        List<String> paymentIds = getterTransaction.getPendingTinkoffPaymentIds(promo.getCode(), client.deviceId(),
+                Instant.now().minus(PromoClientChecker.PENDING_RESERVATION));
+        boolean released = false;
+        for (String paymentId : paymentIds) {
+            try {
+                released |= release(promo, paymentId);
+            } catch (Exception e) {
+                log.warn("Резерв промокода {} платежом {} остаётся: {}", promo.getId(), paymentId, e.getMessage());
+            }
         }
-        if (bankStatus != PaymentTransactionStatus.PENDING) {
-            log.info("Платёж {} с промокодом {} в банке уже {} — применяем статус", transaction.getId(), promo.getCode(), bankStatus);
-            paymentConfirmService.applyStatus(transaction.getExternalPaymentId(), bankStatus);
-            return;
+        return released;
+    }
+
+    private boolean release(PromoCode promo, String paymentId) {
+        TinkoffGetStateResponse state = tinkoffService.getState(paymentId);
+        String bankStatus = state.getStatus() == null ? "" : state.getStatus().toUpperCase(Locale.ROOT);
+        if (!CANCELLABLE_BANK_STATUSES.contains(bankStatus)) {
+            log.info("Резерв промокода {} платежом {} остаётся: в банке статус {}", promo.getId(), paymentId, bankStatus);
+            return false;
         }
-        tinkoffService.cancel(TinkoffCancelRequest.builder()
-                .paymentId(transaction.getExternalPaymentId())
+        TinkoffCancelResponse cancel = tinkoffService.cancel(TinkoffCancelRequest.builder()
+                .paymentId(paymentId)
                 .build());
-        paymentConfirmService.supersede(transaction.getExternalPaymentId());
-        log.info("Неоплаченный платёж {} с промокодом {} отменён: клиент оформляет новый заказ",
-                transaction.getId(), promo.getCode());
+        PaymentTransactionStatus afterCancel = paymentStatusConverter.fromTinkoff(cancel.getStatus());
+        if (afterCancel != PaymentTransactionStatus.CANCELED) {
+            log.warn("Платёж {} после отмены в банке в статусе {}, итог придёт нотификацией", paymentId, cancel.getStatus());
+            return false;
+        }
+        Boolean superseded = separateTransaction.execute(status -> paymentConfirmService.supersede(paymentId));
+        log.info("Неоплаченный платёж {} с промокодом {} отменён: клиент оформляет новый заказ", paymentId, promo.getId());
+        return Boolean.TRUE.equals(superseded);
     }
 }

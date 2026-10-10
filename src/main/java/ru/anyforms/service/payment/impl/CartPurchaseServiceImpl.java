@@ -164,7 +164,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             return PromoCheckResponse.builder()
                     .code(promo.getCode()).message("Срок действия промокода истёк.").build();
         }
-        Optional<String> rejection = promoClientChecker.checkoutRejection(promo,
+        Optional<String> rejection = promoClientChecker.previewRejection(promo,
                 PromoClient.of(email, phone, deviceId), shopSlug);
         if (rejection.isPresent()) {
             return PromoCheckResponse.builder().code(promo.getCode()).message(rejection.get()).build();
@@ -197,13 +197,15 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
         }
-        promoReservationService.releaseOwnReservations(promo, client);
+        if (!promo.meetsMinOrder(subtotalKopecks)) {
+            throw new InvalidPromoCodeException(minOrderMessage(promo));
+        }
+        if (promoClientChecker.exhausted(promo)) {
+            promoReservationService.releaseOwnReservations(promo, client);
+        }
         Optional<String> rejection = promoClientChecker.checkoutRejection(promo, client, shopSlug);
         if (rejection.isPresent()) {
             throw new InvalidPromoCodeException(rejection.get());
-        }
-        if (!promo.meetsMinOrder(subtotalKopecks)) {
-            throw new InvalidPromoCodeException(minOrderMessage(promo));
         }
         return promo;
     }

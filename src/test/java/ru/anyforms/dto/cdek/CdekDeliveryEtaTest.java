@@ -25,8 +25,9 @@ class CdekDeliveryEtaTest {
     void plannedDateTodayIsToday() {
         CdekDeliveryEta eta = CdekDeliveryEta.ofPlannedDate(TODAY, TODAY);
 
-        assertEquals("0 дней", eta.daysText());
+        assertEquals("сегодня", eta.daysText());
         assertEquals("сегодня (21.09.2026)", eta.describe());
+        assertEquals("сегодня", CdekDeliveryEta.ofPeriod(0, 0).daysText());
     }
 
     @Test

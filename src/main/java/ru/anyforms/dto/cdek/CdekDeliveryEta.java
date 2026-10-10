@@ -31,6 +31,9 @@ public record CdekDeliveryEta(int daysMin, int daysMax, LocalDate plannedDate) {
     }
 
     public String daysText() {
+        if (daysMax <= 0) {
+            return "сегодня";
+        }
         if (daysMin == daysMax) {
             return daysMin + " " + daysWord(daysMin);
         }

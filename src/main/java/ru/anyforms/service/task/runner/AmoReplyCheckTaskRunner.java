@@ -17,9 +17,12 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Component
 class AmoReplyCheckTaskRunner extends AbstractRunnableTask {
+
+    private static final long SHUTDOWN_WAIT_SECONDS = 20;
 
     private final GetterTaskByStatus getterTaskByStatus;
     private final MissedReplyChecker missedReplyChecker;
@@ -59,6 +62,15 @@ class AmoReplyCheckTaskRunner extends AbstractRunnableTask {
 
     @PreDestroy
     void shutdown() {
-        worker.shutdownNow();
+        stopTakingTasks();
+        worker.shutdown();
+        try {
+            if (!worker.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                worker.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            worker.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }

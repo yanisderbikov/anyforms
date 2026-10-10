@@ -18,6 +18,7 @@ public abstract class AbstractRunnableTask {
 
     private final SaverTask saverTask;
     private final AtomicBoolean running = new AtomicBoolean();
+    private volatile boolean stopping;
 
     @Value("${tasks.batch-size}")
     private int batchSize;
@@ -29,6 +30,10 @@ public abstract class AbstractRunnableTask {
     protected abstract List<Task> fetchBatch(int batchSize);
 
     protected abstract void process(Task task) throws Exception;
+
+    protected void stopTakingTasks() {
+        stopping = true;
+    }
 
     protected Executor batchExecutor() {
         return Runnable::run;
@@ -48,7 +53,7 @@ public abstract class AbstractRunnableTask {
 
     @Scheduled(fixedRateString = "${tasks.fixed-rate-ms}", initialDelayString = "${tasks.initial-delay-ms}")
     public void runBatch() {
-        if (!running.compareAndSet(false, true)) {
+        if (stopping || !running.compareAndSet(false, true)) {
             return;
         }
         boolean handedOff = false;
@@ -65,6 +70,9 @@ public abstract class AbstractRunnableTask {
     private void runClaimedBatch() {
         try {
             for (Task t : fetchBatch(batchSize)) {
+                if (stopping) {
+                    break;
+                }
                 runOne(t);
             }
         } catch (Exception ex) {

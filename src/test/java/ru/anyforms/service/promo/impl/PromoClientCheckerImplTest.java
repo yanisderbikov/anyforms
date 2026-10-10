@@ -90,6 +90,16 @@ class PromoClientCheckerImplTest {
     }
 
     @Test
+    void previewIgnoresTheDevicesOwnPendingLinkButCheckoutCountsIt() {
+        PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1).ownerDeviceId(DEVICE).build();
+        when(getterTransaction.countPromoUses(eq("ONE-AAAAA"), any())).thenReturn(1L);
+        when(getterTransaction.countPromoUsesExceptDevicePending(eq("ONE-AAAAA"), any(), eq(DEVICE))).thenReturn(0L);
+
+        assertTrue(checker.previewRejection(promo, client, "anyforms").isEmpty());
+        assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("уже использован"));
+    }
+
+    @Test
     void checkoutRejectsDeviceCodeFromAnotherDevice() {
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1)
                 .ownerDeviceId("0aa1bb2c-3dd4-4ee5-8ff6-112233445566").build();

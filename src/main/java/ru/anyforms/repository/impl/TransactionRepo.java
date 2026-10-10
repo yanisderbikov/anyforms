@@ -117,18 +117,33 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     long countPromoUses(@Param("promoCode") String promoCode, @Param("pendingSince") Instant pendingSince);
 
     @Query(value = """
-            SELECT pt.*
+            SELECT COUNT(*)
+            FROM payment_transaction pt
+            LEFT JOIN orders o ON o.id = pt.order_id
+            WHERE pt.promo_code = :promoCode
+              AND (pt.status IN ('SUCCEEDED', 'REFUNDED')
+                   OR (pt.status = 'PENDING'
+                       AND pt.created_at >= :pendingSince
+                       AND NOT (pt.provider = 'TINKOFF' AND coalesce(o.device_id, '') = :deviceId)))
+            """, nativeQuery = true)
+    long countPromoUsesExceptDevicePending(@Param("promoCode") String promoCode,
+                                           @Param("pendingSince") Instant pendingSince,
+                                           @Param("deviceId") String deviceId);
+
+    @Query(value = """
+            SELECT pt.external_payment_id
             FROM payment_transaction pt
             JOIN orders o ON o.id = pt.order_id
             WHERE pt.promo_code = :promoCode
               AND pt.status = 'PENDING'
+              AND pt.provider = 'TINKOFF'
               AND pt.created_at >= :since
               AND o.device_id = :deviceId
             ORDER BY pt.created_at
             """, nativeQuery = true)
-    List<PaymentTransaction> findPendingByPromoCodeAndDevice(@Param("promoCode") String promoCode,
-                                                             @Param("deviceId") String deviceId,
-                                                             @Param("since") Instant since);
+    List<String> findPendingTinkoffPaymentIds(@Param("promoCode") String promoCode,
+                                              @Param("deviceId") String deviceId,
+                                              @Param("since") Instant since);
 
     @Query(value = """
             SELECT EXISTS (

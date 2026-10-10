@@ -539,7 +539,7 @@ class PromoPopupPublicServiceImplTest {
         AfterPurchasePromoOutcome outcome = service.afterPurchase(afterPurchaseRequest(), "1.2.3.4");
 
         assertEquals(AfterPurchasePromoOutcome.Status.READY, outcome.status());
-        verify(transactionLock).lock("promo-popup:" + AFTER_ID + ":order:42");
+        verify(transactionLock).lockAll(List.of("promo-popup:" + AFTER_ID + ":order:42"));
         PromoCode promo = capturedPromo();
         assertTrue(promo.getCode().startsWith("NEXT-"));
         assertEquals(1, promo.getMaxUses());
@@ -550,6 +550,7 @@ class PromoPopupPublicServiceImplTest {
         assertEquals(Duration.ofDays(30), Duration.between(promo.getValidFrom(), promo.getValidUntil()));
 
         PromoPopupLead lead = capturedLead();
+        assertEquals("+79991234567", lead.getPhone());
         assertEquals(42L, lead.getOrderId());
         assertEquals("buyer@example.com", lead.getEmail());
         assertEquals("9991234567", lead.getPhoneLast10());
@@ -604,6 +605,11 @@ class PromoPopupPublicServiceImplTest {
         when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", OTHER_DEVICE)).thenReturn(2L);
 
         assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+        verify(transactionLock).lockAll(List.of(
+                "promo-popup:" + AFTER_ID + ":order:42",
+                "promo-popup:" + AFTER_ID + ":email:buyer@example.com",
+                "promo-popup:" + AFTER_ID + ":phone:9991234567",
+                "promo-popup:" + AFTER_ID + ":device:" + OTHER_DEVICE));
         verify(saverPromoCode, never()).save(any());
         verify(saverPromoPopupLead, never()).save(any());
 

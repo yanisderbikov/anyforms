@@ -63,6 +63,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
     private static final int MAX_STORED_LENGTH = 255;
     private static final int MAX_PAGE_URL_LENGTH = 1024;
     private static final int MAX_USER_AGENT_LENGTH = 512;
+    private static final int MAX_PHONE_LENGTH = 32;
     private static final Pattern ORDER_NUMBER = Pattern.compile("[A-Z0-9]{6}");
 
     private final GetterPromoPopup getterPromoPopup;
@@ -227,7 +228,11 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
         }
         PromoPopup popup = live.get();
         PromoClient client = PromoClient.of(order.getEmail(), order.getContactPhone(), order.getDeviceId());
-        transactionLock.lock("promo-popup:" + popup.getId() + ":order:" + order.getId());
+        List<String> lockKeys = new ArrayList<>(List.of("promo-popup:" + popup.getId() + ":order:" + order.getId()));
+        if (popup.getMaxShows() != null) {
+            lockKeys.addAll(clientLockKeys(popup.getId(), client));
+        }
+        transactionLock.lockAll(lockKeys);
 
         Optional<PromoPopupLead> previous = getterPromoPopupLead.getLatestForOrder(popup.getId(), order.getId());
         if (previous.isPresent()) {
@@ -254,7 +259,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                 .shopSlug(popup.getShopSlug())
                 .orderId(order.getId())
                 .email(client.email().isEmpty() ? null : client.email())
-                .phone(blankToNull(order.getContactPhone()))
+                .phone(storedPhone(order.getContactPhone()))
                 .phoneLast10(client.phoneLast10().isEmpty() ? null : client.phoneLast10())
                 .deviceId(client.deviceIdOrNull())
                 .ip(crop(ip, 64))
@@ -470,8 +475,9 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
         return new ResponseStatusException(HttpStatus.CONFLICT, message);
     }
 
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+    private static String storedPhone(String raw) {
+        String e164 = PhoneUtil.toE164(raw);
+        return e164 == null ? null : crop("+" + e164, MAX_PHONE_LENGTH);
     }
 
     private static String crop(String value, int maxLength) {

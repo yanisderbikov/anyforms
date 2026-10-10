@@ -36,6 +36,7 @@ import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -146,12 +147,15 @@ class PurchaseServiceImpl implements PurchaseService {
                                                   long priceKopecks, Amount amount, String description,
                                                   String returnUrl) {
         String phone = PhoneUtil.toE164(request.getPhone());
-        TinkoffInitRequest initRequest = tinkoffSupport.initRequest(priceKopecks, UUID.randomUUID().toString(), description)
+        TinkoffInitRequest.TinkoffInitRequestBuilder init = tinkoffSupport.initRequest(priceKopecks, UUID.randomUUID().toString(), description)
                 .successURL(appendParam(returnUrl, "status", "success"))
                 .failURL(appendParam(returnUrl, "status", "fail"))
                 .receipt(tinkoffSupport.receipt(request.getEmail(), phone != null ? "+" + phone : null,
-                        List.of(tinkoffSupport.receiptItem(product.getDescription(), priceKopecks, 1, PAYMENT_SUBJECT))))
-                .build();
+                        List.of(tinkoffSupport.receiptItem(product.getDescription(), priceKopecks, 1, PAYMENT_SUBJECT))));
+        if (promo != null && promo.getMaxUses() != null) {
+            init.redirectDueDate(TinkoffPaymentSupport.redirectDueDate(Instant.now().plus(TinkoffPaymentSupport.CART_LINK_TTL)));
+        }
+        TinkoffInitRequest initRequest = init.build();
 
         TinkoffInitResponse response = tinkoffService.init(initRequest);
 

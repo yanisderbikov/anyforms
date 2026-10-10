@@ -5,5 +5,5 @@ import ru.anyforms.service.promo.PromoClient;
 
 public interface PromoReservationService {
 
-    void releaseOwnReservations(PromoCode promo, PromoClient client);
+    boolean releaseOwnReservations(PromoCode promo, PromoClient client);
 }

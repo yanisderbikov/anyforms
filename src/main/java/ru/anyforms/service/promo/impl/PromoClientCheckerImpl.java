@@ -56,6 +56,18 @@ class PromoClientCheckerImpl implements PromoClientChecker {
 
     @Override
     public Optional<String> checkoutRejection(PromoCode promo, PromoClient client, String shopSlug) {
+        return rejection(promo, client, shopSlug, exhausted(promo));
+    }
+
+    @Override
+    public Optional<String> previewRejection(PromoCode promo, PromoClient client, String shopSlug) {
+        boolean exhausted = promo.getMaxUses() != null
+                && getterTransaction.countPromoUsesExceptDevicePending(promo.getCode(),
+                Instant.now().minus(PENDING_RESERVATION), client.deviceId()) >= promo.getMaxUses();
+        return rejection(promo, client, shopSlug, exhausted);
+    }
+
+    private Optional<String> rejection(PromoCode promo, PromoClient client, String shopSlug, boolean exhausted) {
         String shop = shopSlug == null || shopSlug.isBlank() ? Shop.DEFAULT_SLUG : shopSlug.trim();
         String code = promo.getCode();
         if (!promo.allowedInShop(shop)) {
@@ -69,7 +81,7 @@ class PromoClientCheckerImpl implements PromoClientChecker {
         if (usedCode(code, client)) {
             return Optional.of("Промокод " + code + " уже был использован.");
         }
-        if (exhausted(promo)) {
+        if (exhausted) {
             return Optional.of("Промокод " + code + " уже использован.");
         }
         if (promo.getPopupId() != null && oneDiscountPerClient(promo.getPopupId())

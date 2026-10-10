@@ -144,14 +144,22 @@ class PromoClientQueriesDbTest {
 
         PaymentTransaction reservation = payment(buyer, "ONE-AAAAA", PaymentTransactionStatus.PENDING, now);
         assertEquals(1, transactionRepo.countPromoUses("ONE-AAAAA", window));
-        assertEquals(List.of(reservation.getId()), transactionRepo.findPendingByPromoCodeAndDevice("ONE-AAAAA",
-                DEVICE, window).stream().map(PaymentTransaction::getId).toList());
-        assertTrue(transactionRepo.findPendingByPromoCodeAndDevice("ONE-AAAAA", OTHER_DEVICE, window).isEmpty());
-        assertTrue(transactionRepo.findPendingByPromoCodeAndDevice("ONE-AAAAA", "", window).isEmpty());
+        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", DEVICE, window).isEmpty());
+        assertEquals(1, transactionRepo.countPromoUsesExceptDevicePending("ONE-AAAAA", window, DEVICE));
+        entityManager.createNativeQuery("UPDATE payment_transaction SET provider = 'TINKOFF' WHERE id = ?1")
+                .setParameter(1, reservation.getId())
+                .executeUpdate();
+        assertEquals(List.of(reservation.getExternalPaymentId()),
+                transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", DEVICE, window));
+        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", OTHER_DEVICE, window).isEmpty());
+        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", "", window).isEmpty());
+        assertEquals(0, transactionRepo.countPromoUsesExceptDevicePending("ONE-AAAAA", window, DEVICE));
+        assertEquals(1, transactionRepo.countPromoUsesExceptDevicePending("ONE-AAAAA", window, OTHER_DEVICE));
+        assertEquals(1, transactionRepo.countPromoUses("ONE-AAAAA", window));
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.PENDING, now.minus(Duration.ofHours(2)));
         assertEquals(0, transactionRepo.countPromoUses("ONE-BBBBB", window));
-        assertTrue(transactionRepo.findPendingByPromoCodeAndDevice("ONE-BBBBB", OTHER_DEVICE, window).isEmpty());
+        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-BBBBB", OTHER_DEVICE, window).isEmpty());
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.SUCCEEDED, now);
         assertEquals(1, transactionRepo.countPromoUses("ONE-BBBBB", window));
