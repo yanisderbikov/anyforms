@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -73,6 +74,11 @@ class MissedReplyCheckerImplTest {
 
     private static AmoChatMessage msg(int minutesAgo, AmoChatMessage.Direction direction) {
         return msg(minutesAgo, direction, null);
+    }
+
+    private static AmoChatMessage inText(int minutesAgo, String text) {
+        return new AmoChatMessage("t" + minutesAgo, Instant.now().minusSeconds(minutesAgo * 60L), AmoChatMessage.Direction.IN, null,
+                AmoChatMessage.AuthorType.CLIENT, "text", text, "", null, null, null);
     }
 
     private static AmoChatMessage failedOut(int minutesAgo) {
@@ -254,5 +260,49 @@ class MissedReplyCheckerImplTest {
 
         assertEquals(second.createdAt(), MissedReplyCheckerImpl.firstUnansweredAt(List.of(in(10), out(6), second, in(3))).orElseThrow());
         assertTrue(MissedReplyCheckerImpl.firstUnansweredAt(List.of(in(10), out(6))).isEmpty());
+    }
+
+    @Test
+    void noTaskWhenClientLastSaidThanks() {
+        leadInPipeline(1L);
+        chat(in(20), out(15), inText(12, "Спасибо большое!"));
+
+        checker.check(payload);
+
+        verifyNoTask();
+    }
+
+    @Test
+    void noTaskWhenThanksFollowsUnansweredQuestionWithFailedReply() {
+        leadInPipeline(1L);
+        chat(out(30), inText(14, "Ок, благодарю 🙏"), failedOut(13));
+
+        checker.check(payload);
+
+        verifyNoTask();
+    }
+
+    @Test
+    void taskWhenThanksIsFollowedByQuestion() {
+        leadInPipeline(1L);
+        chat(out(30), inText(14, "спасибо"), inText(12, "а когда отправите"));
+
+        checker.check(payload);
+
+        verifyTask(LEAD_ID, RESPONSIBLE);
+    }
+
+    @Test
+    void recognisesClosingPhrases() {
+        assertTrue(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "Спасибо!")));
+        assertTrue(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "спс")));
+        assertTrue(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "Благодарю, всего доброго")));
+        assertTrue(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "Окей, понял, спасибо вам")));
+        assertTrue(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "👍")));
+        assertFalse(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "Спасибо, а сколько стоит доставка?")));
+        assertFalse(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "спасибо, жду счёт")));
+        assertFalse(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "Да")));
+        assertFalse(MissedReplyCheckerImpl.isClosingPhrase(inText(1, "")));
+        assertFalse(MissedReplyCheckerImpl.isClosingPhrase(in(1)));
     }
 }

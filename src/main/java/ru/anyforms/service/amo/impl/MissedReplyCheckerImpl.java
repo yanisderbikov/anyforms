@@ -19,14 +19,24 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 class MissedReplyCheckerImpl implements MissedReplyChecker {
 
     private static final long CLOCK_SKEW_SECONDS = 60;
+    private static final Pattern NON_LETTERS = Pattern.compile("[^\\p{L}]+");
+    private static final Set<String> CLOSING_WORDS = Set.of(
+            "спасибо", "спасибочки", "спасиб", "спс", "пасиб", "пасибо", "сенкс", "thanks", "thank", "you", "thx",
+            "благодарю", "благодарим", "благодарна", "благодарен", "большое", "огромное", "громадное", "вам", "вас", "тебе", "и", "всем",
+            "ок", "окей", "ok", "okay", "хорошо", "хорош", "понял", "поняла", "поняли", "понятно", "ясно", "принято",
+            "отлично", "супер", "класс", "круто", "договорились", "ага", "угу", "ладно",
+            "хорошего", "хорошей", "доброго", "всего", "дня", "вечера", "ночи", "до", "свидания", "пока"
+    );
 
     private final AmoCrmGateway amoCrmGateway;
     private final AmoChatGateway amoChatGateway;
@@ -130,6 +140,10 @@ class MissedReplyCheckerImpl implements MissedReplyChecker {
                 log.info("Проверка пропущенного ответа: сделка {}, чат {} — сообщений {}, последнее слово за менеджером", leadId, chatId, messages.size());
                 continue;
             }
+            if (endsWithClientClosing(messages)) {
+                log.info("Проверка пропущенного ответа: сделка {}, чат {} — последнее сообщение клиента — благодарность/завершение, ответ не нужен", leadId, chatId);
+                continue;
+            }
             long waitingMinutes = Duration.between(waitingSince.get(), Instant.now()).toMinutes();
             if (!waitingSince.get().isAfter(deadline)) {
                 log.info("Проверка пропущенного ответа: сделка {}, чат {} — клиент ждёт с {} ({} мин), просрочено", leadId, chatId, waitingSince.get(), waitingMinutes);
@@ -138,6 +152,30 @@ class MissedReplyCheckerImpl implements MissedReplyChecker {
             log.info("Проверка пропущенного ответа: сделка {}, чат {} — клиент ждёт с {} ({} мин), таймаут ещё не вышел", leadId, chatId, waitingSince.get(), waitingMinutes);
         }
         return false;
+    }
+
+    static boolean endsWithClientClosing(List<AmoChatMessage> chronological) {
+        for (int i = chronological.size() - 1; i >= 0; i--) {
+            AmoChatMessage m = chronological.get(i);
+            if (m.error() != null) {
+                continue;
+            }
+            return m.direction() == AmoChatMessage.Direction.IN && isClosingPhrase(m);
+        }
+        return false;
+    }
+
+    static boolean isClosingPhrase(AmoChatMessage message) {
+        String text = message.text();
+        if (text == null || text.isBlank() || text.contains("?")) {
+            return false;
+        }
+        if (message.media() != null && !message.media().isBlank()) {
+            return false;
+        }
+        String normalized = text.toLowerCase(Locale.ROOT).replace('ё', 'е');
+        List<String> words = NON_LETTERS.splitAsStream(normalized).filter(w -> !w.isEmpty()).toList();
+        return words.stream().allMatch(CLOSING_WORDS::contains);
     }
 
     static Optional<Instant> firstUnansweredAt(List<AmoChatMessage> chronological) {
