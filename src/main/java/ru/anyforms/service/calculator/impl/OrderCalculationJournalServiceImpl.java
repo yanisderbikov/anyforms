@@ -79,7 +79,7 @@ class OrderCalculationJournalServiceImpl implements OrderCalculationJournalServi
                 .createdByName(user.name())
                 .createdAt(Instant.now())
                 .build());
-        log.info("Калькулятор: расчёт {} сохранён ({}, {} ₽)", saved.getId(), user.email(), saved.getTotalRub());
+        log.info("Калькулятор: расчёт {} сохранён ({}, {} ₽)", saved.getId(), user.name(), saved.getTotalRub());
         return OrderCalculationListItemDTO.from(saved);
     }
 

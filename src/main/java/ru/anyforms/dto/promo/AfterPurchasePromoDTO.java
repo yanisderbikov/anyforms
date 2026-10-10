@@ -9,6 +9,7 @@ import java.util.UUID;
 @Schema(description = "Промокод на следующий заказ, который показываем после оплаты")
 public record AfterPurchasePromoDTO(
         UUID popupId,
+        @Schema(description = "Внутреннее название попапа — для аналитики") String popupName,
         String title,
         String description,
         String buttonText,
@@ -23,6 +24,7 @@ public record AfterPurchasePromoDTO(
     public static AfterPurchasePromoDTO of(PromoPopup popup, PromoCode promo, boolean repeated) {
         return new AfterPurchasePromoDTO(
                 popup.getId(),
+                popup.getName(),
                 popup.getTitle(),
                 popup.getDescription(),
                 popup.getButtonText(),

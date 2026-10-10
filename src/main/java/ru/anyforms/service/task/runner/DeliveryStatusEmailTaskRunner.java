@@ -15,7 +15,6 @@ import ru.anyforms.repository.SaverTask;
 import ru.anyforms.service.email.EmailService;
 import ru.anyforms.service.email.EmailTemplate;
 
-import java.time.Duration;
 import java.util.List;
 
 @Slf4j
@@ -52,11 +51,6 @@ class DeliveryStatusEmailTaskRunner extends AbstractRunnableTask {
     @Override
     protected boolean retryable(Exception ex) {
         return !(ex instanceof IllegalArgumentException || ex instanceof JsonParseException);
-    }
-
-    @Override
-    protected Duration retryDelay(int attempt) {
-        return Duration.ofMinutes(5L * attempt);
     }
 
     @Override

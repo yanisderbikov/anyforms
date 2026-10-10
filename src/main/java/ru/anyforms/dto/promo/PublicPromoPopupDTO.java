@@ -10,6 +10,7 @@ import java.util.UUID;
 @Schema(description = "Попап с промокодом для витрины")
 public record PublicPromoPopupDTO(
         UUID id,
+        @Schema(description = "Внутреннее название попапа — для аналитики") String name,
         PromoPopupType popupType,
         String title,
         String description,
@@ -32,6 +33,7 @@ public record PublicPromoPopupDTO(
     public static PublicPromoPopupDTO forContact(PromoPopup p, String consentVersion) {
         return new PublicPromoPopupDTO(
                 p.getId(),
+                p.getName(),
                 PromoPopupType.CONTACT,
                 p.getTitle(),
                 p.getDescription(),
@@ -55,6 +57,7 @@ public record PublicPromoPopupDTO(
     public static PublicPromoPopupDTO forUniqueCode(PromoPopup p) {
         return new PublicPromoPopupDTO(
                 p.getId(),
+                p.getName(),
                 PromoPopupType.UNIQUE_CODE,
                 p.getTitle(),
                 p.getDescription(),
@@ -78,6 +81,7 @@ public record PublicPromoPopupDTO(
     public static PublicPromoPopupDTO forPublicCode(PromoPopup p, PromoCode promo) {
         return new PublicPromoPopupDTO(
                 p.getId(),
+                p.getName(),
                 PromoPopupType.PUBLIC_CODE,
                 p.getTitle(),
                 p.getDescription(),

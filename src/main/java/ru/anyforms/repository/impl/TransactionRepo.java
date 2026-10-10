@@ -119,21 +119,16 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
     @Query(value = """
             SELECT pt.*
             FROM payment_transaction pt
-            LEFT JOIN orders o ON o.id = pt.order_id
+            JOIN orders o ON o.id = pt.order_id
             WHERE pt.promo_code = :promoCode
               AND pt.status = 'PENDING'
               AND pt.created_at >= :since
-              AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
-                   OR (:phoneLast10 <> ''
-                       AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
-                   OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
+              AND o.device_id = :deviceId
             ORDER BY pt.created_at
             """, nativeQuery = true)
-    List<PaymentTransaction> findPendingByPromoCodeAndCustomer(@Param("promoCode") String promoCode,
-                                                               @Param("email") String email,
-                                                               @Param("phoneLast10") String phoneLast10,
-                                                               @Param("deviceId") String deviceId,
-                                                               @Param("since") Instant since);
+    List<PaymentTransaction> findPendingByPromoCodeAndDevice(@Param("promoCode") String promoCode,
+                                                             @Param("deviceId") String deviceId,
+                                                             @Param("since") Instant since);
 
     @Query(value = """
             SELECT EXISTS (

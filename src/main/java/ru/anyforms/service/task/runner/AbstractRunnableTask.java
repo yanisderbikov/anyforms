@@ -51,11 +51,14 @@ public abstract class AbstractRunnableTask {
         if (!running.compareAndSet(false, true)) {
             return;
         }
+        boolean handedOff = false;
         try {
             batchExecutor().execute(this::runClaimedBatch);
-        } catch (RuntimeException e) {
-            running.set(false);
-            throw e;
+            handedOff = true;
+        } finally {
+            if (!handedOff) {
+                running.set(false);
+            }
         }
     }
 
@@ -75,14 +78,17 @@ public abstract class AbstractRunnableTask {
         try {
             t.setStatus(TaskStatus.RUNNING);
             saverTask.save(t);
-
             process(t);
-
-            t.setStatus(TaskStatus.DONE);
-            saverTask.save(t);
         } catch (Exception ex) {
             log.error("Ошибка во время исполнения таски {}", t.getId(), ex);
             fail(t, ex);
+            return;
+        }
+        try {
+            t.setStatus(TaskStatus.DONE);
+            saverTask.save(t);
+        } catch (Exception ex) {
+            log.error("Таска {} выполнена, но статус DONE не сохранён", t.getId(), ex);
         }
     }
 

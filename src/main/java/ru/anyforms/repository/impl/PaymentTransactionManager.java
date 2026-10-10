@@ -201,19 +201,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public List<PaymentTransaction> getPendingByPromoCodeAndCustomer(String promoCode, String email, String phoneLast10,
-                                                                     String deviceId, Instant since) {
+    public List<PaymentTransaction> getPendingByPromoCodeAndDevice(String promoCode, String deviceId, Instant since) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return List.of();
+        }
         try {
-            return transactionRepo.findPendingByPromoCodeAndCustomer(promoCode, nullToEmpty(email),
-                    nullToEmpty(phoneLast10), nullToEmpty(deviceId), since);
+            return transactionRepo.findPendingByPromoCodeAndDevice(promoCode, deviceId, since);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
         }
-    }
-
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
     }
 
     @Override

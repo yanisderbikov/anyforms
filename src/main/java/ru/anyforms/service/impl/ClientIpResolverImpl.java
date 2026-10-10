@@ -81,7 +81,7 @@ class ClientIpResolverImpl implements ClientIpResolver {
         if (literal == null || literal.isEmpty()) {
             return null;
         }
-        boolean ipv4 = IPV4.matcher(literal).matches();
+        boolean ipv4 = IPV4.matcher(literal).matches() && octetsInRange(literal);
         boolean ipv6 = !ipv4 && literal.indexOf(':') >= 0 && IPV6.matcher(literal).matches();
         if (!ipv4 && !ipv6) {
             return null;
@@ -91,6 +91,15 @@ class ClientIpResolverImpl implements ClientIpResolver {
         } catch (UnknownHostException | IllegalArgumentException e) {
             return null;
         }
+    }
+
+    private static boolean octetsInRange(String literal) {
+        for (String octet : literal.split("\\.")) {
+            if (Integer.parseInt(octet) > 255) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<Cidr> parseCidrs(String raw) {

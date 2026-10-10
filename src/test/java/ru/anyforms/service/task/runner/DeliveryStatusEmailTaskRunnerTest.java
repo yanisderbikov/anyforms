@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -138,6 +139,18 @@ class DeliveryStatusEmailTaskRunnerTest {
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString(), any());
         assertEquals(TaskStatus.FAILED, task.getStatus());
         assertEquals(1, task.getAttempts());
+        assertNull(task.getNextAttemptAt());
+    }
+
+    @Test
+    void sentEmailIsNeverResentWhenOnlyTheDoneStatusFailsToSave() {
+        doThrow(new RuntimeException("db down")).when(saverTask).save(argThat(t -> t.getStatus() == TaskStatus.DONE));
+
+        Task task = run("{\"to\":\"buyer@mail.ru\",\"notification\":\"SHIPPED\",\"orderPublicId\":\"ab12cd\"}");
+
+        verify(emailService, times(1)).sendEmail(eq("buyer@mail.ru"), anyString(), anyString(), eq(null));
+        assertEquals(TaskStatus.DONE, task.getStatus());
+        assertEquals(0, task.getAttempts());
         assertNull(task.getNextAttemptAt());
     }
 

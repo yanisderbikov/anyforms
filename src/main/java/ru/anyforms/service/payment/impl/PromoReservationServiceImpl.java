@@ -32,12 +32,11 @@ class PromoReservationServiceImpl implements PromoReservationService {
 
     @Override
     public void releaseOwnReservations(PromoCode promo, PromoClient client) {
-        if (promo.getMaxUses() == null || client.isAnonymous()) {
+        if (promo.getMaxUses() == null || !client.hasDevice()) {
             return;
         }
-        List<PaymentTransaction> pending = getterTransaction.getPendingByPromoCodeAndCustomer(promo.getCode(),
-                client.email(), client.phoneLast10(), client.deviceId(),
-                Instant.now().minus(PromoClientChecker.PENDING_RESERVATION));
+        List<PaymentTransaction> pending = getterTransaction.getPendingByPromoCodeAndDevice(promo.getCode(),
+                client.deviceId(), Instant.now().minus(PromoClientChecker.PENDING_RESERVATION));
         for (PaymentTransaction transaction : pending) {
             try {
                 release(promo, transaction);

@@ -274,6 +274,51 @@ class DeliveryNotifierImplTest {
     }
 
     @Test
+    void amoEmailIsWrittenToTheManagedOrderOnlyWhenItHasNone() {
+        Order detached = order(true);
+        detached.setEmail(null);
+        Order managed = new Order();
+        managed.setId(ORDER_ID);
+        managed.setPublicId("ab12cd");
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(managed));
+        when(amoCrmGateway.getContactFromLead(777L)).thenReturn(contactWithEmail("amo@mail.ru"));
+
+        notifier.notifyShipped(detached, "1234567890");
+
+        assertEquals("amo@mail.ru", emailTask().getTo());
+        assertEquals("amo@mail.ru", managed.getEmail());
+        assertEquals("amo@mail.ru", detached.getEmail());
+    }
+
+    @Test
+    void managedOrderEmailIsNotOverwritten() {
+        Order detached = order(true);
+        Order managed = new Order();
+        managed.setId(ORDER_ID);
+        managed.setPublicId("ab12cd");
+        managed.setEmail("shop@mail.ru");
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(managed));
+
+        notifier.notifyShipped(detached, "1234567890");
+
+        assertEquals("buyer@mail.ru", emailTask().getTo());
+        assertEquals("shop@mail.ru", managed.getEmail());
+    }
+
+    @Test
+    void amoEmailIsKeptOnTheOrderEvenWhenTheClaimIsLost() {
+        Order order = order(true);
+        order.setEmail(null);
+        when(amoCrmGateway.getContactFromLead(777L)).thenReturn(contactWithEmail("amo@mail.ru"));
+        when(orderRepository.claimFirstDeliveryNotification(eq(ORDER_ID), anyString())).thenReturn(0);
+
+        notifier.notifyShipped(order, "1234567890");
+
+        verifyNothingQueued();
+        assertEquals("amo@mail.ru", order.getEmail());
+    }
+
+    @Test
     void amoFailureMeansNoEmail() {
         Order order = order(true);
         order.setEmail(null);

@@ -28,11 +28,9 @@ import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.SaverTransaction;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
-import ru.anyforms.service.payment.PromoReservationService;
 import ru.anyforms.service.payment.PurchaseService;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
-import ru.anyforms.service.promo.PromoClient;
 import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
@@ -67,7 +65,6 @@ class PurchaseServiceImpl implements PurchaseService {
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
     private final PromoClientChecker promoClientChecker;
-    private final PromoReservationService promoReservationService;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -205,7 +202,6 @@ class PurchaseServiceImpl implements PurchaseService {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует для заказов от "
                     + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".");
         }
-        promoReservationService.releaseOwnReservations(promo, PromoClient.of(request.getEmail(), request.getPhone(), null));
         if (promoClientChecker.exhausted(promo)) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже использован.");
         }

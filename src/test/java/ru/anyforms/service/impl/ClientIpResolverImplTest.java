@@ -44,6 +44,8 @@ class ClientIpResolverImplTest {
         assertEquals("203.0.113.7", resolver.resolve(request("10.0.0.2", "unknown, 203.0.113.7:51234, 192.168.0.1")));
         assertEquals("2001:db8::1", resolver.resolve(request("10.0.0.2", "[2001:db8::1]:443, fd12::1")));
         assertEquals("10.0.0.2", resolver.resolve(request("10.0.0.2", "unknown, 192.168.0.1")));
+        assertEquals("203.0.113.7", resolver.resolve(request("10.0.0.2", "203.0.113.7, 999.1.1.1")));
+        assertEquals("10.0.0.2", resolver.resolve(request("10.0.0.2", "evil.example.com")));
     }
 
     @Test

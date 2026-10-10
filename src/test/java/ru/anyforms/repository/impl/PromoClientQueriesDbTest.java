@@ -144,19 +144,19 @@ class PromoClientQueriesDbTest {
 
         PaymentTransaction reservation = payment(buyer, "ONE-AAAAA", PaymentTransactionStatus.PENDING, now);
         assertEquals(1, transactionRepo.countPromoUses("ONE-AAAAA", window));
-        assertEquals(List.of(reservation.getId()), transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA",
-                "BUYER@B.RU", "", "", window).stream().map(PaymentTransaction::getId).toList());
-        assertEquals(1, transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "", "9991234567", "", window).size());
-        assertEquals(1, transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "", "", DEVICE, window).size());
-        assertTrue(transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "x@b.ru", "9210000000", OTHER_DEVICE, window).isEmpty());
-        assertTrue(transactionRepo.findPendingByPromoCodeAndCustomer("ONE-AAAAA", "", "", "", window).isEmpty());
+        assertEquals(List.of(reservation.getId()), transactionRepo.findPendingByPromoCodeAndDevice("ONE-AAAAA",
+                DEVICE, window).stream().map(PaymentTransaction::getId).toList());
+        assertTrue(transactionRepo.findPendingByPromoCodeAndDevice("ONE-AAAAA", OTHER_DEVICE, window).isEmpty());
+        assertTrue(transactionRepo.findPendingByPromoCodeAndDevice("ONE-AAAAA", "", window).isEmpty());
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.PENDING, now.minus(Duration.ofHours(2)));
         assertEquals(0, transactionRepo.countPromoUses("ONE-BBBBB", window));
-        assertTrue(transactionRepo.findPendingByPromoCodeAndCustomer("ONE-BBBBB", "x@b.ru", "", "", window).isEmpty());
+        assertTrue(transactionRepo.findPendingByPromoCodeAndDevice("ONE-BBBBB", OTHER_DEVICE, window).isEmpty());
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.SUCCEEDED, now);
         assertEquals(1, transactionRepo.countPromoUses("ONE-BBBBB", window));
+        assertEquals(1, transactionRepo.countSucceededByPromoCodes(List.of("ONE-AAAAA", "ONE-BBBBB")).size());
+        assertEquals(1L, ((Number) transactionRepo.countSucceededByPromoCodes(List.of("ONE-BBBBB")).get(0)[1]).longValue());
         assertTrue(transactionRepo.promoUsedByCustomer("ONE-BBBBB", "", "", OTHER_DEVICE));
         assertTrue(transactionRepo.promoUsedByCustomer("ONE-BBBBB", "X@B.RU", "", ""));
         assertFalse(transactionRepo.promoUsedByCustomer("ONE-BBBBB", "buyer@b.ru", "9991234567", DEVICE));

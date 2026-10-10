@@ -64,7 +64,7 @@ class CalculatorRatesServiceImpl implements CalculatorRatesService {
                 .createdByEmail(user.email())
                 .createdByName(user.name())
                 .build());
-        log.info("Ставки калькулятора: новая версия {} от {}", saved.getId(), user.email());
+        log.info("Ставки калькулятора: новая версия {} от {}", saved.getId(), user.name());
         return new CalculatorRatesDTO(saved.getId(), rates, saved.getCreatedAt(), author(saved));
     }
 

@@ -545,7 +545,7 @@ class PromoPopupPublicServiceImplTest {
         assertEquals(1, promo.getMaxUses());
         assertEquals("buyer@example.com", promo.getOwnerEmail());
         assertEquals("9991234567", promo.getOwnerPhoneLast10());
-        assertEquals(DEVICE, promo.getOwnerDeviceId());
+        assertEquals(OTHER_DEVICE, promo.getOwnerDeviceId());
         assertFalse(promo.isFirstOrderOnly());
         assertEquals(Duration.ofDays(30), Duration.between(promo.getValidFrom(), promo.getValidUntil()));
 
@@ -553,12 +553,26 @@ class PromoPopupPublicServiceImplTest {
         assertEquals(42L, lead.getOrderId());
         assertEquals("buyer@example.com", lead.getEmail());
         assertEquals("9991234567", lead.getPhoneLast10());
-        assertEquals(DEVICE, lead.getDeviceId());
+        assertEquals(OTHER_DEVICE, lead.getDeviceId());
         assertNull(lead.getConsentVersion());
         verify(taskAdder, never()).addTask(any());
         assertEquals(promo.getCode(), outcome.promo().code());
         assertEquals("спасибо за заказ", outcome.promo().title());
         assertFalse(outcome.promo().repeated());
+    }
+
+    @Test
+    void afterPurchaseNeverBindsTheCodeToTheCallersDevice() {
+        Order order = paidOrder(OrderPaymentStatus.PAID);
+        order.setDeviceId(null);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup));
+
+        service.afterPurchase(afterPurchaseRequest(), "1.2.3.4");
+
+        PromoCode promo = capturedPromo();
+        assertNull(promo.getOwnerDeviceId());
+        assertEquals("buyer@example.com", promo.getOwnerEmail());
+        assertNull(capturedLead().getDeviceId());
     }
 
     @Test
@@ -587,13 +601,13 @@ class PromoPopupPublicServiceImplTest {
         paidOrder(OrderPaymentStatus.PAID);
         afterPurchasePopup.setMaxShows(2);
         when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup));
-        when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", DEVICE)).thenReturn(2L);
+        when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", OTHER_DEVICE)).thenReturn(2L);
 
         assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
         verify(saverPromoCode, never()).save(any());
         verify(saverPromoPopupLead, never()).save(any());
 
-        when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", DEVICE)).thenReturn(1L);
+        when(getterPromoPopupLead.countForClient(AFTER_ID, "buyer@example.com", "9991234567", OTHER_DEVICE)).thenReturn(1L);
         assertEquals(AfterPurchasePromoOutcome.Status.READY, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
         verify(saverPromoCode).save(any());
     }

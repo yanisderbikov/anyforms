@@ -50,8 +50,8 @@ class PromoReservationServiceImplTest {
                 .status(PaymentTransactionStatus.PENDING)
                 .promoCode("ONE-AAAAA")
                 .build();
-        when(getterTransaction.getPendingByPromoCodeAndCustomer(eq("ONE-AAAAA"), eq("buyer@example.com"),
-                eq("9991234567"), eq(DEVICE), any())).thenReturn(List.of(transaction));
+        when(getterTransaction.getPendingByPromoCodeAndDevice(eq("ONE-AAAAA"), eq(DEVICE), any()))
+                .thenReturn(List.of(transaction));
         return transaction;
     }
 
@@ -63,9 +63,10 @@ class PromoReservationServiceImplTest {
     }
 
     @Test
-    void unlimitedCodesAndAnonymousClientsAreIgnored() {
+    void unlimitedCodesAndClientsWithoutDeviceAreIgnored() {
         service.releaseOwnReservations(PromoCode.builder().code("ANY-10").build(), client);
         service.releaseOwnReservations(limited, PromoClient.of(null, null, null));
+        service.releaseOwnReservations(limited, PromoClient.of("buyer@example.com", "+79991234567", null));
 
         verifyNoInteractions(getterTransaction, tinkoffService, paymentConfirmService);
     }

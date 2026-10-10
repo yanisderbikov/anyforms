@@ -85,6 +85,7 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
             log.warn("Order #{} has no email, delivery notification {} not sent", order.getId(), notification);
             return null;
         }
+        order.setEmail(fromAmo);
         log.info("Email for order #{} taken from AmoCRM contact of lead {}", order.getId(), order.getLeadId());
         return fromAmo;
     }

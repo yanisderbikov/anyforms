@@ -54,8 +54,7 @@ public interface GetterTransaction {
 
     long countPromoUses(String promoCode, Instant pendingSince);
 
-    List<PaymentTransaction> getPendingByPromoCodeAndCustomer(String promoCode, String email, String phoneLast10,
-                                                              String deviceId, Instant since);
+    List<PaymentTransaction> getPendingByPromoCodeAndDevice(String promoCode, String deviceId, Instant since);
 
     boolean popupCodeUsedByCustomer(UUID popupId, String email, String phoneLast10, String deviceId);
 
