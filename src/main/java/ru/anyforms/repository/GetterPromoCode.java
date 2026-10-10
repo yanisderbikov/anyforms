@@ -12,6 +12,8 @@ public interface GetterPromoCode {
     /** Ищет промокод по нормализованному коду (см. {@link PromoCode#normalize}). */
     Optional<PromoCode> getByCode(String code);
 
+    Optional<PromoCode> getByCodeForUpdate(String code);
+
     Optional<PromoCode> getById(UUID id);
 
     /** Промокоды, срок которых не истёк на {@code now} (или бессрочные). Новые сверху. */

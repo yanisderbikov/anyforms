@@ -13,4 +13,6 @@ public interface PaymentConfirmService {
      * с защитой от отката статуса и с фулфилментом/отменой при переходе.
      */
     boolean applyStatus(String externalPaymentId, PaymentTransactionStatus newStatus);
+
+    boolean supersede(String externalPaymentId);
 }

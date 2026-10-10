@@ -7,6 +7,7 @@ import ru.anyforms.model.payment.PaymentTransactionStatus;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,8 @@ public interface GetterTransaction {
     Optional<PaymentTransaction> getById(UUID id);
 
     Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId);
+
+    Optional<PaymentTransaction> getByExternalPaymentIdForUpdate(String externalPaymentId);
 
     List<PaymentTransaction> getByOrderId(Long orderId);
 
@@ -47,7 +50,21 @@ public interface GetterTransaction {
                                                  Instant from,
                                                  Instant to);
 
-    boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10);
+    boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10, String deviceId);
+
+    long countPromoUses(String promoCode, Instant pendingSince);
+
+    long countPromoUsesExceptDevicePending(String promoCode, Instant pendingSince, String deviceId);
+
+    List<String> getPendingTinkoffPaymentIds(String promoCode, String deviceId, Instant since);
+
+    boolean popupCodeUsedByCustomer(UUID popupId, String email, String phoneLast10, String deviceId);
+
+    Map<UUID, Long> countSucceededByPopup();
+
+    long countSucceededByPromoCode(String promoCode);
+
+    Map<String, Long> countSucceededByPromoCodes(Collection<String> promoCodes);
 
     /** Транзакции провайдера и продукта в статусе, созданные в окне [from, to], старые сверху */
     List<PaymentTransaction> getByProviderStatusAndProductCodeCreatedBetween(PaymentProvider provider,

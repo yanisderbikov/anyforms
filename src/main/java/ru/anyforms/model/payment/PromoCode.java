@@ -53,6 +53,28 @@ public class PromoCode {
     @Column(name = "valid_until")
     private Instant validUntil;
 
+    @Column(name = "popup_id")
+    private UUID popupId;
+
+    @Column(name = "shop_slug", length = 64)
+    private String shopSlug;
+
+    @Column(name = "owner_email")
+    private String ownerEmail;
+
+    @Column(name = "owner_phone_last10", length = 10)
+    private String ownerPhoneLast10;
+
+    @Column(name = "owner_device_id", length = 64)
+    private String ownerDeviceId;
+
+    @Column(name = "max_uses")
+    private Integer maxUses;
+
+    @Builder.Default
+    @Column(name = "first_order_only", nullable = false)
+    private Boolean firstOrderOnly = Boolean.FALSE;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -71,6 +93,36 @@ public class PromoCode {
         return Boolean.TRUE.equals(active)
                 && (validFrom == null || !now.isBefore(validFrom))
                 && (validUntil == null || now.isBefore(validUntil));
+    }
+
+    public boolean isPersonal() {
+        return hasContactOwner() || has(ownerDeviceId);
+    }
+
+    public boolean hasContactOwner() {
+        return has(ownerEmail) || has(ownerPhoneLast10);
+    }
+
+    public boolean belongsTo(String email, String phoneLast10, String deviceId) {
+        if (!isPersonal()) {
+            return true;
+        }
+        boolean emailMatches = has(ownerEmail) && email != null && ownerEmail.trim().equalsIgnoreCase(email.trim());
+        boolean phoneMatches = has(ownerPhoneLast10) && ownerPhoneLast10.equals(phoneLast10);
+        boolean deviceMatches = has(ownerDeviceId) && deviceId != null && ownerDeviceId.equals(deviceId.trim());
+        return emailMatches || phoneMatches || deviceMatches;
+    }
+
+    private static boolean has(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    public boolean allowedInShop(String shopSlug) {
+        return this.shopSlug == null || this.shopSlug.equals(shopSlug);
+    }
+
+    public boolean isFirstOrderOnly() {
+        return Boolean.TRUE.equals(firstOrderOnly);
     }
 
     public boolean hasAmountDiscount() {

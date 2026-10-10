@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.payment.Amount;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
 import ru.anyforms.dto.payment.PurchaseRequest;
@@ -30,10 +31,12 @@ import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.PurchaseService;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
+import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,6 +65,7 @@ class PurchaseServiceImpl implements PurchaseService {
     private final GetterPromoCode getterPromoCode;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
+    private final PromoClientChecker promoClientChecker;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -76,6 +80,7 @@ class PurchaseServiceImpl implements PurchaseService {
     private String trainingProvider;
 
     @Override
+    @Transactional
     public PaymentUrlResponse purchase(PurchaseRequest request) {
         PaymentProduct product = getterPaymentProduct.getByCode(request.getProductCode())
                 .orElseThrow(() -> new RuntimeException("Продукт не найден: " + request.getProductCode()));
@@ -83,7 +88,7 @@ class PurchaseServiceImpl implements PurchaseService {
             throw new RuntimeException("Продукт неактивен: " + product.getCode());
         }
 
-        PromoCode promo = resolvePromo(request.getPromoCode(), product.getPriceKopecks());
+        PromoCode promo = resolvePromo(request, product.getPriceKopecks());
         long priceKopecks = promo != null
                 ? MoneyUtil.applyPromoDiscount(product.getPriceKopecks(), promo.getDiscountPercent(),
                         promo.getDiscountAmountKopecks())
@@ -142,12 +147,15 @@ class PurchaseServiceImpl implements PurchaseService {
                                                   long priceKopecks, Amount amount, String description,
                                                   String returnUrl) {
         String phone = PhoneUtil.toE164(request.getPhone());
-        TinkoffInitRequest initRequest = tinkoffSupport.initRequest(priceKopecks, UUID.randomUUID().toString(), description)
+        TinkoffInitRequest.TinkoffInitRequestBuilder init = tinkoffSupport.initRequest(priceKopecks, UUID.randomUUID().toString(), description)
                 .successURL(appendParam(returnUrl, "status", "success"))
                 .failURL(appendParam(returnUrl, "status", "fail"))
                 .receipt(tinkoffSupport.receipt(request.getEmail(), phone != null ? "+" + phone : null,
-                        List.of(tinkoffSupport.receiptItem(product.getDescription(), priceKopecks, 1, PAYMENT_SUBJECT))))
-                .build();
+                        List.of(tinkoffSupport.receiptItem(product.getDescription(), priceKopecks, 1, PAYMENT_SUBJECT))));
+        if (promo != null && promo.getMaxUses() != null) {
+            init.redirectDueDate(TinkoffPaymentSupport.redirectDueDate(Instant.now().plus(TinkoffPaymentSupport.CART_LINK_TTL)));
+        }
+        TinkoffInitRequest initRequest = init.build();
 
         TinkoffInitResponse response = tinkoffService.init(initRequest);
 
@@ -181,20 +189,34 @@ class PurchaseServiceImpl implements PurchaseService {
     }
 
     /** Null, если код не передан; исключение, если передан, но невалиден — молча игнорировать нельзя. */
-    private PromoCode resolvePromo(String rawCode, long priceKopecks) {
+    private PromoCode resolvePromo(PurchaseRequest request, long priceKopecks) {
+        String rawCode = request.getPromoCode();
         if (rawCode == null || rawCode.isBlank()) {
             return null;
         }
-        PromoCode promo = getterPromoCode.getByCode(rawCode)
-                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode)));
+        PromoCode promo = lockedForCheckout(getterPromoCode.getByCode(rawCode)
+                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode))));
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
+        }
+        if (promo.getShopSlug() != null || promo.isPersonal()) {
+            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует только в магазине.");
         }
         if (!promo.meetsMinOrder(priceKopecks)) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует для заказов от "
                     + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".");
         }
+        if (promoClientChecker.exhausted(promo)) {
+            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже использован.");
+        }
         return promo;
+    }
+
+    private PromoCode lockedForCheckout(PromoCode promo) {
+        if (promo.getMaxUses() == null) {
+            return promo;
+        }
+        return getterPromoCode.getByCodeForUpdate(promo.getCode()).orElse(promo);
     }
 
     private PaymentTransactionStatus resolveYooKassaStatus(String yooKassaStatus) {

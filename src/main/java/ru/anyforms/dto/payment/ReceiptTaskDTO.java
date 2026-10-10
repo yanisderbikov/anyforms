@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
+@Deprecated
 @Schema(description = "Таска отправки письма со ссылкой на чек")
 public record ReceiptTaskDTO(
         String email,

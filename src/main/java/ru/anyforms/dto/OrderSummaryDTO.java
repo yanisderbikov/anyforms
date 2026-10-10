@@ -47,6 +47,9 @@ public class OrderSummaryDTO {
 
     @Schema(description = "Способ получения заказа", example = "PICKUP")
     private DeliveryMethod deliveryMethod;
+
+    @Schema(description = "Доставку СДЭК оплачиваем мы (заказ прошёл порог бесплатной доставки)", example = "false")
+    private boolean freeDelivery;
     
     @Schema(description = "Список товаров в заказе")
     private List<OrderItemDTO> items;

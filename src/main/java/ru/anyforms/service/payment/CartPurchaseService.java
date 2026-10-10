@@ -7,5 +7,6 @@ import ru.anyforms.dto.payment.PromoCheckResponse;
 public interface CartPurchaseService {
     PaymentUrlResponse purchase(CartPurchaseRequest request);
 
-    PromoCheckResponse checkPromo(String code, String email, String phone, Long totalKopecks);
+    PromoCheckResponse checkPromo(String code, String email, String phone, String deviceId, String shopSlug,
+                                  Long totalKopecks);
 }

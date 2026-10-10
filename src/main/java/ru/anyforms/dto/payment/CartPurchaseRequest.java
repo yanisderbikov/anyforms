@@ -51,4 +51,7 @@ public class CartPurchaseRequest {
     @Schema(description = "Slug витрины, с которой оформлен заказ (anyforms, af_pastry). "
             + "Пусто — общая витрина anyforms")
     private String shopSlug;
+
+    @Schema(description = "ID устройства покупателя для проверки промокодов")
+    private String deviceId;
 }

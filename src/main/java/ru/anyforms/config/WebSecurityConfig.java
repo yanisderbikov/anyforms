@@ -53,6 +53,9 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/custom-product-items/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
                     .requestMatchers("/api/custom-product-files/**").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER")
+                    .requestMatchers("/api/order-calculator/rates", "/api/order-calculator/rates/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/api/order-calculator/calculations/*").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                    .requestMatchers("/api/order-calculator/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/product/create").hasRole("ADMIN")
                     .requestMatchers("/api/product/all").hasRole("ADMIN")
                     .requestMatchers("/api/product/*/photos").hasRole("ADMIN")
@@ -64,6 +67,8 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/training-invoice/**").hasAnyRole("ADMIN", "SALES_MANAGER")
                     .requestMatchers("/api/receipt/**").hasRole("ADMIN")
                     .requestMatchers("/api/promo-code/**").hasRole("ADMIN")
+                    .requestMatchers("/api/promo-popup/**").hasRole("ADMIN")
+                    .requestMatchers("/api/free-delivery/**").hasRole("ADMIN")
                     // Дрип-кампания SalesBot: админка настроек/аналитики и ручной массовый запуск ботов
                     .requestMatchers("/api/salesbot/**").hasRole("ADMIN")
                     .requestMatchers("/webhook/**").permitAll()

@@ -1,8 +1,12 @@
 package ru.anyforms.integration.impl;
 
+import ru.anyforms.dto.cdek.CdekLocation;
+import ru.anyforms.dto.cdek.CdekOrderInfo;
+import ru.anyforms.dto.cdek.CdekPackage;
 import ru.anyforms.integration.CdekTrackingGateway;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +17,10 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 class CdekTrackingHttpGateway implements CdekTrackingGateway {
@@ -305,6 +313,133 @@ class CdekTrackingHttpGateway implements CdekTrackingGateway {
             
         } catch (Exception e) {
             logger.error("Ошибка извлечения кода статуса для трекера {}: {}", trackingNumber, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    @Override
+    public CdekOrderInfo getOrderInfo(String trackingNumber) {
+        try {
+            String cleanTrackingNumber = trackingNumber.trim().replaceAll("[\\s-]", "");
+            String token = getAccessToken();
+            if (token == null) {
+                logger.warn("Не удалось получить токен доступа для данных заказа трекера {}", trackingNumber);
+                return null;
+            }
+            String response = webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .scheme("https")
+                            .host("api.cdek.ru")
+                            .path("/v2/orders")
+                            .queryParam("cdek_number", cleanTrackingNumber)
+                            .build())
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofSeconds(10))
+                    .block();
+            CdekOrderInfo info = parseOrderInfo(response);
+            if (info == null) {
+                logger.warn("СДЭК не отдал данные заказа для трекера {}", trackingNumber);
+            } else if (info.plannedDeliveryDate() == null) {
+                logger.info("СДЭК не отдал плановую дату доставки для трекера {}", trackingNumber);
+            } else {
+                logger.info("Плановая дата доставки трекера {}: {}", trackingNumber, info.plannedDeliveryDate());
+            }
+            return info;
+        } catch (Exception e) {
+            logger.error("Ошибка при получении данных заказа трекера СДЭК {}: {}", trackingNumber, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    static CdekOrderInfo parseOrderInfo(String response) {
+        if (response == null || response.isBlank()) {
+            return null;
+        }
+        JsonObject json = new Gson().fromJson(response, JsonObject.class);
+        if (json == null || !json.has("entity") || !json.get("entity").isJsonObject()) {
+            return null;
+        }
+        JsonObject entity = json.getAsJsonObject("entity");
+        return new CdekOrderInfo(
+                parseDate(stringOrNull(entity, "planned_delivery_date")),
+                intOrNull(entity, "tariff_code"),
+                parseLocation(entity, "from_location"),
+                parseLocation(entity, "to_location"),
+                parsePackages(entity));
+    }
+
+    private static LocalDate parseDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String value = raw.trim();
+        try {
+            return LocalDate.parse(value.length() > 10 ? value.substring(0, 10) : value);
+        } catch (DateTimeParseException e) {
+            logger.warn("Не удалось разобрать плановую дату доставки СДЭК: {}", raw);
+            return null;
+        }
+    }
+
+    private static CdekLocation parseLocation(JsonObject entity, String key) {
+        if (!entity.has(key) || !entity.get(key).isJsonObject()) {
+            return null;
+        }
+        JsonObject location = entity.getAsJsonObject(key);
+        String postalCode = stringOrNull(location, "postal_code");
+        String city = stringOrNull(location, "city");
+        String address = stringOrNull(location, "address");
+        if (postalCode == null && city == null && address == null) {
+            return null;
+        }
+        String country = stringOrNull(location, "country_code");
+        return new CdekLocation(country != null ? country : "RU", postalCode, city, address);
+    }
+
+    private static List<CdekPackage> parsePackages(JsonObject entity) {
+        if (!entity.has("packages") || !entity.get("packages").isJsonArray()) {
+            return List.of();
+        }
+        List<CdekPackage> packages = new ArrayList<>();
+        for (JsonElement element : entity.getAsJsonArray("packages")) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject pkg = element.getAsJsonObject();
+            Integer weight = intOrNull(pkg, "weight");
+            Integer length = intOrNull(pkg, "length");
+            Integer width = intOrNull(pkg, "width");
+            Integer height = intOrNull(pkg, "height");
+            if (weight == null || weight <= 0) {
+                continue;
+            }
+            packages.add(new CdekPackage(weight, positive(length), positive(width), positive(height)));
+        }
+        return packages;
+    }
+
+    private static int positive(Integer value) {
+        return value == null || value <= 0 ? 1 : value;
+    }
+
+    private static String stringOrNull(JsonObject json, String key) {
+        if (!json.has(key) || json.get(key).isJsonNull()) {
+            return null;
+        }
+        String value = json.get(key).getAsString();
+        return value.isBlank() ? null : value;
+    }
+
+    private static Integer intOrNull(JsonObject json, String key) {
+        if (!json.has(key) || json.get(key).isJsonNull()) {
+            return null;
+        }
+        try {
+            return json.get(key).getAsInt();
+        } catch (Exception e) {
             return null;
         }
     }

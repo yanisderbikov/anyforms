@@ -93,6 +93,9 @@ class TelegramDigestServiceImpl implements TelegramDigestService {
         sb.append("🆕 Новый заказ в рознице №");
         sb.append(order.getPublicId() != null ? order.getPublicId() : order.getId());
         sb.append("\n");
+        if (order.isFreeDelivery()) {
+            sb.append("🚚 Бесплатная доставка — СДЭК оплачиваем мы\n");
+        }
 
         List<OrderItem> items = order.getItems();
         if (items != null && !items.isEmpty()) {

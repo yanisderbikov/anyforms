@@ -16,6 +16,7 @@ import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.CustomProductStatusUpdateRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.dto.ShipRequestDTO;
+import ru.anyforms.dto.StorageCellUpdateRequestDTO;
 import ru.anyforms.model.CustomProductStatus;
 import ru.anyforms.service.CustomProductItemService;
 
@@ -76,6 +77,14 @@ public class CustomProductItemController {
     public CustomProductItemDTO updateStatus(@PathVariable Long id,
                                              @Valid @RequestBody CustomProductStatusUpdateRequestDTO request) {
         return service.updateStatus(id, request.getStatus());
+    }
+
+    @Operation(summary = "Указать ячейку хранения позиции",
+            description = "Свободный текст: где лежат мастер-модель и материалы. Пустое значение очищает поле")
+    @PatchMapping("/{id}/storage-cell")
+    public CustomProductItemDTO updateStorageCell(@PathVariable Long id,
+                                                  @RequestBody StorageCellUpdateRequestDTO request) {
+        return service.updateStorageCell(id, request.getStorageCell());
     }
 
     @Operation(summary = "Удалить позицию (вместе с файлами в S3)")

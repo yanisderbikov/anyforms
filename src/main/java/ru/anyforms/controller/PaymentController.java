@@ -28,6 +28,7 @@ import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentConfirmService;
 import ru.anyforms.service.payment.PurchaseService;
+import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 
 import java.util.List;
@@ -45,6 +46,7 @@ public class PaymentController {
     private final PaymentConfirmService paymentConfirmService;
     private final GetterPaymentProduct getterPaymentProduct;
     private final GetterPromoCode getterPromoCode;
+    private final PromoClientChecker promoClientChecker;
 
     @Operation(summary = "Доступные продукты для покупки")
     @GetMapping("/products")
@@ -76,6 +78,11 @@ public class PaymentController {
                     .code(promo.getCode()).priceKopecks(price)
                     .message("Срок действия промокода истёк.").build());
         }
+        if (promo.getShopSlug() != null || promo.isPersonal()) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .code(promo.getCode()).priceKopecks(price)
+                    .message("Этот промокод действует только в магазине.").build());
+        }
         if (!promo.meetsMinOrder(price)) {
             return ResponseEntity.ok(PromoCheckResponse.builder()
                     .code(promo.getCode()).priceKopecks(price)
@@ -83,6 +90,11 @@ public class PaymentController {
                     .message("Промокод действует для заказов от "
                             + MoneyUtil.formatRubles(promo.getMinOrderKopecks()) + ".")
                     .build());
+        }
+        if (promoClientChecker.exhausted(promo)) {
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .code(promo.getCode()).priceKopecks(price)
+                    .message("Промокод уже использован.").build());
         }
         return ResponseEntity.ok(PromoCheckResponse.builder()
                 .valid(true)
@@ -105,8 +117,10 @@ public class PaymentController {
             @RequestParam("code") String code,
             @RequestParam("email") String email,
             @RequestParam(value = "phone", required = false) String phone,
-            @RequestParam(value = "totalKopecks", required = false) Long totalKopecks) {
-        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone, totalKopecks));
+            @RequestParam(value = "totalKopecks", required = false) Long totalKopecks,
+            @RequestParam(value = "shopSlug", required = false) String shopSlug,
+            @RequestParam(value = "deviceId", required = false) String deviceId) {
+        return ResponseEntity.ok(cartPurchaseService.checkPromo(code, email, phone, deviceId, shopSlug, totalKopecks));
     }
 
     @ExceptionHandler(InvalidPromoCodeException.class)

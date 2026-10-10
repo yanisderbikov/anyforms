@@ -24,7 +24,7 @@ import ru.anyforms.repository.CustomProductFileRepository;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
-import ru.anyforms.service.DeliveryBotNotifier;
+import ru.anyforms.service.DeliveryNotifier;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.PublicIdGenerator;
@@ -51,7 +51,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private final S3FileStorage s3FileStorage;
     private final ConverterOrder converterOrder;
     private final ApplicationEventPublisher eventPublisher;
-    private final DeliveryBotNotifier deliveryBotNotifier;
+    private final DeliveryNotifier deliveryNotifier;
 
     @Override
     @Transactional(readOnly = true)
@@ -76,11 +76,16 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Override
     @Transactional(readOnly = true)
     public CustomProductItemDTO getPublicByPublicId(String publicId) {
-        CustomProductItemDTO dto = toDTO(getByPublicIdOrThrow(publicId));
+        CustomProductItem item = getByPublicIdOrThrow(publicId);
+        if (item.isNda()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Позиция не найдена: " + publicId);
+        }
+        CustomProductItemDTO dto = toDTO(item);
         dto.setId(null);
         dto.setOrderId(null);
         dto.setLeadId(null);
         dto.setClientName(null);
+        dto.setStorageCell(null);
         return dto;
     }
 
@@ -142,6 +147,14 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         }
         CustomProductItem item = getOrThrow(itemId);
         item.setStatus(status);
+        return toDTO(itemRepository.save(item));
+    }
+
+    @Override
+    @Transactional
+    public CustomProductItemDTO updateStorageCell(Long itemId, String storageCell) {
+        CustomProductItem item = getOrThrow(itemId);
+        item.setStorageCell(normalizeStorageCell(storageCell));
         return toDTO(itemRepository.save(item));
     }
 
@@ -262,7 +275,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         }
         if (pickup) {
             if (order.getLeadId() != null) {
-                deliveryBotNotifier.notifyPickupReady(order.getLeadId());
+                deliveryNotifier.notifyReadyForPickup(order);
             } else {
                 log.warn("Order {} is pickup-ready but has no leadId, pickup bot not triggered", orderId);
             }
@@ -300,6 +313,14 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         item.setQuantity(request.getQuantity());
         String modeler = request.getModeler();
         item.setModeler(modeler != null && !modeler.isBlank() ? modeler.trim() : null);
+        item.setNda(Boolean.TRUE.equals(request.getNda()));
+        if (request.getStorageCell() != null) {
+            item.setStorageCell(normalizeStorageCell(request.getStorageCell()));
+        }
+    }
+
+    private static String normalizeStorageCell(String storageCell) {
+        return storageCell == null || storageCell.isBlank() ? null : storageCell.trim();
     }
 
     private CustomProductItemDTO toDTO(CustomProductItem item) {
@@ -313,6 +334,8 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         dto.setDescription(item.getDescription());
         dto.setQuantity(item.getQuantity());
         dto.setModeler(item.getModeler());
+        dto.setNda(item.isNda());
+        dto.setStorageCell(item.getStorageCell());
         dto.setStatus(item.getStatus());
         dto.setStatusDescription(item.getStatus() != null ? item.getStatus().getDescription() : null);
         dto.setStatusUpdatedAt(item.getStatusUpdatedAt());

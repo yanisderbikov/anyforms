@@ -1,12 +1,14 @@
 package ru.anyforms.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.anyforms.model.Order;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -85,6 +87,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findFirstByTrackerOrderByIdDesc(String tracker);
 
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+            UPDATE orders
+            SET last_delivery_notification = :notification
+            WHERE id = :id
+              AND last_delivery_notification IS NULL
+            """, nativeQuery = true)
+    int claimFirstDeliveryNotification(@Param("id") Long id, @Param("notification") String notification);
+
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+            UPDATE orders
+            SET last_delivery_notification = :notification
+            WHERE id = :id
+              AND (last_delivery_notification IS NULL OR last_delivery_notification IN (:earlier))
+            """, nativeQuery = true)
+    int claimNextDeliveryNotification(@Param("id") Long id,
+                                      @Param("notification") String notification,
+                                      @Param("earlier") Collection<String> earlier);
+
     @Query("""
        SELECT o FROM Order o
        WHERE o.tracker IS NOT NULL
@@ -150,4 +172,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
          AND (o.deliveryStatus IS NULL OR o.deliveryStatus <> 'DELIVERED')
        """)
     long countRetailInDelivery();
+
+    @Query(value = """
+       SELECT EXISTS (
+           SELECT 1 FROM orders o
+           WHERE o.retail = TRUE
+             AND o.payment_status IN ('NONE', 'PAID', 'REFUNDED')
+             AND ((:email <> '' AND lower(coalesce(o.email, '')) = lower(:email))
+                  OR (:phoneLast10 <> ''
+                      AND right(regexp_replace(coalesce(o.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                  OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
+       )
+       """, nativeQuery = true)
+    boolean existsRetailOrderByCustomer(@Param("email") String email,
+                                        @Param("phoneLast10") String phoneLast10,
+                                        @Param("deviceId") String deviceId);
 }

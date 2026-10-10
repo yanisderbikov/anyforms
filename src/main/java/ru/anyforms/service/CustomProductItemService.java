@@ -37,6 +37,9 @@ public interface CustomProductItemService {
 
     CustomProductItemDTO updateStatus(Long itemId, CustomProductStatus status);
 
+    /** Ячейка хранения позиции (где мастер-модель и материалы); пустое значение очищает. */
+    CustomProductItemDTO updateStorageCell(Long itemId, String storageCell);
+
     void delete(Long itemId);
 
     /** Presigned PUT для загрузки файла позиции напрямую в S3, минуя бэкенд. */

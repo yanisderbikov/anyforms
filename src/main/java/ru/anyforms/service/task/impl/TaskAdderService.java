@@ -23,15 +23,19 @@ class TaskAdderService implements TaskAdder {
     @Override
     public void addTask(Object payload) {
         try {
-            TaskType taskType = TaskType.fromObject(payload);
-            Task task = Task.builder()
-                    .type(taskType)
-                    .payload(gson.toJson(payload))
-                    .status(TaskStatus.NEW)
-                    .build();
-            saverTask.save(task);
+            addTaskOrThrow(payload);
         } catch (Exception e) {
             log.error("Ошибка добавления таски", e);
         }
+    }
+
+    @Override
+    public void addTaskOrThrow(Object payload) {
+        TaskType taskType = TaskType.fromObject(payload);
+        saverTask.save(Task.builder()
+                .type(taskType)
+                .payload(gson.toJson(payload))
+                .status(TaskStatus.NEW)
+                .build());
     }
 }

@@ -15,6 +15,8 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(exclude = {"items", "shop"})
 public class Order {
+    public static final String FREE_DELIVERY_COMMENT = "Бесплатная доставка";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -34,11 +36,18 @@ public class Order {
     @Column(name = "contact_phone")
     private String contactPhone;
 
+    @Column(name = "email")
+    private String email;
+
     @Column(name = "tracker")
     private String tracker;
 
     @Column(name = "delivery_status")
     private String deliveryStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "last_delivery_notification", length = 32, updatable = false)
+    private DeliveryNotification lastDeliveryNotification;
 
     @Column(name = "pvz_sdek")
     private String pvzSdekStreet;
@@ -73,6 +82,12 @@ public class Order {
     @Column(name = "delivery_method", nullable = false, length = 32)
     private DeliveryMethod deliveryMethod = DeliveryMethod.CDEK;
 
+    @Column(name = "device_id", length = 64)
+    private String deviceId;
+
+    @Column(name = "free_delivery", nullable = false)
+    private boolean freeDelivery;
+
     @Column(name = "comment")
     private String comment;
 
@@ -102,6 +117,14 @@ public class Order {
         }
         var currentComment = this.comment == null ? "" : this.comment + " | ";
         this.comment = currentComment + comment;
+    }
+
+    public void markFreeDelivery() {
+        if (freeDelivery) {
+            return;
+        }
+        freeDelivery = true;
+        setComment(FREE_DELIVERY_COMMENT);
     }
 
     public void addItem(OrderItem item) {

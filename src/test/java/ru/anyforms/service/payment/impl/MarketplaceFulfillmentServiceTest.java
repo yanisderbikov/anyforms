@@ -8,6 +8,7 @@ import ru.anyforms.dto.amo.SalesbotRunTaskPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
 import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.Order;
+import ru.anyforms.model.amo.AmoCrmFieldId;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.model.payment.PaymentTransaction;
 import ru.anyforms.repository.OrderRepository;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -27,12 +29,14 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MarketplaceFulfillmentServiceTest {
 
     private static final long LEAD_ID = 777L;
+    private static final long CONTACT_ID = 555L;
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
@@ -60,31 +64,67 @@ class MarketplaceFulfillmentServiceTest {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(amoCrmGateway.createLead(anyString(), anyString(), any(), anyString(), anyLong(), anyLong()))
                 .thenReturn(LEAD_ID);
+        when(amoCrmGateway.getContactIdFromLead(LEAD_ID)).thenReturn(CONTACT_ID);
     }
 
     @Test
-    void anyformsOrderCreatesLeadAndRunsThankYouBot() {
+    void anyformsOrderSetsShopOnContact() {
+        order.setShop(shop(Shop.DEFAULT_SLUG));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).updateContactCustomField(CONTACT_ID, AmoCrmFieldId.SHOP_CONTACT.getId(), "anyforms");
+    }
+
+    @Test
+    void orderWithoutShopIsAnyformsOnContact() {
+        order.setShop(null);
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).updateContactCustomField(CONTACT_ID, AmoCrmFieldId.SHOP_CONTACT.getId(), "anyforms");
+    }
+
+    @Test
+    void partnerShopFromListIsSetOnContact() {
+        order.setShop(shop("lunasvecha"));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).updateContactCustomField(CONTACT_ID, AmoCrmFieldId.SHOP_CONTACT.getId(), "lunasvecha");
+    }
+
+    @Test
+    void unknownShopIsNotWrittenToContact() {
+        order.setShop(shop("af_pastry"));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway, never()).updateContactCustomField(eq(CONTACT_ID), eq(AmoCrmFieldId.SHOP_CONTACT.getId()), anyString());
+    }
+
+    @Test
+    void anyformsOrderCreatesLeadAndSendsReceiptWithoutBot() {
         order.setShop(shop(Shop.DEFAULT_SLUG));
 
         service.fulfill(transaction);
 
         assertEquals(LEAD_ID, order.getLeadId());
-        List<SalesbotRunTaskPayload> bots = salesbotTasks();
-        assertEquals(1, bots.size());
-        assertEquals(LEAD_ID, bots.get(0).getLeadId());
+        assertEquals(1, tasks(MarketplaceOrderEmailPayload.class).size());
+        assertTrue(salesbotTasks().isEmpty());
     }
 
     @Test
-    void orderWithoutShopRunsThankYouBot() {
+    void orderWithoutShopDoesNotRunBot() {
         order.setShop(null);
 
         service.fulfill(transaction);
 
-        assertEquals(1, salesbotTasks().size());
+        assertTrue(salesbotTasks().isEmpty());
     }
 
     @Test
-    void partnerShopOrderCreatesLeadButDoesNotRunBot() {
+    void partnerShopOrderCreatesLeadAndSendsReceiptWithoutBot() {
         order.setShop(shop("af_pastry"));
 
         service.fulfill(transaction);
@@ -94,6 +134,27 @@ class MarketplaceFulfillmentServiceTest {
         verify(orderService).syncOrder(LEAD_ID);
         assertEquals(1, tasks(MarketplaceOrderEmailPayload.class).size());
         assertTrue(salesbotTasks().isEmpty());
+    }
+
+    @Test
+    void freeDeliveryOrderGetsLeadNoteAndFreeDeliveryEmail() {
+        order.setShop(shop(Shop.DEFAULT_SLUG));
+        order.setFreeDelivery(true);
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway).addNoteToLead(LEAD_ID, MarketplaceFulfillmentService.FREE_DELIVERY_NOTE);
+        assertTrue(tasks(MarketplaceOrderEmailPayload.class).get(0).isFreeDelivery());
+    }
+
+    @Test
+    void regularOrderHasNoFreeDeliveryNote() {
+        order.setShop(shop(Shop.DEFAULT_SLUG));
+
+        service.fulfill(transaction);
+
+        verify(amoCrmGateway, never()).addNoteToLead(LEAD_ID, MarketplaceFulfillmentService.FREE_DELIVERY_NOTE);
+        assertFalse(tasks(MarketplaceOrderEmailPayload.class).get(0).isFreeDelivery());
     }
 
     private List<SalesbotRunTaskPayload> salesbotTasks() {

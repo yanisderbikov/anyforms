@@ -39,15 +39,18 @@ import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.repository.GetterProduct;
 import ru.anyforms.repository.GetterPromoCode;
-import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverTransaction;
+import ru.anyforms.service.delivery.FreeDeliveryService;
 import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentStatusConverter;
+import ru.anyforms.service.payment.PromoReservationService;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
 import ru.anyforms.service.product.ShopService;
+import ru.anyforms.service.promo.PromoClient;
+import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
 import ru.anyforms.util.PickupAddressDetector;
@@ -89,11 +92,13 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     private final SaverTransaction saverTransaction;
     private final GetterProduct getterProduct;
     private final GetterPromoCode getterPromoCode;
-    private final GetterTransaction getterTransaction;
     private final OrderRepository orderRepository;
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
     private final ShopService shopService;
+    private final PromoClientChecker promoClientChecker;
+    private final PromoReservationService promoReservationService;
+    private final FreeDeliveryService freeDeliveryService;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -119,7 +124,9 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     public PaymentUrlResponse purchase(CartPurchaseRequest request) {
         List<PricedItem> priced = priceItems(request.getItems());
         long subtotalKopecks = priced.stream().mapToLong(i -> i.unitKopecks() * i.quantity()).sum();
-        PromoCode promo = resolvePromo(request.getPromoCode(), request.getEmail(), request.getPhone(), subtotalKopecks);
+        PromoCode promo = resolvePromo(request.getPromoCode(),
+                PromoClient.of(request.getEmail(), request.getPhone(), request.getDeviceId()),
+                request.getShopSlug(), subtotalKopecks);
         if (promo != null) {
             priced = applyPromoToItems(priced, promo);
         }
@@ -135,7 +142,7 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 ? DEFAULT_FULL_NAME
                 : request.getFullName().trim();
 
-        Order order = createAwaitingOrder(request, fullName, priced);
+        Order order = createAwaitingOrder(request, fullName, priced, totalKopecks);
         String description = "Заказ anyforms: " + totalQty + " " + pluralItems(totalQty);
         String returnUrl = buildReturnUrl(request.getReturnUrl(), order.getPublicId());
 
@@ -146,7 +153,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
     }
 
     @Override
-    public PromoCheckResponse checkPromo(String code, String email, String phone, Long totalKopecks) {
+    public PromoCheckResponse checkPromo(String code, String email, String phone, String deviceId, String shopSlug,
+                                         Long totalKopecks) {
         Optional<PromoCode> found = getterPromoCode.getByCode(code);
         if (found.isEmpty()) {
             return PromoCheckResponse.builder().message("Такого промокода нет.").build();
@@ -156,9 +164,10 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
             return PromoCheckResponse.builder()
                     .code(promo.getCode()).message("Срок действия промокода истёк.").build();
         }
-        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, PhoneUtil.last10(phone))) {
-            return PromoCheckResponse.builder()
-                    .code(promo.getCode()).message("Этот промокод уже был использован.").build();
+        Optional<String> rejection = promoClientChecker.previewRejection(promo,
+                PromoClient.of(email, phone, deviceId), shopSlug);
+        if (rejection.isPresent()) {
+            return PromoCheckResponse.builder().code(promo.getCode()).message(rejection.get()).build();
         }
         // totalKopecks приходит с клиента и только для ранней подсказки:
         // при оформлении порог проверяется заново по серверным ценам.
@@ -179,22 +188,33 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
                 .build();
     }
 
-    private PromoCode resolvePromo(String rawCode, String email, String phone, long subtotalKopecks) {
+    private PromoCode resolvePromo(String rawCode, PromoClient client, String shopSlug, long subtotalKopecks) {
         if (rawCode == null || rawCode.isBlank()) {
             return null;
         }
-        PromoCode promo = getterPromoCode.getByCode(rawCode)
-                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode)));
+        PromoCode promo = lockedForCheckout(getterPromoCode.getByCode(rawCode)
+                .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode))));
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
-        }
-        if (getterTransaction.promoUsedByCustomer(promo.getCode(), email, PhoneUtil.last10(phone))) {
-            throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " уже был использован.");
         }
         if (!promo.meetsMinOrder(subtotalKopecks)) {
             throw new InvalidPromoCodeException(minOrderMessage(promo));
         }
+        if (promoClientChecker.exhausted(promo)) {
+            promoReservationService.releaseOwnReservations(promo, client);
+        }
+        Optional<String> rejection = promoClientChecker.checkoutRejection(promo, client, shopSlug);
+        if (rejection.isPresent()) {
+            throw new InvalidPromoCodeException(rejection.get());
+        }
         return promo;
+    }
+
+    private PromoCode lockedForCheckout(PromoCode promo) {
+        if (promo.getMaxUses() == null && promo.getPopupId() == null && !promo.isPersonal()) {
+            return promo;
+        }
+        return getterPromoCode.getByCodeForUpdate(promo.getCode()).orElse(promo);
     }
 
     private String minOrderMessage(PromoCode promo) {
@@ -388,7 +408,8 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         return new PaymentReceipt(new PaymentCustomer(fullName, email, PhoneUtil.toE164(phone)), receiptItems);
     }
 
-    private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced) {
+    private Order createAwaitingOrder(CartPurchaseRequest request, String fullName, List<PricedItem> priced,
+                                      long totalKopecks) {
         Shop shop = resolveShop(request.getShopSlug(), priced);
         Order order = new Order();
         order.setShop(shop);
@@ -398,11 +419,16 @@ class CartPurchaseServiceImpl implements CartPurchaseService {
         order.setPublicId(PublicIdGenerator.generateUnique(orderRepository::existsByPublicId));
         order.setContactName(fullName);
         order.setContactPhone(request.getPhone());
+        order.setEmail(request.getEmail());
+        order.setDeviceId(PromoClient.of(null, null, request.getDeviceId()).deviceIdOrNull());
         order.setPvzSdekCity(request.getPvzCity());
         order.setPvzSdekStreet(request.getPvzStreet());
         order.setDeliveryMethod(PickupAddressDetector.isPickup(request.getPvzCity(), request.getPvzStreet())
                 ? DeliveryMethod.PICKUP
                 : DeliveryMethod.CDEK);
+        if (order.getDeliveryMethod() == DeliveryMethod.CDEK && freeDeliveryService.qualifies(totalKopecks)) {
+            order.markFreeDelivery();
+        }
 
         for (PricedItem item : priced) {
             Product product = item.product();

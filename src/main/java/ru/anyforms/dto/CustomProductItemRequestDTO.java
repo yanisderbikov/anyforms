@@ -27,6 +27,12 @@ public class CustomProductItemRequestDTO {
     @Schema(description = "Кто моделирует позицию", example = "Иван")
     private String modeler;
 
+    @Schema(description = "Позиция под NDA; если не задано — false")
+    private Boolean nda;
+
+    @Schema(description = "Ячейка хранения; null — не менять, пустая строка — очистить")
+    private String storageCell;
+
     @Schema(description = "Статус при создании; если не задан — MODELING. При обновлении игнорируется")
     private CustomProductStatus status;
 }

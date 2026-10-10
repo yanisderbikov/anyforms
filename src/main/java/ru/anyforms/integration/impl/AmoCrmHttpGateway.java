@@ -181,37 +181,49 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
                     .bodyToMono(String.class)
                     .block();
 
-            // amoCRM API returns single entity directly or in _embedded.contacts array
-            JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
-            AmoContact contact = null;
-            if (jsonObject.has("_embedded")) {
-                JsonObject embedded = jsonObject.getAsJsonObject("_embedded");
-                if (embedded.has("contacts")) {
-                    var contacts = embedded.getAsJsonArray("contacts");
-                    if (contacts != null && contacts.size() > 0) {
-                        contact = gson.fromJson(contacts.get(0), AmoContact.class);
-                    }
-                }
-            }
-            // Try to parse as direct object
-            if (contact == null) {
-                contact = gson.fromJson(jsonObject, AmoContact.class);
-            }
-            
-            // Устанавливаем телефон из кастомного поля
-            if (contact != null) {
-                String phoneValue = contact.getCustomFieldValue(AmoCrmFieldId.PHONE_CONTACT.getId());
-                if (phoneValue != null) {
-                    AmoContact.Phone phone = new AmoContact.Phone();
-                    phone.setValue(phoneValue);
-                    contact.setPhone(java.util.Collections.singletonList(phone));
-                }
-            }
-            
-            return contact;
+            return parseContact(response);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get contact from amoCRM", e);
         }
+    }
+
+    AmoContact parseContact(String response) {
+        // amoCRM API returns single entity directly or in _embedded.contacts array
+        JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
+        AmoContact contact = null;
+        if (jsonObject.has("_embedded")) {
+            JsonObject embedded = jsonObject.getAsJsonObject("_embedded");
+            if (embedded.has("contacts")) {
+                var contacts = embedded.getAsJsonArray("contacts");
+                if (contacts != null && contacts.size() > 0) {
+                    contact = gson.fromJson(contacts.get(0), AmoContact.class);
+                }
+            }
+        }
+        // Try to parse as direct object
+        if (contact == null) {
+            contact = gson.fromJson(jsonObject, AmoContact.class);
+        }
+        if (contact == null) {
+            return null;
+        }
+
+        // Устанавливаем телефон из кастомного поля
+        String phoneValue = contact.getCustomFieldValue(AmoCrmFieldId.PHONE_CONTACT.getId());
+        if (phoneValue != null) {
+            AmoContact.Phone phone = new AmoContact.Phone();
+            phone.setValue(phoneValue);
+            contact.setPhone(java.util.Collections.singletonList(phone));
+        }
+
+        String emailValue = contact.getCustomFieldValue(AmoCrmFieldId.EMAIL_CONTACT.getId());
+        if (emailValue != null && !emailValue.isBlank()) {
+            AmoContact.Email email = new AmoContact.Email();
+            email.setValue(emailValue.trim());
+            contact.setEmail(java.util.Collections.singletonList(email));
+        }
+
+        return contact;
     }
 
     @Override
@@ -1225,7 +1237,7 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
     @Override
     public Long createLandingLead(String leadName, String contactName, String phone,
                                   Long pipelineId, Long statusId, Map<String, String> utmByFieldCode) {
-        return createLead(leadName, contactName, phone, null,
+        return createLeadWithUtm(leadName, contactName, phone, null,
                 pipelineId != null ? pipelineId : landingPipelineId,
                 statusId != null ? statusId : landingStatusId,
                 null,
@@ -1234,24 +1246,32 @@ class AmoCrmHttpGateway implements AmoCrmGateway {
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, null, pipelineId, statusId, null, Map.of());
+        return createLeadWithUtm(leadName, contactName, phone, null, pipelineId, statusId, null, Map.of());
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, String email,
                            Long pipelineId, Long statusId) {
-        return createLead(leadName, contactName, phone, email, pipelineId, statusId, null, Map.of());
+        return createLeadWithUtm(leadName, contactName, phone, email, pipelineId, statusId, null, Map.of());
     }
 
     @Override
     public Long createLead(String leadName, String contactName, String phone, String email,
                            Long pipelineId, Long statusId, Long responsibleUserId) {
-        return createLead(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId, Map.of());
+        return createLeadWithUtm(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId, Map.of());
     }
 
-    private Long createLead(String leadName, String contactName, String phone, String email,
-                            Long pipelineId, Long statusId, Long responsibleUserId,
-                            Map<String, String> utmByFieldCode) {
+    @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId, Long responsibleUserId,
+                           Map<String, String> utmByFieldCode) {
+        return createLeadWithUtm(leadName, contactName, phone, email, pipelineId, statusId, responsibleUserId,
+                utmByFieldCode);
+    }
+
+    private Long createLeadWithUtm(String leadName, String contactName, String phone, String email,
+                                   Long pipelineId, Long statusId, Long responsibleUserId,
+                                   Map<String, String> utmByFieldCode) {
         try {
             JsonObject lead = newLeadJson(leadName, pipelineId, statusId, responsibleUserId,
                     resolveContact(contactName, phone, email));

@@ -35,6 +35,20 @@ class PromoCodeManager implements GetterPromoCode, SaverPromoCode, PromoCodeDele
     }
 
     @Override
+    public Optional<PromoCode> getByCodeForUpdate(String code) {
+        String normalized = PromoCode.normalize(code);
+        if (normalized == null || normalized.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            return promoCodeRepo.findByCodeForUpdate(normalized);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public Optional<PromoCode> getById(UUID id) {
         try {
             return promoCodeRepo.findById(id);

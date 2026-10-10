@@ -176,6 +176,14 @@ class NoOpAmoCrmGateway implements AmoCrmGateway {
     }
 
     @Override
+    public Long createLead(String leadName, String contactName, String phone, String email,
+                           Long pipelineId, Long statusId, Long responsibleUserId,
+                           Map<String, String> utmByFieldCode) {
+        skip("createLead");
+        return null;
+    }
+
+    @Override
     public Long findContactIdByQuery(String query) {
         skip("findContactIdByQuery");
         return null;

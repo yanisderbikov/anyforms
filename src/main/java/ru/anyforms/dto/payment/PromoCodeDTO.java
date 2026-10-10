@@ -15,10 +15,17 @@ public record PromoCodeDTO(
         Boolean active,
         @Schema(description = "Начало действия, ISO-8601; null — без нижней границы") String validFrom,
         @Schema(description = "Окончание действия (исключительно), ISO-8601; null — бессрочно") String validUntil,
-        String createdAt
+        String createdAt,
+        @Schema(description = "Только на первый заказ в магазине") Boolean firstOrderOnly,
+        @Schema(description = "Сколько раз всего можно использовать; null — без ограничений") Integer maxUses,
+        @Schema(description = "Сколько оплаченных заказов с этим кодом") Long usesCount
 ) {
     /** Instant отдаём строками: без явной настройки Jackson сериализует их в epoch-секунды. */
     public static PromoCodeDTO from(PromoCode p) {
+        return from(p, null);
+    }
+
+    public static PromoCodeDTO from(PromoCode p, Long usesCount) {
         return new PromoCodeDTO(
                 p.getId(),
                 p.getCode(),
@@ -28,6 +35,9 @@ public record PromoCodeDTO(
                 p.getActive(),
                 p.getValidFrom() != null ? p.getValidFrom().toString() : null,
                 p.getValidUntil() != null ? p.getValidUntil().toString() : null,
-                p.getCreatedAt() != null ? p.getCreatedAt().toString() : null);
+                p.getCreatedAt() != null ? p.getCreatedAt().toString() : null,
+                p.isFirstOrderOnly(),
+                p.getMaxUses(),
+                usesCount);
     }
 }

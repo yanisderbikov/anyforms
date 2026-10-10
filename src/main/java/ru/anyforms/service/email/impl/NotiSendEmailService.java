@@ -5,6 +5,7 @@ import io.netty.resolver.DefaultAddressResolverGroup;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.util.Map;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "email.provider", havingValue = "notisend", matchIfMissing = true)
 class NotiSendEmailService implements EmailService {
 
     private static final String NOTISEND_BASE_URL = "https://api.notisend.ru/v1";
@@ -68,13 +70,13 @@ class NotiSendEmailService implements EmailService {
                 .block();
 
         if (result == null) {
-            throw new RuntimeException("NotiSend: пустой ответ при отправке письма на " + request.to());
+            throw new RuntimeException("NotiSend: пустой ответ при отправке письма");
         }
         if (result.status() < 200 || result.status() >= 300) {
-            log.error("NotiSend отклонил письмо на {}: HTTP {} body: {}", request.to(), result.status(), result.body());
+            log.error("NotiSend отклонил письмо: HTTP {} body: {}", result.status(), result.body());
             throw new RuntimeException("NotiSend вернул HTTP " + result.status() + ": " + result.body());
         }
-        log.info("NotiSend принял письмо на {}: HTTP {}", request.to(), result.status());
+        log.info("NotiSend принял письмо: HTTP {}", result.status());
     }
 
     private record NotisendEmailRequest(

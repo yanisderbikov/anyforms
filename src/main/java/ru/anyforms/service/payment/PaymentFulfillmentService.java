@@ -10,6 +10,8 @@ public interface PaymentFulfillmentService {
     /** Платёж отменён (деньги не списывались): для маркетплейса пометить заказ CANCELED; для курса/гайда — ничего. */
     void cancel(PaymentTransaction transaction);
 
+    void supersede(PaymentTransaction transaction);
+
     /** Деньги вернули покупателю: для маркетплейса пометить заказ REFUNDED; для курса/гайда — ничего. */
     void refund(PaymentTransaction transaction);
 }

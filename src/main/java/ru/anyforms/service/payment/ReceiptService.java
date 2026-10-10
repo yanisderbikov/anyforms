@@ -7,6 +7,7 @@ import ru.anyforms.dto.payment.ReceiptTransactionDTO;
 import java.time.LocalDate;
 import java.util.List;
 
+@Deprecated
 public interface ReceiptService {
 
     void sendReceipt(ReceiptSendRequest request);

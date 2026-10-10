@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.anyforms.dto.payment.YooKassaWebhookBody;
 import ru.anyforms.dto.payment.tinkoff.TinkoffNotification;
 import ru.anyforms.model.payment.PaymentTransaction;
@@ -28,6 +29,7 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
     private final ObjectMapper objectMapper;
 
     @Override
+    @Transactional
     public boolean confirm(YooKassaWebhookBody webhookBody) {
         try {
             PaymentTransactionStatus newStatus = paymentStatusConverter
@@ -40,6 +42,7 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
     }
 
     @Override
+    @Transactional
     public boolean confirmTinkoff(String rawNotificationBody) {
         try {
             JsonNode root = objectMapper.readTree(rawNotificationBody);
@@ -62,9 +65,10 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
     }
 
     @Override
+    @Transactional
     public boolean applyStatus(String externalPaymentId, PaymentTransactionStatus newStatus) {
         PaymentTransaction transaction = getterTransaction
-                .getByExternalPaymentId(externalPaymentId)
+                .getByExternalPaymentIdForUpdate(externalPaymentId)
                 .orElseThrow(() -> new RuntimeException(
                         "Транзакция не найдена по external id: " + externalPaymentId));
 
@@ -107,6 +111,24 @@ class PaymentConfirmServiceImpl implements PaymentConfirmService {
 
         log.debug("Вебхук обработан: транзакция {} перешла {} -> {}",
                 transaction.getId(), lastStatus, newStatus);
+        return true;
+    }
+
+    @Override
+    @Transactional
+    public boolean supersede(String externalPaymentId) {
+        PaymentTransaction transaction = getterTransaction
+                .getByExternalPaymentIdForUpdate(externalPaymentId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Транзакция не найдена по external id: " + externalPaymentId));
+        if (transaction.getStatus() != PaymentTransactionStatus.PENDING) {
+            log.debug("Платёж {} уже в статусе {}, вытеснять нечего", transaction.getId(), transaction.getStatus());
+            return false;
+        }
+        transaction.setStatus(PaymentTransactionStatus.CANCELED);
+        saverTransaction.save(transaction);
+        paymentFulfillmentService.supersede(transaction);
+        log.info("Платёж {} вытеснен новым оформлением: PENDING -> CANCELED", transaction.getId());
         return true;
     }
 }

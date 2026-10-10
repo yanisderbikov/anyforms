@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Deprecated
 @Slf4j
 @Component
 class ReceiptEmailTaskRunner extends AbstractRunnableTask {

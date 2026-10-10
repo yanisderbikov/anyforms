@@ -15,7 +15,7 @@ import ru.anyforms.integration.GoogleSheetsGateway;
 import ru.anyforms.model.*;
 import ru.anyforms.model.amo.*;
 import ru.anyforms.repository.OrderRepository;
-import ru.anyforms.service.DeliveryBotNotifier;
+import ru.anyforms.service.DeliveryNotifier;
 import ru.anyforms.service.OrderService;
 import ru.anyforms.util.PickupAddressDetector;
 import ru.anyforms.util.PublicIdGenerator;
@@ -45,7 +45,7 @@ class OrderServiceImpl implements OrderService  {
     private final AmoCrmGateway amoCrmGateway;
     private final GoogleSheetsGateway googleSheetsGateway;
     private final CdekTrackingGateway cdekTrackingGateway;
-    private final DeliveryBotNotifier deliveryBotNotifier;
+    private final DeliveryNotifier deliveryNotifier;
     
     @Value("${google.sheets.sheet.name}")
     private String sheetName;
@@ -94,6 +94,9 @@ class OrderServiceImpl implements OrderService  {
                 order.setContactName(contact.getCustomFieldValue(AmoCrmFieldId.FIO_CONTACT.getId()));
                 order.setContactPhone(contact.getPhone() != null && !contact.getPhone().isEmpty()
                         ? contact.getPhone().get(0).getValue()
+                        : null);
+                order.setEmail(contact.getEmail() != null && !contact.getEmail().isEmpty()
+                        ? contact.getEmail().get(0).getValue()
                         : null);
             }
 
@@ -312,7 +315,7 @@ class OrderServiceImpl implements OrderService  {
             if (!success) {
                 return new ApiResponseDTO(false, "Failed to mark order as ready for pickup", null, null, null);
             }
-            deliveryBotNotifier.notifyPickupReady(request.getLeadId());
+            orderRepository.findByLeadId(request.getLeadId()).ifPresent(deliveryNotifier::notifyReadyForPickup);
             return new ApiResponseDTO(true, null, request.getLeadId(), PICKUP_TRACKER, null);
         } catch (Exception e) {
             log.error("Error marking order ready for pickup: {}", e.getMessage(), e);

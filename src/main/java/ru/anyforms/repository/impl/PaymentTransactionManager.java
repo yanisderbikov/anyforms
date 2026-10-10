@@ -13,7 +13,9 @@ import ru.anyforms.repository.SaverTransaction;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +40,16 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     public Optional<PaymentTransaction> getByExternalPaymentId(String externalPaymentId) {
         try {
             return transactionRepo.findByExternalPaymentId(externalPaymentId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public Optional<PaymentTransaction> getByExternalPaymentIdForUpdate(String externalPaymentId) {
+        try {
+            return transactionRepo.findByExternalPaymentIdForUpdate(externalPaymentId);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
@@ -169,9 +181,96 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10) {
+    public boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10, String deviceId) {
         try {
-            return transactionRepo.promoUsedByCustomer(promoCode, email, phoneLast10);
+            return transactionRepo.promoUsedByCustomer(promoCode, email, phoneLast10, deviceId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public long countPromoUses(String promoCode, Instant pendingSince) {
+        try {
+            return transactionRepo.countPromoUses(promoCode, pendingSince);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public long countPromoUsesExceptDevicePending(String promoCode, Instant pendingSince, String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return countPromoUses(promoCode, pendingSince);
+        }
+        try {
+            return transactionRepo.countPromoUsesExceptDevicePending(promoCode, pendingSince, deviceId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public List<String> getPendingTinkoffPaymentIds(String promoCode, String deviceId, Instant since) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return List.of();
+        }
+        try {
+            return transactionRepo.findPendingTinkoffPaymentIds(promoCode, deviceId, since);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public boolean popupCodeUsedByCustomer(UUID popupId, String email, String phoneLast10, String deviceId) {
+        try {
+            return transactionRepo.popupCodeUsedByCustomer(popupId, email, phoneLast10, deviceId);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public Map<UUID, Long> countSucceededByPopup() {
+        try {
+            Map<UUID, Long> counts = new HashMap<>();
+            for (Object[] row : transactionRepo.countSucceededByPopup()) {
+                counts.put(UUID.fromString(String.valueOf(row[0])), ((Number) row[1]).longValue());
+            }
+            return counts;
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public Map<String, Long> countSucceededByPromoCodes(Collection<String> promoCodes) {
+        if (promoCodes == null || promoCodes.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Long> counts = new HashMap<>();
+            for (Object[] row : transactionRepo.countSucceededByPromoCodes(promoCodes)) {
+                counts.put(String.valueOf(row[0]), ((Number) row[1]).longValue());
+            }
+            return counts;
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public long countSucceededByPromoCode(String promoCode) {
+        try {
+            return transactionRepo.countSucceededByPromoCode(promoCode);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

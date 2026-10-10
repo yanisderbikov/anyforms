@@ -38,6 +38,12 @@ public class Task {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    @Column(name = "attempts", nullable = false)
+    private int attempts;
+
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

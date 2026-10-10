@@ -22,6 +22,8 @@ class AmoCrmCalculateServiceImpl implements AmoCrmCalculateService {
     private Long marginProject;
     @Value("${amocrm.calculate.price.margin.form}")
     private Long marginForm;
+    @Value("${amocrm.calculate.min.forms.count}")
+    private Long minFormsCountLimit;
 
 
     /**
@@ -78,6 +80,7 @@ class AmoCrmCalculateServiceImpl implements AmoCrmCalculateService {
             if (minFormsCount < 0) {
                 minFormsCount = 0;
             }
+            minFormsCount = Math.max(minFormsCount, minFormsCountLimit);
 
             // Расчет 2: Бюджет = проект_с_наценкой + Форма_с_наценкой * кол-во форм
             long formsCount = minFormsCount; // кол-во форм = Мин-кол-во форм
