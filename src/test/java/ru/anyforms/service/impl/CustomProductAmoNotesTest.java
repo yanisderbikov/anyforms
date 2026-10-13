@@ -29,6 +29,13 @@ class CustomProductAmoNotesTest {
     }
 
     @Test
+    void textIsTitleWithLinesOrJustTitle() {
+        assertEquals("изменения по позиции «Котик»:\n\nкол-во: 3 → 7 шт",
+                CustomProductAmoNotes.text("изменения по позиции «Котик»", List.of("кол-во: 3 → 7 шт")));
+        assertEquals("удалена позиция «Котик»", CustomProductAmoNotes.text("удалена позиция «Котик»", List.of()));
+    }
+
+    @Test
     void noChangesNoLines() {
         CustomProductItem item = item();
 

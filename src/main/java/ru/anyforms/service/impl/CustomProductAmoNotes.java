@@ -22,6 +22,11 @@ final class CustomProductAmoNotes {
         }
     }
 
+    /** Текст примечания: заголовок и, если есть, подробности по строке на изменение. */
+    static String text(String title, List<String> lines) {
+        return lines.isEmpty() ? title : title + ":\n\n" + String.join("\n", lines);
+    }
+
     /** «Котик с крыльями» (AB12CD) */
     static String label(CustomProductItem item) {
         String name = item.getProductName() != null ? item.getProductName() : "без названия";

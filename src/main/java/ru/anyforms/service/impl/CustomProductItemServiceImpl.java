@@ -342,7 +342,8 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     /** Есть сделка в АМО — после коммита асинхронно дублируем изменение примечанием. */
     private void noteToAmo(Long leadId, String title, List<String> lines) {
         if (leadId != null) {
-            eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, Instant.now(), title, lines));
+            eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, Instant.now(),
+                    CustomProductAmoNotes.text(title, lines)));
         }
     }
 

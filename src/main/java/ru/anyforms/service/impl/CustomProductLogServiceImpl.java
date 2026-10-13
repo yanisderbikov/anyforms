@@ -50,7 +50,7 @@ class CustomProductLogServiceImpl implements CustomProductLogService {
         Long leadId = item.getOrder() != null ? item.getOrder().getLeadId() : null;
         if (leadId != null) {
             eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, saved.getCreatedAt(),
-                    "комментарий производства", List.of(saved.getText())));
+                    "комментарий производства:\n\n" + saved.getText()));
         }
         log.info("CustomProductLog added: id={}, itemId={}", saved.getId(), itemId);
         return toDTO(saved);

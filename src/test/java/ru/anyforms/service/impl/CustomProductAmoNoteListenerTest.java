@@ -6,7 +6,6 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.util.retry.Retrier;
 
 import java.time.Instant;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -21,19 +20,12 @@ class CustomProductAmoNoteListenerTest {
     // 06:34 UTC = 9:34 МСК
     private static final Instant AT = Instant.parse("2026-10-13T06:34:00Z");
     private final CustomProductAmoNoteEvent event =
-            new CustomProductAmoNoteEvent(1L, AT, "комментарий производства", List.of("Отлили 20 шт"));
+            new CustomProductAmoNoteEvent(1L, AT, "комментарий производства:\n\nОтлили 20 шт");
 
     @Test
-    void noteHasMoscowTimeTitleAndLines() {
+    void noteIsMoscowTimeAndText() {
         assertEquals("Время МСК 9:34 — комментарий производства:\n\nОтлили 20 шт",
                 CustomProductAmoNoteListener.noteText(event));
-    }
-
-    @Test
-    void noteWithoutLinesIsJustTitle() {
-        var deleted = new CustomProductAmoNoteEvent(1L, AT, "удалена позиция «Котик»", List.of());
-
-        assertEquals("Время МСК 9:34 — удалена позиция «Котик»", CustomProductAmoNoteListener.noteText(deleted));
     }
 
     @Test

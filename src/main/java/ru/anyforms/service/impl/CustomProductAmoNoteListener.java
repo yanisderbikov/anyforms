@@ -34,15 +34,11 @@ class CustomProductAmoNoteListener {
         boolean sent = retrier.attempt("Примечание в сделку " + event.leadId(),
                 () -> amoCrmGateway.addNoteToLead(event.leadId(), note));
         if (!sent) {
-            log.error("Примечание «{}» не попало в сделку {}", event.title(), event.leadId());
+            log.error("Примечание не попало в сделку {}: {}", event.leadId(), event.text());
         }
     }
 
     static String noteText(CustomProductAmoNoteEvent event) {
-        String head = "Время МСК " + TIME.format(event.at()) + " — " + event.title();
-        if (event.lines() == null || event.lines().isEmpty()) {
-            return head;
-        }
-        return head + ":\n\n" + String.join("\n", event.lines());
+        return "Время МСК " + TIME.format(event.at()) + " — " + event.text();
     }
 }
