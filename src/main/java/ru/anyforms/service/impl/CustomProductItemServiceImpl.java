@@ -13,6 +13,7 @@ import ru.anyforms.dto.CustomProductFileRefDTO;
 import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
+import ru.anyforms.event.CustomProductAmoNoteEvent;
 import ru.anyforms.event.OrderShippedEvent;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.CustomProductFile;
@@ -30,6 +31,7 @@ import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.PublicIdGenerator;
 import ru.anyforms.util.converter.ConverterOrder;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -127,6 +129,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         item.setStatus(request.getStatus() != null ? request.getStatus() : CustomProductStatus.MODELING);
         CustomProductItem saved = itemRepository.save(item);
         log.info("CustomProductItem created: id={}, orderId={}", saved.getId(), orderId);
+        noteToAmo(saved, "новая позиция " + CustomProductAmoNotes.label(saved), CustomProductAmoNotes.created(saved));
         return toDTO(saved);
     }
 
@@ -134,8 +137,11 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Transactional
     public CustomProductItemDTO update(Long itemId, CustomProductItemRequestDTO request) {
         CustomProductItem item = getOrThrow(itemId);
+        CustomProductAmoNotes.Snapshot before = CustomProductAmoNotes.Snapshot.of(item);
         applyRequest(item, request);
-        return toDTO(itemRepository.save(item));
+        CustomProductItem saved = itemRepository.save(item);
+        noteChanges(saved, CustomProductAmoNotes.diff(before, saved));
+        return toDTO(saved);
     }
 
     @Override
@@ -146,16 +152,24 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
                     "В статус DELIVERING позиция переводится только через отгрузку с трекером");
         }
         CustomProductItem item = getOrThrow(itemId);
+        CustomProductStatus from = item.getStatus();
         item.setStatus(status);
-        return toDTO(itemRepository.save(item));
+        CustomProductItem saved = itemRepository.save(item);
+        if (from != status) {
+            noteChanges(saved, List.of(CustomProductAmoNotes.statusChange(from, status)));
+        }
+        return toDTO(saved);
     }
 
     @Override
     @Transactional
     public CustomProductItemDTO updateStorageCell(Long itemId, String storageCell) {
         CustomProductItem item = getOrThrow(itemId);
+        CustomProductAmoNotes.Snapshot before = CustomProductAmoNotes.Snapshot.of(item);
         item.setStorageCell(normalizeStorageCell(storageCell));
-        return toDTO(itemRepository.save(item));
+        CustomProductItem saved = itemRepository.save(item);
+        noteChanges(saved, CustomProductAmoNotes.diff(before, saved));
+        return toDTO(saved);
     }
 
     @Override
@@ -163,6 +177,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     public void delete(Long itemId) {
         CustomProductItem item = getOrThrow(itemId);
         item.getFiles().forEach(f -> s3FileStorage.delete(f.getS3Key()));
+        noteToAmo(item, "удалена позиция " + CustomProductAmoNotes.label(item), List.of());
         itemRepository.delete(item);
         log.info("CustomProductItem deleted: id={}", itemId);
     }
@@ -179,6 +194,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     public CustomProductItemDTO confirmFiles(Long itemId, List<CustomProductFileRefDTO> files) {
         CustomProductItem item = getOrThrow(itemId);
         String expectedPrefix = FILE_KEY_PREFIX + item.getId() + "/";
+        List<String> added = new ArrayList<>();
         for (CustomProductFileRefDTO ref : files) {
             String key = ref.getKey();
             // Ключ обязан быть из presign этой же позиции — чужие/произвольные ключи не привязываем
@@ -193,8 +209,13 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
             cf.setS3Key(key);
             cf.setFilename(ref.getFilename());
             item.addFile(cf);
+            added.add(fileName(cf));
         }
-        return toDTO(itemRepository.save(item));
+        CustomProductItem saved = itemRepository.save(item);
+        if (!added.isEmpty()) {
+            noteChanges(saved, List.of("добавлены файлы: " + String.join(", ", added)));
+        }
+        return toDTO(saved);
     }
 
     @Override
@@ -211,6 +232,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
                     s3FileStorage.delete(target.getS3Key());
                     item.removeFile(target);
                     itemRepository.save(item);
+                    noteChanges(item, List.of("удалён файл: " + fileName(target)));
                 });
         return toDTO(item);
     }
@@ -269,10 +291,15 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
         }
 
         List<CustomProductItem> items = itemRepository.findByOrderIdAndStatus(orderId, CustomProductStatus.READY_TO_SHIP);
+        List<String> lines = new ArrayList<>();
+        lines.add(pickup ? "самовывоз" : "трекер СДЭК: " + tracker);
         for (CustomProductItem item : items) {
             item.setStatus(CustomProductStatus.DELIVERING);
             itemRepository.save(item);
+            lines.add(CustomProductAmoNotes.label(item) + " — "
+                    + CustomProductAmoNotes.statusChange(CustomProductStatus.READY_TO_SHIP, CustomProductStatus.DELIVERING));
         }
+        noteToAmo(order.getLeadId(), "отгрузка заказа", lines);
         if (pickup) {
             if (order.getLeadId() != null) {
                 deliveryNotifier.notifyReadyForPickup(order);
@@ -289,11 +316,42 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     @Transactional
     public void completeOrder(Long orderId) {
         List<CustomProductItem> items = itemRepository.findByOrderIdAndStatus(orderId, CustomProductStatus.DELIVERING);
+        List<String> lines = new ArrayList<>();
         for (CustomProductItem item : items) {
             item.setStatus(CustomProductStatus.COMPLETED);
             itemRepository.save(item);
+            lines.add(CustomProductAmoNotes.label(item) + " — "
+                    + CustomProductAmoNotes.statusChange(CustomProductStatus.DELIVERING, CustomProductStatus.COMPLETED));
+        }
+        if (!items.isEmpty()) {
+            noteToAmo(items.get(0).getOrder().getLeadId(), "заказ завершён", lines);
         }
         log.info("Order {} completed: items={}", orderId, items.size());
+    }
+
+    private void noteChanges(CustomProductItem item, List<String> changes) {
+        if (!changes.isEmpty()) {
+            noteToAmo(item, "изменения по позиции " + CustomProductAmoNotes.label(item), changes);
+        }
+    }
+
+    private void noteToAmo(CustomProductItem item, String title, List<String> lines) {
+        noteToAmo(item.getOrder() != null ? item.getOrder().getLeadId() : null, title, lines);
+    }
+
+    /** Есть сделка в АМО — после коммита асинхронно дублируем изменение примечанием. */
+    private void noteToAmo(Long leadId, String title, List<String> lines) {
+        if (leadId != null) {
+            eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, Instant.now(), title, lines));
+        }
+    }
+
+    private static String fileName(CustomProductFile file) {
+        if (file.getFilename() != null && !file.getFilename().isBlank()) {
+            return file.getFilename();
+        }
+        String key = file.getS3Key();
+        return key.substring(key.lastIndexOf('/') + 1);
     }
 
     private CustomProductItem getOrThrow(Long itemId) {

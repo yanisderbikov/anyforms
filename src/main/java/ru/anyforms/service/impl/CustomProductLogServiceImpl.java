@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.CustomProductLogDTO;
-import ru.anyforms.event.ProductionLogAddedEvent;
+import ru.anyforms.event.CustomProductAmoNoteEvent;
 import ru.anyforms.model.CustomProductItem;
 import ru.anyforms.model.CustomProductLog;
 import ru.anyforms.repository.CustomProductItemRepository;
@@ -49,7 +49,8 @@ class CustomProductLogServiceImpl implements CustomProductLogService {
         // Есть сделка в АМО — после коммита асинхронно дублируем запись примечанием
         Long leadId = item.getOrder() != null ? item.getOrder().getLeadId() : null;
         if (leadId != null) {
-            eventPublisher.publishEvent(new ProductionLogAddedEvent(leadId, saved.getText(), saved.getCreatedAt()));
+            eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, saved.getCreatedAt(),
+                    "комментарий производства", List.of(saved.getText())));
         }
         log.info("CustomProductLog added: id={}, itemId={}", saved.getId(), itemId);
         return toDTO(saved);
