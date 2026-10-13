@@ -14,6 +14,7 @@ import ru.anyforms.model.CustomProductLog;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.CustomProductLogRepository;
 import ru.anyforms.service.CustomProductLogService;
+import ru.anyforms.service.auth.CurrentUserNameResolver;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ class CustomProductLogServiceImpl implements CustomProductLogService {
     private final CustomProductLogRepository logRepository;
     private final CustomProductItemRepository itemRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final CurrentUserNameResolver currentUserNameResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -50,6 +52,7 @@ class CustomProductLogServiceImpl implements CustomProductLogService {
         Long leadId = item.getOrder() != null ? item.getOrder().getLeadId() : null;
         if (leadId != null) {
             eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, saved.getCreatedAt(),
+                    currentUserNameResolver.currentUserName().orElse(null),
                     "комментарий производства:\n\n" + saved.getText()));
         }
         log.info("CustomProductLog added: id={}, itemId={}", saved.getId(), itemId);

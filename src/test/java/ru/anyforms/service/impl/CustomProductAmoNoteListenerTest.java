@@ -20,12 +20,19 @@ class CustomProductAmoNoteListenerTest {
     // 06:34 UTC = 9:34 МСК
     private static final Instant AT = Instant.parse("2026-10-13T06:34:00Z");
     private final CustomProductAmoNoteEvent event =
-            new CustomProductAmoNoteEvent(1L, AT, "комментарий производства:\n\nОтлили 20 шт");
+            new CustomProductAmoNoteEvent(1L, AT, "Маша", "комментарий производства:\n\nОтлили 20 шт");
 
     @Test
     void noteIsMoscowTimeAndText() {
-        assertEquals("Время МСК 9:34 — комментарий производства:\n\nОтлили 20 шт",
+        assertEquals("Время МСК 13.10.2026 9:34 (Маша) — комментарий производства:\n\nОтлили 20 шт",
                 CustomProductAmoNoteListener.noteText(event));
+    }
+
+    @Test
+    void noAuthorNoParens() {
+        var bySystem = new CustomProductAmoNoteEvent(1L, AT, null, "заказ завершён");
+
+        assertEquals("Время МСК 13.10.2026 9:34 — заказ завершён", CustomProductAmoNoteListener.noteText(bySystem));
     }
 
     @Test

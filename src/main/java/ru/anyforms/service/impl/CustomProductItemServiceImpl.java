@@ -26,6 +26,7 @@ import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
 import ru.anyforms.service.DeliveryNotifier;
+import ru.anyforms.service.auth.CurrentUserNameResolver;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.TrackerCustomFields;
 import ru.anyforms.util.PublicIdGenerator;
@@ -54,6 +55,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private final ConverterOrder converterOrder;
     private final ApplicationEventPublisher eventPublisher;
     private final DeliveryNotifier deliveryNotifier;
+    private final CurrentUserNameResolver currentUserNameResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -343,7 +345,7 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
     private void noteToAmo(Long leadId, String title, List<String> lines) {
         if (leadId != null) {
             eventPublisher.publishEvent(new CustomProductAmoNoteEvent(leadId, Instant.now(),
-                    CustomProductAmoNotes.text(title, lines)));
+                    currentUserNameResolver.currentUserName().orElse(null), CustomProductAmoNotes.text(title, lines)));
         }
     }
 

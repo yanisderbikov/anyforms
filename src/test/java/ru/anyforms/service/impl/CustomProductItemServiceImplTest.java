@@ -11,6 +11,7 @@ import ru.anyforms.repository.CustomProductFileRepository;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.DeliveryNotifier;
+import ru.anyforms.service.auth.CurrentUserNameResolver;
 import ru.anyforms.service.s3.S3FileStorage;
 import ru.anyforms.util.converter.ConverterOrder;
 
@@ -28,7 +29,8 @@ class CustomProductItemServiceImplTest {
     private final CustomProductItemRepository itemRepository = mock(CustomProductItemRepository.class);
     private final CustomProductItemServiceImpl service = new CustomProductItemServiceImpl(itemRepository,
             mock(CustomProductFileRepository.class), mock(OrderRepository.class), mock(S3FileStorage.class),
-            mock(ConverterOrder.class), mock(ApplicationEventPublisher.class), mock(DeliveryNotifier.class));
+            mock(ConverterOrder.class), mock(ApplicationEventPublisher.class), mock(DeliveryNotifier.class),
+            mock(CurrentUserNameResolver.class));
 
     private CustomProductItem item(boolean nda) {
         Order order = new Order();

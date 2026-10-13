@@ -22,7 +22,7 @@ import java.time.format.DateTimeFormatter;
 class CustomProductAmoNoteListener {
 
     private static final ZoneId MSK = ZoneId.of("Europe/Moscow");
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("H:mm").withZone(MSK);
+    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy H:mm").withZone(MSK);
 
     private final AmoCrmGateway amoCrmGateway;
     private final Retrier retrier;
@@ -39,6 +39,7 @@ class CustomProductAmoNoteListener {
     }
 
     static String noteText(CustomProductAmoNoteEvent event) {
-        return "Время МСК " + TIME.format(event.at()) + " — " + event.text();
+        String author = event.author() != null ? " (" + event.author() + ")" : "";
+        return "Время МСК " + TIME.format(event.at()) + author + " — " + event.text();
     }
 }
