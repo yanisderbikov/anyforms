@@ -27,7 +27,8 @@ public class PromoPopupIssueRequest {
     @Schema(description = "Почта, которую посетитель уже вводил на сайте")
     private String email;
 
-    @Size(max = 1024)
+    @Size(max = 16384)
+    @Schema(description = "Адрес страницы; в базу сохраняются первые 1024 символа")
     private String pageUrl;
 
     @Size(max = 255)
