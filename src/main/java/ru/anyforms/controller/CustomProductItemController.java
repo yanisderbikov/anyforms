@@ -13,12 +13,15 @@ import ru.anyforms.dto.CustomProductItemDTO;
 import ru.anyforms.dto.PresignUploadRequestDTO;
 import ru.anyforms.dto.PresignUploadResponseDTO;
 import ru.anyforms.dto.CustomProductItemRequestDTO;
+import ru.anyforms.dto.CustomProductLogDTO;
+import ru.anyforms.dto.CustomProductLogRequestDTO;
 import ru.anyforms.dto.CustomProductStatusUpdateRequestDTO;
 import ru.anyforms.dto.ShipGroupDTO;
 import ru.anyforms.dto.ShipRequestDTO;
 import ru.anyforms.dto.StorageCellUpdateRequestDTO;
 import ru.anyforms.model.CustomProductStatus;
 import ru.anyforms.service.CustomProductItemService;
+import ru.anyforms.service.CustomProductLogService;
 
 import java.util.List;
 
@@ -30,6 +33,7 @@ import java.util.List;
 public class CustomProductItemController {
 
     private final CustomProductItemService service;
+    private final CustomProductLogService logService;
 
     @Operation(summary = "Список позиций: по order.id, по статусу или все кроме завершённых")
     @GetMapping
@@ -85,6 +89,19 @@ public class CustomProductItemController {
     public CustomProductItemDTO updateStorageCell(@PathVariable Long id,
                                                   @RequestBody StorageCellUpdateRequestDTO request) {
         return service.updateStorageCell(id, request.getStorageCell());
+    }
+
+    @Operation(summary = "Лог производства позиции (от старых к новым)")
+    @GetMapping("/{id}/logs")
+    public List<CustomProductLogDTO> logs(@PathVariable Long id) {
+        return logService.getByItemId(id);
+    }
+
+    @Operation(summary = "Добавить запись в лог производства позиции", description = "Время записи ставит сервер")
+    @PostMapping("/{id}/logs")
+    public ResponseEntity<CustomProductLogDTO> addLog(@PathVariable Long id,
+                                                      @Valid @RequestBody CustomProductLogRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(logService.add(id, request.getText()));
     }
 
     @Operation(summary = "Удалить позицию (вместе с файлами в S3)")
