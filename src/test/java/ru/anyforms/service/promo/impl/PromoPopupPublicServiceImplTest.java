@@ -1,5 +1,7 @@
 package ru.anyforms.service.promo.impl;
 
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -361,6 +363,20 @@ class PromoPopupPublicServiceImplTest {
         assertNull(lead.getConsentVersion());
         verify(taskAdder, never()).addTask(any());
         assertFalse(response.repeated());
+    }
+
+    @Test
+    void issueAcceptsTelegramMiniAppUrlAndCropsItForStorage() {
+        String miniAppUrl = "https://anyforms.ru/shop#tgWebAppData=" + "a".repeat(3000);
+        PromoPopupIssueRequest request = issueRequest();
+        request.setPageUrl(miniAppUrl);
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            assertTrue(factory.getValidator().validate(request).isEmpty());
+        }
+
+        service.issue(UNIQUE_ID, request, "1.2.3.4", "UA");
+
+        assertEquals(miniAppUrl.substring(0, 1024), capturedLead().getPageUrl());
     }
 
     @Test
