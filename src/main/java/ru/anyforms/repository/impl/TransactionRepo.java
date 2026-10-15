@@ -29,6 +29,16 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
 
     List<PaymentTransaction> findByOrderId(Long orderId);
 
+    @Query("""
+            SELECT t FROM PaymentTransaction t
+            WHERE t.orderId IN :orderIds
+              AND t.status IN :statuses
+              AND t.promoCode IS NOT NULL
+            ORDER BY t.createdAt DESC
+            """)
+    List<PaymentTransaction> findWithPromoByOrderIdInAndStatusIn(@Param("orderIds") Collection<Long> orderIds,
+                                                                 @Param("statuses") Collection<PaymentTransactionStatus> statuses);
+
     List<PaymentTransaction> findByProductCodeOrderByCreatedAtDesc(String productCode, Pageable pageable);
 
     List<PaymentTransaction> findByProductCodeInOrderByCreatedAtDesc(Collection<String> productCodes, Pageable pageable);

@@ -59,5 +59,8 @@ public class OrderSummaryDTO {
 
     @Schema(description = "Витрина, с которой оформлен заказ", example = "af_pastry")
     private String shopSlug;
+
+    @Schema(description = "Промокод, с которым оплачен заказ (null — без промокода)", example = "WELCOME10")
+    private String promoCode;
 }
 

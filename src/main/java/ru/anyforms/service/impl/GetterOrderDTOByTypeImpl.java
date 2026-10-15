@@ -7,12 +7,14 @@ import org.springframework.stereotype.Component;
 import ru.anyforms.dto.OrderSummaryDTO;
 import ru.anyforms.model.CdekOrderStatus;
 import ru.anyforms.model.Order;
+import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.util.converter.ConverterOrder;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @AllArgsConstructor
@@ -22,6 +24,7 @@ public class GetterOrderDTOByTypeImpl implements GetterOrderDTOByType {
 
     private final OrderRepository orderRepository;
     private final ConverterOrder converterOrder;
+    private final GetterTransaction getterTransaction;
 
     public List<OrderSummaryDTO> getOrdersWithoutTrackerDTOs() {
         List<Order> orders = orderRepository.findOrdersWithoutTracker();
@@ -45,13 +48,19 @@ public class GetterOrderDTOByTypeImpl implements GetterOrderDTOByType {
 
     @NotNull
     private List<OrderSummaryDTO> convertAndSort(List<Order> orders) {
+        Map<Long, String> promoCodes = getterTransaction.getPaidPromoCodesByOrderIds(
+                orders.stream().map(Order::getId).collect(Collectors.toList()));
         return orders.stream()
                 .sorted((o1, o2) -> {
                     LocalDateTime date1 = o1.getPurchaseDate() != null ? o1.getPurchaseDate() : LocalDateTime.MIN;
                     LocalDateTime date2 = o2.getPurchaseDate() != null ? o2.getPurchaseDate() : LocalDateTime.MIN;
                     return date1.compareTo(date2);
                 })
-                .map(converterOrder::convert)
+                .map(order -> {
+                    OrderSummaryDTO dto = converterOrder.convert(order);
+                    dto.setPromoCode(promoCodes.get(order.getId()));
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 }

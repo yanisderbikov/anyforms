@@ -67,6 +67,24 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public Map<Long, String> getPaidPromoCodesByOrderIds(Collection<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<Long, String> result = new HashMap<>();
+            transactionRepo.findWithPromoByOrderIdInAndStatusIn(
+                            orderIds,
+                            List.of(PaymentTransactionStatus.SUCCEEDED, PaymentTransactionStatus.REFUNDED))
+                    .forEach(t -> result.putIfAbsent(t.getOrderId(), t.getPromoCode()));
+            return result;
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public List<PaymentTransaction> getRecentByProductCode(String productCode, int limit) {
         try {
             return transactionRepo.findByProductCodeOrderByCreatedAtDesc(productCode, PageRequest.of(0, limit));
