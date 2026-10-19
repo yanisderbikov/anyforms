@@ -50,6 +50,9 @@ public class Shop {
     @Column(name = "support_telegram", nullable = false, length = 64)
     private String supportTelegram = DEFAULT_SUPPORT_TELEGRAM;
 
+    @Column(name = "amo_contact_value", length = 64)
+    private String amoContactValue;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
