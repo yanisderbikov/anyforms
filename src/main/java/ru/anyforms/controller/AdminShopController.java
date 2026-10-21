@@ -15,11 +15,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import ru.anyforms.dto.PresignUploadRequestDTO;
 import ru.anyforms.dto.marketplace.AdminShopCreateRequestDTO;
 import ru.anyforms.dto.marketplace.AdminShopDTO;
 import ru.anyforms.dto.marketplace.AdminShopUpdateRequestDTO;
+import ru.anyforms.dto.marketplace.ShopAssetUploadDTO;
 import ru.anyforms.service.product.ShopService;
 
 import java.util.List;
@@ -56,6 +59,24 @@ public class AdminShopController {
     public ResponseEntity<AdminShopDTO> update(@PathVariable("id") UUID id,
                                                @Valid @RequestBody AdminShopUpdateRequestDTO request) {
         return ResponseEntity.ok(shopService.update(id, request));
+    }
+
+    @Operation(summary = "Presigned URL для логотипа, фото или видео магазина",
+            description = "Файл уходит из браузера сразу в S3 (PUT по uploadUrl); publicUrl сохраняется через PUT /{id}",
+            security = @SecurityRequirement(name = "Bearer"))
+    @PostMapping("/{id}/assets/presign")
+    public ResponseEntity<ShopAssetUploadDTO> presignAsset(@PathVariable("id") UUID id,
+                                                           @Valid @RequestBody PresignUploadRequestDTO request) {
+        return ResponseEntity.ok(shopService.presignAssetUpload(id, request.getFilename(), request.getContentType()));
+    }
+
+    @Operation(summary = "Presigned URL для файла магазина, который ещё не создан",
+            description = "Редактор нового магазина загружает логотип и фото до создания; файл ляжет в shop/{slug}/branding",
+            security = @SecurityRequirement(name = "Bearer"))
+    @PostMapping("/assets/presign")
+    public ResponseEntity<ShopAssetUploadDTO> presignNewShopAsset(@RequestParam("slug") String slug,
+                                                                  @Valid @RequestBody PresignUploadRequestDTO request) {
+        return ResponseEntity.ok(shopService.presignNewShopAssetUpload(slug, request.getFilename(), request.getContentType()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

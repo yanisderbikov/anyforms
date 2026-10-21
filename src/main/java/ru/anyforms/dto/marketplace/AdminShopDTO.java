@@ -19,6 +19,17 @@ public class AdminShopDTO {
     private Boolean active;
     private String supportTelegram;
     private String amoContactValue;
+    private String tagline;
+    private String description;
+    private String logoUrl;
+    private String logoMarkUrl;
+    private String faviconUrl;
+    private String heroImageUrl;
+    private String heroImageAlt;
+    private String heroVideoUrl;
+    private String headerColor;
+    private String accentColor;
+    private String backgroundColor;
     private LocalDateTime createdAt;
     private boolean defaultShop;
 }

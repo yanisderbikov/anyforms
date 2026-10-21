@@ -5,10 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "Изменение магазина витрины; slug не меняется")
-public class AdminShopUpdateRequestDTO {
+public class AdminShopUpdateRequestDTO extends ShopBrandingRequestDTO {
 
     @NotBlank(message = "Укажите название магазина")
     @Size(max = 255, message = "Название — не длиннее 255 символов")

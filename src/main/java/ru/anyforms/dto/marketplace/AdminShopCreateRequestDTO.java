@@ -4,10 +4,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "Создание магазина витрины")
-public class AdminShopCreateRequestDTO {
+public class AdminShopCreateRequestDTO extends ShopBrandingRequestDTO {
 
     @NotBlank(message = "Укажите slug — адрес витрины /shop/{slug}")
     @Size(max = 64, message = "Slug — не длиннее 64 символов")

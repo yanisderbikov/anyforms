@@ -3,6 +3,7 @@ package ru.anyforms.service.product;
 import ru.anyforms.dto.marketplace.AdminShopCreateRequestDTO;
 import ru.anyforms.dto.marketplace.AdminShopDTO;
 import ru.anyforms.dto.marketplace.AdminShopUpdateRequestDTO;
+import ru.anyforms.dto.marketplace.ShopAssetUploadDTO;
 import ru.anyforms.dto.marketplace.ShopDTO;
 import ru.anyforms.model.marketplace.Shop;
 
@@ -25,4 +26,9 @@ public interface ShopService {
     AdminShopDTO create(AdminShopCreateRequestDTO request);
 
     AdminShopDTO update(UUID id, AdminShopUpdateRequestDTO request);
+
+    /** Presigned PUT для логотипа/фото/видео магазина; publicUrl потом сохраняется в настройках. */
+    ShopAssetUploadDTO presignAssetUpload(UUID id, String filename, String contentType);
+
+    ShopAssetUploadDTO presignNewShopAssetUpload(String slug, String filename, String contentType);
 }
