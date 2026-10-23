@@ -41,6 +41,7 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getAmoProductName(),
                 product.getActive(),
                 product.getPreorder(),
+                product.getNovelty(),
                 product.getOrderNumber(),
                 product.getWeightGrams(),
                 product.getLengthCm(),
