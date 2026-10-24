@@ -20,6 +20,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByPublicId(String publicId);
 
+    @Query("""
+       SELECT o FROM Order o
+       LEFT JOIN FETCH o.shop
+       WHERE o.id = :id
+    """)
+    Optional<Order> findByIdWithShop(@Param("id") Long id);
+
     @Query("SELECT s.slug FROM Order o JOIN o.shop s WHERE o.id = :orderId")
     Optional<String> findShopSlug(@Param("orderId") Long orderId);
 
