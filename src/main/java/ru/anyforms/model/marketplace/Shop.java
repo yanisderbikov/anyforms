@@ -50,6 +50,42 @@ public class Shop {
     @Column(name = "support_telegram", nullable = false, length = 64)
     private String supportTelegram = DEFAULT_SUPPORT_TELEGRAM;
 
+    @Column(name = "amo_contact_value", length = 64)
+    private String amoContactValue;
+
+    @Column(name = "tagline")
+    private String tagline;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "logo_url", length = 1024)
+    private String logoUrl;
+
+    @Column(name = "logo_mark_url", length = 1024)
+    private String logoMarkUrl;
+
+    @Column(name = "favicon_url", length = 1024)
+    private String faviconUrl;
+
+    @Column(name = "hero_image_url", length = 1024)
+    private String heroImageUrl;
+
+    @Column(name = "hero_image_alt")
+    private String heroImageAlt;
+
+    @Column(name = "hero_video_url", length = 1024)
+    private String heroVideoUrl;
+
+    @Column(name = "header_color", length = 7)
+    private String headerColor;
+
+    @Column(name = "accent_color", length = 7)
+    private String accentColor;
+
+    @Column(name = "background_color", length = 7)
+    private String backgroundColor;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

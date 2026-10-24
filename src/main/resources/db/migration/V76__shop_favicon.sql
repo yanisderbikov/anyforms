@@ -1,0 +1,2 @@
+ALTER TABLE shop
+    ADD COLUMN favicon_url VARCHAR(1024);

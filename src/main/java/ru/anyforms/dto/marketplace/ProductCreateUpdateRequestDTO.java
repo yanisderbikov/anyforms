@@ -51,6 +51,7 @@ public class ProductCreateUpdateRequestDTO {
      * Товар продаётся по предзаказу (плашка и пояснение на витрине). null при обновлении — не менять.
      */
     private Boolean preorder;
+    private Boolean novelty;
     /**
      * Slug'и магазинов, в которых продаётся товар (anyforms, af_pastry). Набор заменяется целиком:
      * пустой список снимает товар со всех витрин. null при создании — магазин по умолчанию (anyforms),

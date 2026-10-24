@@ -5,14 +5,16 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import ru.anyforms.model.marketplace.Shop;
 import ru.anyforms.repository.GetterShop;
+import ru.anyforms.repository.SaverShop;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @AllArgsConstructor
 @Log4j2
-class ShopManager implements GetterShop {
+class ShopManager implements GetterShop, SaverShop {
 
     private final ShopRepo shopRepo;
 
@@ -42,6 +44,26 @@ class ShopManager implements GetterShop {
             return slug == null || slug.isBlank()
                     ? Optional.empty()
                     : shopRepo.findBySlug(slug.trim());
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public Optional<Shop> getById(UUID id) {
+        try {
+            return id == null ? Optional.empty() : shopRepo.findById(id);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
+    public Shop save(Shop shop) {
+        try {
+            return shopRepo.save(shop);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);

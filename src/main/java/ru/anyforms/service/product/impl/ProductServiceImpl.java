@@ -183,6 +183,7 @@ class ProductServiceImpl implements ProductService {
                 .heightCm(positiveOrNull(request.getHeightCm()))
                 .active(request.getActive() == null || request.getActive())
                 .preorder(Boolean.TRUE.equals(request.getPreorder()))
+                .novelty(Boolean.TRUE.equals(request.getNovelty()))
                 .build();
         if (request.getVariants() != null) {
             applyVariants(product, request.getVariants());
@@ -238,6 +239,9 @@ class ProductServiceImpl implements ProductService {
         }
         if (request.getPreorder() != null) {
             product.setPreorder(request.getPreorder());
+        }
+        if (request.getNovelty() != null) {
+            product.setNovelty(request.getNovelty());
         }
         if (request.getShopSlugs() != null) {
             product.setShops(resolveShops(request.getShopSlugs()));

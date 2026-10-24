@@ -20,6 +20,8 @@ public interface GetterTransaction {
 
     List<PaymentTransaction> getByOrderId(Long orderId);
 
+    Map<Long, String> getPaidPromoCodesByOrderIds(Collection<Long> orderIds);
+
     List<PaymentTransaction> getRecentByProductCode(String productCode, int limit);
 
     List<PaymentTransaction> getRecentByProductCodes(Collection<String> productCodes, int limit);

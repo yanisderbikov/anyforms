@@ -45,6 +45,9 @@ public class Product {
     @Builder.Default
     @Column(nullable = false)
     private Boolean preorder = Boolean.FALSE;
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean novelty = Boolean.FALSE;
     /** ID элемента каталога товаров в AmoCRM (для привязки товара к сделке после оплаты). */
     @Column(name = "amo_product_id")
     private Long amoProductId;

@@ -27,6 +27,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     """)
     Optional<Order> findByIdWithShop(@Param("id") Long id);
 
+    @Query("SELECT s.slug FROM Order o JOIN o.shop s WHERE o.id = :orderId")
+    Optional<String> findShopSlug(@Param("orderId") Long orderId);
+
     /** Под-заказные сделки (без товаров из amo-каталога). */
     List<Order> findByIsRetailFalseOrderByCreatedAtDesc();
 

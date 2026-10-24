@@ -43,7 +43,7 @@ class DeliveryNotifierImplTest {
     private final DeliveryEtaResolver deliveryEtaResolver = mock(DeliveryEtaResolver.class);
     private final AmoCrmGateway amoCrmGateway = mock(AmoCrmGateway.class);
     private final DeliveryNotifierImpl notifier = new DeliveryNotifierImpl(deliveryBotNotifier,
-            new DeliveryEmailQueuer(taskAdder, orderRepository), deliveryEtaResolver, amoCrmGateway);
+            new DeliveryEmailQueuer(taskAdder, orderRepository), deliveryEtaResolver, amoCrmGateway, orderRepository);
 
     private static AmoContact contactWithEmail(String value) {
         AmoContact.Email email = new AmoContact.Email();
@@ -70,6 +70,10 @@ class DeliveryNotifierImplTest {
         return order;
     }
 
+    private void partnerShop() {
+        when(orderRepository.findShopSlug(ORDER_ID)).thenReturn(Optional.of("af_pastry"));
+    }
+
     private DeliveryStatusEmailPayload emailTask() {
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         verify(taskAdder).addTaskOrThrow(captor.capture());
@@ -89,6 +93,7 @@ class DeliveryNotifierImplTest {
         shop.setName("AF Pastry");
         shop.setSupportTelegram("AfPastryBot");
         order.setShop(shop);
+        partnerShop();
 
         notifier.notifyShipped(order, "1234567890");
 
@@ -151,6 +156,7 @@ class DeliveryNotifierImplTest {
     void etaIsNotRequestedWhenEmailIsSkipped() {
         Order order = order(true);
         order.setLastDeliveryNotification(DeliveryNotification.SHIPPED);
+        partnerShop();
 
         notifier.notifyShipped(order, "1234567890");
 
@@ -169,7 +175,7 @@ class DeliveryNotifierImplTest {
         assertEquals(Shop.DEFAULT_SUPPORT_TELEGRAM, payload.getSupportTelegram());
         assertEquals(Shop.DEFAULT_SLUG, payload.getShopSlug());
         verify(orderRepository).claimNextDeliveryNotification(ORDER_ID, "ARRIVED_AT_PVZ", List.of("SHIPPED"));
-        verifyNoInteractions(deliveryBotNotifier);
+        verify(deliveryBotNotifier).notifyCdekReadyToPickup(777L);
     }
 
     @Test
@@ -180,7 +186,7 @@ class DeliveryNotifierImplTest {
 
         assertEquals(DeliveryNotification.READY_FOR_PICKUP, emailTask().getNotification());
         verify(orderRepository).claimNextDeliveryNotification(ORDER_ID, "READY_FOR_PICKUP", List.of("SHIPPED", "ARRIVED_AT_PVZ"));
-        verifyNoInteractions(deliveryBotNotifier);
+        verify(deliveryBotNotifier).notifyPickupReady(777L);
     }
 
     @Test
@@ -239,9 +245,10 @@ class DeliveryNotifierImplTest {
     }
 
     @Test
-    void retailWithoutEmailSendsNothing() {
+    void partnerRetailWithoutEmailSendsNothing() {
         Order order = order(true);
         order.setEmail(null);
+        partnerShop();
 
         notifier.notifyShipped(order, "1234567890");
 
@@ -249,6 +256,41 @@ class DeliveryNotifierImplTest {
         verifyNothingQueued();
         verify(orderRepository, never()).claimFirstDeliveryNotification(anyLong(), anyString());
         verifyNoInteractions(deliveryBotNotifier);
+    }
+
+    @Test
+    void anyformsRetailShippedGoesToBotAndEmail() {
+        Order order = order(true);
+        when(orderRepository.findShopSlug(ORDER_ID)).thenReturn(Optional.of(Shop.DEFAULT_SLUG));
+        when(deliveryEtaResolver.resolve("1234567890")).thenReturn(CdekDeliveryEta.ofPeriod(2, 3));
+
+        notifier.notifyShipped(order, "1234567890");
+
+        assertEquals("2-3 дня", emailTask().getDeliveryEta());
+        verify(deliveryBotNotifier).notifyShipped(eq(777L), eq("1234567890"), any(CdekDeliveryEta.class));
+        verify(deliveryEtaResolver).resolve("1234567890");
+    }
+
+    @Test
+    void anyformsRetailWithoutEmailStillGoesToBot() {
+        Order order = order(true);
+        order.setEmail(null);
+
+        notifier.notifyShipped(order, "1234567890");
+
+        verify(deliveryBotNotifier).notifyShipped(eq(777L), eq("1234567890"), any());
+        verifyNothingQueued();
+    }
+
+    @Test
+    void anyformsBotIsNotBlockedByEmailDedup() {
+        Order order = order(true);
+        order.setLastDeliveryNotification(DeliveryNotification.ARRIVED_AT_PVZ);
+
+        notifier.notifyArrivedAtPvz(order);
+
+        verify(deliveryBotNotifier).notifyCdekReadyToPickup(777L);
+        verifyNothingQueued();
     }
 
     @Test

@@ -8,6 +8,8 @@ import ru.anyforms.integration.AmoCrmGateway;
 import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.amo.AmoContact;
+import ru.anyforms.model.marketplace.Shop;
+import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.DeliveryBotNotifier;
 import ru.anyforms.service.DeliveryEtaResolver;
 import ru.anyforms.service.DeliveryNotifier;
@@ -21,23 +23,30 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
     private final DeliveryEmailQueuer deliveryEmailQueuer;
     private final DeliveryEtaResolver deliveryEtaResolver;
     private final AmoCrmGateway amoCrmGateway;
+    private final OrderRepository orderRepository;
 
     @Override
     public void notifyShipped(Order order, String tracker) {
-        if (!order.isRetail()) {
-            deliveryBotNotifier.notifyShipped(order.getLeadId(), tracker, deliveryEta(order, tracker));
+        boolean bot = notifiesByBot(order);
+        String to = order.isRetail() ? emailFor(order, DeliveryNotification.SHIPPED) : null;
+        if (!bot && to == null) {
             return;
         }
-        String to = emailFor(order, DeliveryNotification.SHIPPED);
+        CdekDeliveryEta eta = deliveryEta(order, tracker);
+        if (bot) {
+            deliveryBotNotifier.notifyShipped(order.getLeadId(), tracker, eta);
+        }
         if (to != null) {
-            deliveryEmailQueuer.queue(order, to, DeliveryNotification.SHIPPED, tracker, deliveryEta(order, tracker));
+            deliveryEmailQueuer.queue(order, to, DeliveryNotification.SHIPPED, tracker, eta);
         }
     }
 
     @Override
     public void notifyArrivedAtPvz(Order order) {
-        if (!order.isRetail()) {
+        if (notifiesByBot(order)) {
             deliveryBotNotifier.notifyCdekReadyToPickup(order.getLeadId());
+        }
+        if (!order.isRetail()) {
             return;
         }
         String to = emailFor(order, DeliveryNotification.ARRIVED_AT_PVZ);
@@ -48,14 +57,24 @@ class DeliveryNotifierImpl implements DeliveryNotifier {
 
     @Override
     public void notifyReadyForPickup(Order order) {
-        if (!order.isRetail()) {
+        if (notifiesByBot(order)) {
             deliveryBotNotifier.notifyPickupReady(order.getLeadId());
+        }
+        if (!order.isRetail()) {
             return;
         }
         String to = emailFor(order, DeliveryNotification.READY_FOR_PICKUP);
         if (to != null) {
             deliveryEmailQueuer.queue(order, to, DeliveryNotification.READY_FOR_PICKUP, null, null);
         }
+    }
+
+    private boolean notifiesByBot(Order order) {
+        if (!order.isRetail()) {
+            return true;
+        }
+        String slug = order.getId() != null ? orderRepository.findShopSlug(order.getId()).orElse(null) : null;
+        return slug == null || Shop.DEFAULT_SLUG.equals(slug);
     }
 
     private CdekDeliveryEta deliveryEta(Order order, String tracker) {

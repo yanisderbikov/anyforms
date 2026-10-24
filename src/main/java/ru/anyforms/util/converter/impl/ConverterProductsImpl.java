@@ -41,6 +41,7 @@ class ConverterProductsImpl implements ConverterProducts {
                 product.getAmoProductName(),
                 product.getActive(),
                 product.getPreorder(),
+                product.getNovelty(),
                 product.getOrderNumber(),
                 product.getWeightGrams(),
                 product.getLengthCm(),
@@ -68,8 +69,13 @@ class ConverterProductsImpl implements ConverterProducts {
         }
         return shops.stream()
                 .sorted(Comparator.comparing(Shop::getName))
-                .map(shop -> new ShopDTO(shop.getId(), shop.getSlug(), shop.getName(), shop.getActive(),
-                        shop.getSupportTelegram()))
+                .map(shop -> ShopDTO.builder()
+                        .id(shop.getId())
+                        .slug(shop.getSlug())
+                        .name(shop.getName())
+                        .active(shop.getActive())
+                        .supportTelegram(shop.getSupportTelegram())
+                        .build())
                 .toList();
     }
 }

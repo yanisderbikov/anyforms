@@ -26,6 +26,7 @@ public class ProductDTO {
     private String amoProductName;
     private Boolean active;
     private Boolean preorder;
+    private Boolean novelty;
     private Integer orderNumber;
     private Integer weightGrams;
     private Integer lengthCm;
