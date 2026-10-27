@@ -5,6 +5,10 @@ import ru.anyforms.model.Role;
 public interface JwtTokenService {
     String createToken(String email, Role role, String name, boolean superAdmin);
 
+    String createMcpReadToken(String email);
+
+    boolean isMcpReadToken(String token);
+
     boolean isValid(String token);
 
     boolean isServiceToken(String token);

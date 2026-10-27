@@ -118,4 +118,27 @@ class JwtAuthFilterTest {
 
         assertNull(authorities());
     }
+
+    @Test
+    void mcpTokenGivesOnlyMcpReaderAuthority() throws Exception {
+        when(jwtTokenService.isMcpReadToken(USER_JWT)).thenReturn(true);
+        when(userAccessService.resolve(EMAIL))
+                .thenReturn(Optional.of(new UserAccess(EMAIL, "Босс", Role.ADMIN, true, null, null)));
+
+        doFilter(userRequest());
+
+        assertEquals(List.of("ROLE_MCP_READER"), authorities());
+        assertEquals(EMAIL, SecurityContextHolder.getContext().getAuthentication().getName());
+    }
+
+    @Test
+    void mcpTokenOfNonAdminStaysAnonymous() throws Exception {
+        when(jwtTokenService.isMcpReadToken(USER_JWT)).thenReturn(true);
+        when(userAccessService.resolve(EMAIL))
+                .thenReturn(Optional.of(new UserAccess(EMAIL, "Юра", Role.SALES_MANAGER, false, null, null)));
+
+        doFilter(userRequest());
+
+        assertNull(authorities());
+    }
 }

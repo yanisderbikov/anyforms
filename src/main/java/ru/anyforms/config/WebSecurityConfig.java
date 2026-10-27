@@ -45,6 +45,10 @@ public class WebSecurityConfig {
                     .requestMatchers("/api/tech/**").hasRole("SERVICE")
                     .requestMatchers("/api/pusher/**").hasRole("SERVICE")
                     // ── Пользовательские роли ──
+                    .requestMatchers(HttpMethod.POST, "/api/mcp/auth/request-code", "/api/mcp/auth/verify-code").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/mcp/**").hasAnyRole("MCP_READER", "ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/mcp/server").hasAnyRole("MCP_READER", "ADMIN")
+                    .requestMatchers("/api/mcp/**").denyAll()
                     .requestMatchers("/api/admin-users/**").hasRole("SUPER_ADMIN")
                     .requestMatchers("/api/auth/me").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SHOP_OWNER")
                     .requestMatchers("/api/orders/shop-report").hasAnyRole("ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SHOP_OWNER")
