@@ -39,6 +39,10 @@ public final class EmailTemplate {
         return load("templates/email-course-personal.html").replace("%LINK%", link);
     }
 
+    public static String getCourseStream2Email(String link) {
+        return load("templates/email-course-stream-2.html").replace("%LINK%", link);
+    }
+
     private static final String RECEIPT_PREVIEW_BLOCK = """
                             <tr>
                                 <td class="pad" style="padding:0 40px 28px 40px;">

@@ -65,7 +65,7 @@ public class PaymentController {
             @RequestParam("productCode") String productCode) {
         PaymentProduct product = getterPaymentProduct.getByCode(productCode)
                 .orElseThrow(() -> new RuntimeException("Продукт не найден: " + productCode));
-        Long price = product.getPriceKopecks();
+        Long price = product.currentPriceKopecks();
 
         Optional<PromoCode> found = getterPromoCode.getByCode(code);
         if (found.isEmpty()) {

@@ -22,6 +22,7 @@ public class PaymentProduct {
     public static final String CODE_GUIDE = "GUIDE";
     public static final String CODE_COURSE = "COURSE";
     public static final String CODE_COURSE_PERSONAL = "COURSE_PERSONAL";
+    public static final String CODE_COURSE_STREAM_2 = "COURSE_STREAM_2";
     public static final String CODE_MARKETPLACE_CART = "MARKETPLACE_CART";
     public static final String CODE_MANUAL_INVOICE = "MANUAL_INVOICE";
 
@@ -43,6 +44,12 @@ public class PaymentProduct {
     @Column(name = "price_kopecks", nullable = false)
     private Long priceKopecks;
 
+    @Column(name = "preorder_price_kopecks")
+    private Long preorderPriceKopecks;
+
+    @Column(name = "preorder_until")
+    private Instant preorderUntil;
+
     @Column(name = "success_url_path", nullable = false)
     private String successUrlPath;
 
@@ -56,4 +63,11 @@ public class PaymentProduct {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    public long currentPriceKopecks() {
+        boolean preorder = preorderPriceKopecks != null
+                && preorderUntil != null
+                && Instant.now().isBefore(preorderUntil);
+        return preorder ? preorderPriceKopecks : priceKopecks;
+    }
 }

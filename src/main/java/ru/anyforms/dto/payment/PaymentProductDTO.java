@@ -16,7 +16,7 @@ public class PaymentProductDTO {
         return new PaymentProductDTO(
                 product.getCode(),
                 product.getTitle(),
-                MoneyUtil.kopecksToString(product.getPriceKopecks())
+                MoneyUtil.kopecksToString(product.currentPriceKopecks())
         );
     }
 }

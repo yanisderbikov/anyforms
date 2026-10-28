@@ -88,11 +88,12 @@ class PurchaseServiceImpl implements PurchaseService {
             throw new RuntimeException("Продукт неактивен: " + product.getCode());
         }
 
-        PromoCode promo = resolvePromo(request, product.getPriceKopecks());
+        long basePriceKopecks = product.currentPriceKopecks();
+        PromoCode promo = resolvePromo(request, basePriceKopecks);
         long priceKopecks = promo != null
-                ? MoneyUtil.applyPromoDiscount(product.getPriceKopecks(), promo.getDiscountPercent(),
+                ? MoneyUtil.applyPromoDiscount(basePriceKopecks, promo.getDiscountPercent(),
                         promo.getDiscountAmountKopecks())
-                : product.getPriceKopecks();
+                : basePriceKopecks;
 
         Amount amount = Amount.builder()
                 .value(MoneyUtil.kopecksToString(priceKopecks))

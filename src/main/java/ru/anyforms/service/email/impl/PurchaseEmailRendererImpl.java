@@ -14,6 +14,7 @@ class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {
     private static final String GUIDE_SUBJECT = "Гайд - Как продавать сложный продукт через короткие видео";
     private static final String COURSE_SUBJECT = "Ваш предзаказ курса anyforms оформлен — «Самостоятельное изучение»";
     private static final String COURSE_PERSONAL_SUBJECT = "Ваш предзаказ курса anyforms оформлен — «Личное ведение»";
+    private static final String COURSE_STREAM_2_SUBJECT = "Вы записаны на второй поток курса anyforms";
 
     @Value("${product.guide.url}")
     private String guideUrl;
@@ -31,6 +32,8 @@ class PurchaseEmailRendererImpl implements PurchaseEmailRenderer {
                     new RenderedEmail(COURSE_SUBJECT, EmailTemplate.getCourseEmail(courseUrl));
             case PaymentProduct.CODE_COURSE_PERSONAL ->
                     new RenderedEmail(COURSE_PERSONAL_SUBJECT, EmailTemplate.getCoursePersonalEmail(courseUrl));
+            case PaymentProduct.CODE_COURSE_STREAM_2 ->
+                    new RenderedEmail(COURSE_STREAM_2_SUBJECT, EmailTemplate.getCourseStream2Email(courseUrl));
             default -> throw new IllegalArgumentException("Нет шаблона письма для продукта: " + productCode);
         };
     }

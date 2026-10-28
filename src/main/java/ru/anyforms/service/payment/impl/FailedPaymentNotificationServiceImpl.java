@@ -276,7 +276,8 @@ class FailedPaymentNotificationServiceImpl implements FailedPaymentNotificationS
         return switch (productCode) {
             case PaymentProduct.CODE_MARKETPLACE_CART ->
                     new PipelineTarget(MARKETPLACE_FAILED_PIPELINE_ID, MARKETPLACE_FAILED_STATUS_ID);
-            case PaymentProduct.CODE_GUIDE, PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL ->
+            case PaymentProduct.CODE_GUIDE, PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL,
+                 PaymentProduct.CODE_COURSE_STREAM_2 ->
                     new PipelineTarget(EDUCATION_PIPELINE_ID, EDUCATION_FAILED_STATUS_ID);
             default -> null;
         };

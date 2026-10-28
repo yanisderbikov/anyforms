@@ -46,7 +46,8 @@ class ReceiptServiceImpl implements ReceiptService {
     private static final List<String> TRAINING_PRODUCT_CODES = List.of(
             PaymentProduct.CODE_GUIDE,
             PaymentProduct.CODE_COURSE,
-            PaymentProduct.CODE_COURSE_PERSONAL);
+            PaymentProduct.CODE_COURSE_PERSONAL,
+            PaymentProduct.CODE_COURSE_STREAM_2);
 
     private final GetterTransaction getterTransaction;
     private final GetterTask getterTask;
