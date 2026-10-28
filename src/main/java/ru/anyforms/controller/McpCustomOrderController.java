@@ -30,7 +30,7 @@ import java.util.Map;
 @RequestMapping("/api/mcp")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "Bearer")
-@Tag(name = "MCP", description = "Read-only API заказов под заказ для MCP")
+@Tag(name = "MCP", description = "API заказов под заказ для MCP")
 public class McpCustomOrderController {
 
     private final McpCustomOrderReader reader;

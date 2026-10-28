@@ -24,13 +24,13 @@ import ru.anyforms.service.mcp.McpRequestHandler;
 @RequestMapping("/api/mcp/server")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "Bearer")
-@Tag(name = "MCP", description = "Read-only API заказов под заказ для MCP")
+@Tag(name = "MCP", description = "API заказов под заказ для MCP")
 public class McpServerController {
 
     private final McpRequestHandler requestHandler;
 
     @Operation(summary = "MCP-сервер (Streamable HTTP, без сессий)",
-            description = "JSON-RPC 2.0: initialize, ping, tools/list, tools/call. Все инструменты только читают. "
+            description = "JSON-RPC 2.0: initialize, ping, tools/list, tools/call. Инструменты читают заказы, менять можно только статус позиции и лог производства. "
                     + "Уведомления без id — 202 без тела. Только MCP-токен администратора или токен админки ADMIN")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonNode> handle(@RequestBody JsonNode message) {

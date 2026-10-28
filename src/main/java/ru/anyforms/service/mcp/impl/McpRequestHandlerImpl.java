@@ -25,11 +25,13 @@ class McpRequestHandlerImpl implements McpRequestHandler {
     static final List<String> SUPPORTED_PROTOCOL_VERSIONS = List.of("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05");
 
     private static final String INSTRUCTIONS = """
-            Заказы под заказ anyforms, только чтение. Заказ (order, наш id) — сделка клиента; \
+            Заказы под заказ anyforms. Заказ (order, наш id) — сделка клиента; \
             внутри него позиции (items) — то, что изготавливаем. Статусы позиции по порядку: \
             MODELING (художник делает 3D-модель), IN_PRODUCTION, READY_TO_SHIP, DELIVERING, COMPLETED. \
             Списки отдают позиции без ссылок на файлы; ссылки на файлы (временные, живут недолго) — \
-            в get_custom_item и get_custom_order.""";
+            в get_custom_item и get_custom_order. Менять можно только статус позиции (set_item_status) \
+            и добавлять запись в лог производства (add_item_log); обе правки дублируются примечанием \
+            в сделку amoCRM, поэтому перед ними уточняй у пользователя позицию и текст.""";
 
     private final McpToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;

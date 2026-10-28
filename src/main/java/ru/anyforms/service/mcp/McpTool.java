@@ -19,9 +19,17 @@ public interface McpTool {
 
     Object call(JsonNode arguments);
 
+    default boolean readOnly() {
+        return true;
+    }
+
+    default boolean idempotent() {
+        return true;
+    }
+
     default McpToolDescriptor descriptor() {
         return new McpToolDescriptor(name(), title(), description(), inputSchema(),
-                Map.of("title", title(), "readOnlyHint", true, "destructiveHint", false,
-                        "idempotentHint", true, "openWorldHint", false));
+                Map.of("title", title(), "readOnlyHint", readOnly(), "destructiveHint", false,
+                        "idempotentHint", idempotent(), "openWorldHint", false));
     }
 }

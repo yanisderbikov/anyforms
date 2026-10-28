@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/mcp/auth")
 @RequiredArgsConstructor
-@Tag(name = "MCP", description = "Read-only API заказов под заказ для MCP")
+@Tag(name = "MCP", description = "API заказов под заказ для MCP")
 public class McpAuthController {
 
     private final AuthService authService;
@@ -37,8 +37,8 @@ public class McpAuthController {
         return ResponseEntity.ok(Map.of("message", "Если у этой почты есть доступ, код отправлен"));
     }
 
-    @Operation(summary = "Подтвердить код и получить MCP-токен только на чтение",
-            description = "Токен пускает только на GET /api/mcp/**, живёт auth.mcp-token.ttl-days дней. "
+    @Operation(summary = "Подтвердить код и получить MCP-токен",
+            description = "Токен пускает только на GET /api/mcp/** и MCP-сервер POST /api/mcp/server, живёт auth.mcp-token.ttl-days дней. "
                     + "Выдаётся только роли ADMIN; смена роли или отзыв пользователя в /admin/users сразу гасит токен")
     @PostMapping("/verify-code")
     public ResponseEntity<LoginResponseDTO> verifyCode(@Valid @RequestBody VerifyLoginCodeDTO request) {
