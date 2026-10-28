@@ -31,6 +31,7 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     public static final String SUPER_ADMIN_AUTHORITY = "ROLE_SUPER_ADMIN";
+    public static final String MCP_READER_AUTHORITY = "ROLE_MCP_READER";
 
     private static final String AUTH_HEADER = "Authorization";
     /** Межсервисный токен: так ходят telegram-pusher и платформа обучения */
@@ -52,8 +53,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 || jwtTokenService.isServiceToken(bearer)) {
             authenticate("service", Role.SERVICE, false);
         } else if (StringUtils.hasText(bearer) && jwtTokenService.isValid(bearer)) {
-            userAccessService.resolve(jwtTokenService.getUsername(bearer))
-                    .ifPresent(access -> authenticate(access.email(), access.role(), access.superAdmin()));
+            String email = jwtTokenService.getUsername(bearer);
+            if (jwtTokenService.isMcpReadToken(bearer)) {
+                userAccessService.resolve(email)
+                        .filter(access -> access.role().canUseMcp())
+                        .ifPresent(access -> authenticate(access.email(), List.of(new SimpleGrantedAuthority(MCP_READER_AUTHORITY))));
+            } else {
+                userAccessService.resolve(email)
+                        .ifPresent(access -> authenticate(access.email(), access.role(), access.superAdmin()));
+            }
         }
 
         filterChain.doFilter(request, response);
@@ -65,6 +73,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (superAdmin) {
             authorities.add(new SimpleGrantedAuthority(SUPER_ADMIN_AUTHORITY));
         }
+        authenticate(principal, authorities);
+    }
+
+    private void authenticate(String principal, List<GrantedAuthority> authorities) {
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, authorities));
     }

@@ -67,6 +67,14 @@ class CustomProductItemServiceImpl implements CustomProductItemService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CustomProductItemDTO> getAllByOrderId(Long orderId) {
+        return itemRepository.findByOrderIdOrderByIdAsc(orderId).stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CustomProductItemDTO getById(Long itemId) {
         return toDTO(getOrThrow(itemId));
     }

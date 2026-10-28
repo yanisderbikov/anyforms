@@ -12,4 +12,8 @@ public enum Role {
     public boolean isAdminPanelRole() {
         return this == ADMIN || this == SALES_MANAGER || this == PROJECT_MANAGER || this == SHOP_OWNER;
     }
+
+    public boolean canUseMcp() {
+        return this == ADMIN;
+    }
 }

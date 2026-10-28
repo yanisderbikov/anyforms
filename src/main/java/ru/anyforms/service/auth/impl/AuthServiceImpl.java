@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 @Slf4j
 @Service
@@ -92,10 +93,20 @@ class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void requestLoginCode(String rawEmail) {
+        sendLoginCode(rawEmail, Role::isAdminPanelRole);
+    }
+
+    @Override
+    @Transactional
+    public void requestMcpLoginCode(String rawEmail) {
+        sendLoginCode(rawEmail, Role::canUseMcp);
+    }
+
+    private void sendLoginCode(String rawEmail, Predicate<Role> allowedRole) {
         String email = SuperAdminResolver.normalize(rawEmail);
         Optional<User> found = userRepository.findByEmail(email)
                 .or(() -> createSuperAdminIfMatches(email))
-                .filter(u -> u.getRole().isAdminPanelRole());
+                .filter(u -> allowedRole.test(u.getRole()));
         if (found.isEmpty()) {
             log.info("Запрос кода входа для почты без доступа: письмо не отправляем");
             return;
@@ -131,12 +142,37 @@ class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public LoginResponseDTO verifyLoginCode(String rawEmail, String code) {
+        User user = findAdminPanelUser(rawEmail);
+        consumeLoginCode(user, code);
+        log.info("Вход в админку: пользователь id={}, роль {}", user.getId(), user.getRole());
+
+        String token = jwtTokenService.createToken(user.getEmail(), user.getRole(), user.getName(),
+                superAdminResolver.isSuperAdmin(user.getEmail()));
+        return new LoginResponseDTO(token);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public LoginResponseDTO verifyMcpLoginCode(String rawEmail, String code) {
+        User user = findAdminPanelUser(rawEmail);
+        if (!user.getRole().canUseMcp()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Подключение по MCP доступно только администраторам");
+        }
+        consumeLoginCode(user, code);
+        log.info("Выдан MCP-токен на чтение: пользователь id={}, роль {}", user.getId(), user.getRole());
+        return new LoginResponseDTO(jwtTokenService.createMcpReadToken(user.getEmail()));
+    }
+
+    private User findAdminPanelUser(String rawEmail) {
         String email = SuperAdminResolver.normalize(rawEmail);
-        User user = userRepository.findByEmail(email)
+        return userRepository.findByEmail(email)
                 .filter(u -> u.getRole().isAdminPanelRole())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Для этой почты доступ в админку не выдан"));
+    }
 
+    private void consumeLoginCode(User user, String code) {
         Instant now = clock.instant();
         if (user.getLoginCodeHash() == null
                 || user.getLoginCodeExpiresAt() == null
@@ -165,11 +201,6 @@ class AuthServiceImpl implements AuthService {
         user.setLastLoginAt(now);
         userRepository.save(user);
         userAccessService.evict(user.getEmail());
-        log.info("Вход в админку: пользователь id={}, роль {}", user.getId(), user.getRole());
-
-        String token = jwtTokenService.createToken(user.getEmail(), user.getRole(), user.getName(),
-                superAdminResolver.isSuperAdmin(user.getEmail()));
-        return new LoginResponseDTO(token);
     }
 
     private Optional<User> createSuperAdminIfMatches(String email) {

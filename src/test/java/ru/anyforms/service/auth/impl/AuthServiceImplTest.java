@@ -204,6 +204,51 @@ class AuthServiceImplTest {
         assertEquals(HttpStatus.BAD_GATEWAY, e.getStatusCode());
     }
 
+    @Test
+    void mcpCodeIsMailedOnlyToAdmins() {
+        User user = manager();
+        when(userRepository.findByEmail(MANAGER)).thenReturn(Optional.of(user));
+
+        service.requestMcpLoginCode(MANAGER);
+        verifyNoInteractions(emailService);
+        assertNull(user.getLoginCodeHash());
+
+        user.setRole(Role.ADMIN);
+        service.requestMcpLoginCode(MANAGER);
+        assertNotNull(sentCode());
+    }
+
+    @Test
+    void mcpCodeGivesReadOnlyTokenToAdminAndConsumesCode() {
+        User user = manager();
+        user.setRole(Role.ADMIN);
+        when(userRepository.findByEmail(MANAGER)).thenReturn(Optional.of(user));
+        when(jwtTokenService.createMcpReadToken(MANAGER)).thenReturn("mcp-jwt");
+
+        service.requestMcpLoginCode(MANAGER);
+        String code = sentCode();
+
+        assertEquals("mcp-jwt", service.verifyMcpLoginCode(MANAGER, code).getToken());
+        verify(jwtTokenService, never()).createToken(anyString(), any(), any(), anyBoolean());
+        assertNull(user.getLoginCodeHash());
+        assertThrows(ResponseStatusException.class, () -> service.verifyMcpLoginCode(MANAGER, code));
+    }
+
+    @Test
+    void nonAdminCannotGetMcpTokenAndKeepsCode() {
+        User user = manager();
+        when(userRepository.findByEmail(MANAGER)).thenReturn(Optional.of(user));
+
+        service.requestLoginCode(MANAGER);
+        String code = sentCode();
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.verifyMcpLoginCode(MANAGER, code));
+        assertEquals(HttpStatus.FORBIDDEN, e.getStatusCode());
+        assertNotNull(user.getLoginCodeHash());
+        verify(jwtTokenService, never()).createMcpReadToken(anyString());
+    }
+
     private static final class MutableClock extends Clock {
         private Instant now;
 
