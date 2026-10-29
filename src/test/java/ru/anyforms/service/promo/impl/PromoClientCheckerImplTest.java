@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -90,31 +91,46 @@ class PromoClientCheckerImplTest {
     }
 
     @Test
-    void previewIgnoresTheDevicesOwnPendingLinkButCheckoutCountsIt() {
+    void previewIgnoresTheClientsOwnPendingLinkButCheckoutCountsIt() {
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1).ownerDeviceId(DEVICE).build();
         when(getterTransaction.countPromoUses(eq("ONE-AAAAA"), any())).thenReturn(1L);
-        when(getterTransaction.countPromoUsesExceptDevicePending(eq("ONE-AAAAA"), any(), eq(DEVICE))).thenReturn(0L);
+        when(getterTransaction.countPromoUsesExceptOwnPending(eq("ONE-AAAAA"), any(), eq("buyer@example.com"),
+                eq("9991234567"), eq(DEVICE))).thenReturn(0L);
 
         assertTrue(checker.previewRejection(promo, client, "anyforms").isEmpty());
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("уже использован"));
     }
 
     @Test
-    void checkoutRejectsDeviceCodeFromAnotherDevice() {
-        PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1)
+    void deviceCodeIsAcceptedFromAnyDevice() {
+        UUID popupId = UUID.randomUUID();
+        PromoCode promo = PromoCode.builder().code("ONE-AAAAA").popupId(popupId).maxUses(1)
                 .ownerDeviceId("0aa1bb2c-3dd4-4ee5-8ff6-112233445566").build();
 
-        Optional<String> rejection = checker.checkoutRejection(promo, client, "anyforms");
+        assertTrue(checker.checkoutRejection(promo, client, "anyforms").isEmpty());
+        assertTrue(checker.checkoutRejection(promo, PromoClient.of("buyer@example.com", "+79991234567", null),
+                "anyforms").isEmpty());
+        verify(getterTransaction, times(2)).promoUsedByCustomer("ONE-AAAAA", "buyer@example.com", "9991234567", "");
+        verify(getterTransaction, times(2)).popupCodeUsedByCustomer(popupId, "buyer@example.com", "9991234567", "");
+        verify(getterTransaction, never()).promoUsedByCustomer(anyString(), anyString(), anyString(), eq(DEVICE));
+    }
 
-        assertTrue(rejection.orElseThrow().contains("другое устройство"));
-        assertTrue(checker.checkoutRejection(
-                PromoCode.builder().code("ONE-BBBBB").maxUses(1).ownerDeviceId(DEVICE).build(), client, "anyforms").isEmpty());
+    @Test
+    void popupCodeRequiresPhone() {
+        PromoCode promo = PromoCode.builder().code("ONE-AAAAA").popupId(UUID.randomUUID()).maxUses(1)
+                .ownerDeviceId(DEVICE).build();
+        PromoClient noPhone = PromoClient.of("buyer@example.com", null, DEVICE);
+
+        assertTrue(checker.checkoutRejection(promo, noPhone, "anyforms").orElseThrow().contains("укажите телефон"));
+        assertTrue(checker.previewRejection(promo, noPhone, "anyforms").orElseThrow().contains("укажите телефон"));
+        verify(getterTransaction, never()).promoUsedByCustomer(anyString(), anyString(), anyString(), anyString());
+        assertTrue(checker.checkoutRejection(PromoCode.builder().code("ANY-10").build(), noPhone, "anyforms").isEmpty());
     }
 
     @Test
     void checkoutRejectsCodeUsedByClientOrByOthers() {
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").maxUses(1).build();
-        when(getterTransaction.promoUsedByCustomer("ONE-AAAAA", "buyer@example.com", "9991234567", DEVICE))
+        when(getterTransaction.promoUsedByCustomer("ONE-AAAAA", "buyer@example.com", "9991234567", ""))
                 .thenReturn(true);
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("уже был использован"));
 
@@ -128,13 +144,13 @@ class PromoClientCheckerImplTest {
         UUID popupId = UUID.randomUUID();
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").popupId(popupId).maxUses(1).firstOrderOnly(true).build();
 
-        when(getterTransaction.popupCodeUsedByCustomer(popupId, "buyer@example.com", "9991234567", DEVICE))
+        when(getterTransaction.popupCodeUsedByCustomer(popupId, "buyer@example.com", "9991234567", ""))
                 .thenReturn(true);
         assertEquals("Скидка по этой акции уже использована.",
                 checker.checkoutRejection(promo, client, "anyforms").orElseThrow());
 
         when(getterTransaction.popupCodeUsedByCustomer(any(), anyString(), anyString(), anyString())).thenReturn(false);
-        when(orderRepository.existsRetailOrderByCustomer("buyer@example.com", "9991234567", DEVICE)).thenReturn(true);
+        when(orderRepository.existsRetailOrderByCustomer("buyer@example.com", "9991234567", "")).thenReturn(true);
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("первый заказ"));
 
         when(orderRepository.existsRetailOrderByCustomer(anyString(), anyString(), anyString())).thenReturn(false);
@@ -147,7 +163,7 @@ class PromoClientCheckerImplTest {
         PromoCode promo = PromoCode.builder().code("NEXT-AAAAA").popupId(popupId).maxUses(1).build();
         when(getterPromoPopup.getById(popupId)).thenReturn(Optional.of(
                 PromoPopup.builder().id(popupId).popupType(PromoPopupType.AFTER_PURCHASE).build()));
-        when(getterTransaction.popupCodeUsedByCustomer(popupId, "buyer@example.com", "9991234567", DEVICE))
+        when(getterTransaction.popupCodeUsedByCustomer(popupId, "buyer@example.com", "9991234567", ""))
                 .thenReturn(true);
 
         assertTrue(checker.checkoutRejection(promo, client, "anyforms").isEmpty());

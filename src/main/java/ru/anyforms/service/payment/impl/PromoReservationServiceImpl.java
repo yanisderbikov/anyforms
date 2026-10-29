@@ -50,11 +50,11 @@ class PromoReservationServiceImpl implements PromoReservationService {
 
     @Override
     public boolean releaseOwnReservations(PromoCode promo, PromoClient client) {
-        if (promo.getMaxUses() == null || !client.hasDevice()) {
+        if (promo.getMaxUses() == null || client.isAnonymous()) {
             return false;
         }
-        List<String> paymentIds = getterTransaction.getPendingTinkoffPaymentIds(promo.getCode(), client.deviceId(),
-                Instant.now().minus(PromoClientChecker.PENDING_RESERVATION));
+        List<String> paymentIds = getterTransaction.getOwnPendingTinkoffPaymentIds(promo.getCode(), client.email(),
+                client.phoneLast10(), client.deviceId(), Instant.now().minus(PromoClientChecker.PENDING_RESERVATION));
         boolean released = false;
         for (String paymentId : paymentIds) {
             try {

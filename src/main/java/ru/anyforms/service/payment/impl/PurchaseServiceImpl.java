@@ -4,8 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.payment.Amount;
 import ru.anyforms.dto.payment.PaymentUrlResponse;
 import ru.anyforms.dto.payment.PurchaseRequest;
@@ -83,10 +85,8 @@ class PurchaseServiceImpl implements PurchaseService {
     @Transactional
     public PaymentUrlResponse purchase(PurchaseRequest request) {
         PaymentProduct product = getterPaymentProduct.getByCode(request.getProductCode())
-                .orElseThrow(() -> new RuntimeException("Продукт не найден: " + request.getProductCode()));
-        if (!Boolean.TRUE.equals(product.getActive())) {
-            throw new RuntimeException("Продукт неактивен: " + product.getCode());
-        }
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Продукт недоступен"));
 
         long basePriceKopecks = product.currentPriceKopecks();
         PromoCode promo = resolvePromo(request, basePriceKopecks);

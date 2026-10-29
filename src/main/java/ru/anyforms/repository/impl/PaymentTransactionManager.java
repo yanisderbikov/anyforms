@@ -219,12 +219,14 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public long countPromoUsesExceptDevicePending(String promoCode, Instant pendingSince, String deviceId) {
-        if (deviceId == null || deviceId.isBlank()) {
+    public long countPromoUsesExceptOwnPending(String promoCode, Instant pendingSince, String email,
+                                               String phoneLast10, String deviceId) {
+        if (isBlank(email) && isBlank(phoneLast10) && isBlank(deviceId)) {
             return countPromoUses(promoCode, pendingSince);
         }
         try {
-            return transactionRepo.countPromoUsesExceptDevicePending(promoCode, pendingSince, deviceId);
+            return transactionRepo.countPromoUsesExceptOwnPending(promoCode, pendingSince, orEmpty(email),
+                    orEmpty(phoneLast10), orEmpty(deviceId));
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
@@ -232,16 +234,26 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
-    public List<String> getPendingTinkoffPaymentIds(String promoCode, String deviceId, Instant since) {
-        if (deviceId == null || deviceId.isBlank()) {
+    public List<String> getOwnPendingTinkoffPaymentIds(String promoCode, String email, String phoneLast10,
+                                                       String deviceId, Instant since) {
+        if (isBlank(email) && isBlank(phoneLast10) && isBlank(deviceId)) {
             return List.of();
         }
         try {
-            return transactionRepo.findPendingTinkoffPaymentIds(promoCode, deviceId, since);
+            return transactionRepo.findOwnPendingTinkoffPaymentIds(promoCode, orEmpty(email), orEmpty(phoneLast10),
+                    orEmpty(deviceId), since);
         } catch (Exception e) {
             log.error(e);
             throw new RuntimeException("Database exception", e);
         }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static String orEmpty(String value) {
+        return isBlank(value) ? "" : value;
     }
 
     @Override

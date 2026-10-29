@@ -56,15 +56,16 @@ class PromoClientCheckerImpl implements PromoClientChecker {
 
     @Override
     public Optional<String> checkoutRejection(PromoCode promo, PromoClient client, String shopSlug) {
-        return rejection(promo, client, shopSlug, exhausted(promo));
+        return rejection(promo, client.contactOnly(), shopSlug, exhausted(promo));
     }
 
     @Override
     public Optional<String> previewRejection(PromoCode promo, PromoClient client, String shopSlug) {
         boolean exhausted = promo.getMaxUses() != null
-                && getterTransaction.countPromoUsesExceptDevicePending(promo.getCode(),
-                Instant.now().minus(PENDING_RESERVATION), client.deviceId()) >= promo.getMaxUses();
-        return rejection(promo, client, shopSlug, exhausted);
+                && getterTransaction.countPromoUsesExceptOwnPending(promo.getCode(),
+                Instant.now().minus(PENDING_RESERVATION), client.email(), client.phoneLast10(),
+                client.deviceId()) >= promo.getMaxUses();
+        return rejection(promo, client.contactOnly(), shopSlug, exhausted);
     }
 
     private Optional<String> rejection(PromoCode promo, PromoClient client, String shopSlug, boolean exhausted) {
@@ -73,10 +74,11 @@ class PromoClientCheckerImpl implements PromoClientChecker {
         if (!promo.allowedInShop(shop)) {
             return Optional.of("Промокод " + code + " действует только в другом магазине.");
         }
-        if (!promo.belongsTo(client.email(), client.phoneLast10(), client.deviceId())) {
-            return Optional.of(promo.hasContactOwner()
-                    ? "Промокод " + code + " персональный: укажите телефон или почту, на которые он выдан."
-                    : "Промокод " + code + " выдан на другое устройство: откройте магазин в том браузере, где получили код.");
+        if (promo.getPopupId() != null && client.phoneLast10().isEmpty()) {
+            return Optional.of("Чтобы применить промокод " + code + ", укажите телефон.");
+        }
+        if (!promo.belongsTo(client.email(), client.phoneLast10())) {
+            return Optional.of("Промокод " + code + " персональный: укажите телефон или почту, на которые он выдан.");
         }
         if (usedCode(code, client)) {
             return Optional.of("Промокод " + code + " уже был использован.");

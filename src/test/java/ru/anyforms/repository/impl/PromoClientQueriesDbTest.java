@@ -144,22 +144,26 @@ class PromoClientQueriesDbTest {
 
         PaymentTransaction reservation = payment(buyer, "ONE-AAAAA", PaymentTransactionStatus.PENDING, now);
         assertEquals(1, transactionRepo.countPromoUses("ONE-AAAAA", window));
-        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", DEVICE, window).isEmpty());
-        assertEquals(1, transactionRepo.countPromoUsesExceptDevicePending("ONE-AAAAA", window, DEVICE));
+        assertTrue(transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-AAAAA", "", "", DEVICE, window).isEmpty());
+        assertEquals(1, transactionRepo.countPromoUsesExceptOwnPending("ONE-AAAAA", window, "", "", DEVICE));
         entityManager.createNativeQuery("UPDATE payment_transaction SET provider = 'TINKOFF' WHERE id = ?1")
                 .setParameter(1, reservation.getId())
                 .executeUpdate();
-        assertEquals(List.of(reservation.getExternalPaymentId()),
-                transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", DEVICE, window));
-        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", OTHER_DEVICE, window).isEmpty());
-        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-AAAAA", "", window).isEmpty());
-        assertEquals(0, transactionRepo.countPromoUsesExceptDevicePending("ONE-AAAAA", window, DEVICE));
-        assertEquals(1, transactionRepo.countPromoUsesExceptDevicePending("ONE-AAAAA", window, OTHER_DEVICE));
+        List<String> own = List.of(reservation.getExternalPaymentId());
+        assertEquals(own, transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-AAAAA", "", "", DEVICE, window));
+        assertEquals(own, transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-AAAAA", "BUYER@B.RU", "", OTHER_DEVICE, window));
+        assertEquals(own, transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-AAAAA", "", "9991234567", "", window));
+        assertTrue(transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-AAAAA", "x@b.ru", "9210000000", OTHER_DEVICE, window).isEmpty());
+        assertTrue(transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-AAAAA", "", "", "", window).isEmpty());
+        assertEquals(0, transactionRepo.countPromoUsesExceptOwnPending("ONE-AAAAA", window, "", "", DEVICE));
+        assertEquals(0, transactionRepo.countPromoUsesExceptOwnPending("ONE-AAAAA", window, "", "9991234567", OTHER_DEVICE));
+        assertEquals(0, transactionRepo.countPromoUsesExceptOwnPending("ONE-AAAAA", window, "buyer@b.ru", "", ""));
+        assertEquals(1, transactionRepo.countPromoUsesExceptOwnPending("ONE-AAAAA", window, "x@b.ru", "9210000000", OTHER_DEVICE));
         assertEquals(1, transactionRepo.countPromoUses("ONE-AAAAA", window));
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.PENDING, now.minus(Duration.ofHours(2)));
         assertEquals(0, transactionRepo.countPromoUses("ONE-BBBBB", window));
-        assertTrue(transactionRepo.findPendingTinkoffPaymentIds("ONE-BBBBB", OTHER_DEVICE, window).isEmpty());
+        assertTrue(transactionRepo.findOwnPendingTinkoffPaymentIds("ONE-BBBBB", "x@b.ru", "9210000000", OTHER_DEVICE, window).isEmpty());
 
         payment(stranger, "ONE-BBBBB", PaymentTransactionStatus.SUCCEEDED, now);
         assertEquals(1, transactionRepo.countPromoUses("ONE-BBBBB", window));

@@ -45,7 +45,8 @@ class PromoReservationServiceImplTest {
     private final PromoClient client = PromoClient.of("buyer@example.com", "+79991234567", DEVICE);
 
     private void pendingLink() {
-        when(getterTransaction.getPendingTinkoffPaymentIds(eq("ONE-AAAAA"), eq(DEVICE), any())).thenReturn(List.of(PAYMENT));
+        when(getterTransaction.getOwnPendingTinkoffPaymentIds(eq("ONE-AAAAA"), eq("buyer@example.com"),
+                eq("9991234567"), eq(DEVICE), any())).thenReturn(List.of(PAYMENT));
     }
 
     private void bankSays(String status) {
@@ -61,12 +62,24 @@ class PromoReservationServiceImplTest {
     }
 
     @Test
-    void unlimitedCodesAndClientsWithoutDeviceAreIgnored() {
+    void unlimitedCodesAndAnonymousClientsAreIgnored() {
         assertFalse(service.releaseOwnReservations(PromoCode.builder().code("ANY-10").build(), client));
         assertFalse(service.releaseOwnReservations(limited, PromoClient.of(null, null, null)));
-        assertFalse(service.releaseOwnReservations(limited, PromoClient.of("buyer@example.com", "+79991234567", null)));
 
         verifyNoInteractions(getterTransaction, tinkoffService, paymentConfirmService);
+    }
+
+    @Test
+    void reservationIsFoundByContactWithoutDevice() {
+        when(getterTransaction.getOwnPendingTinkoffPaymentIds(eq("ONE-AAAAA"), eq("buyer@example.com"),
+                eq("9991234567"), eq(""), any())).thenReturn(List.of(PAYMENT));
+        bankSays("NEW");
+        cancelAnswers("CANCELED");
+        when(paymentConfirmService.supersede(PAYMENT)).thenReturn(true);
+
+        assertTrue(service.releaseOwnReservations(limited, PromoClient.of("buyer@example.com", "+79991234567", null)));
+
+        verify(paymentConfirmService).supersede(PAYMENT);
     }
 
     @Test
