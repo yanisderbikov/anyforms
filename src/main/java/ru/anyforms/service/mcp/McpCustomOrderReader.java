@@ -13,6 +13,7 @@ import ru.anyforms.model.Order;
 import ru.anyforms.repository.CustomProductItemRepository;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.service.CustomProductItemService;
+import ru.anyforms.service.GetterOrderDTOByType;
 import ru.anyforms.util.converter.ConverterOrder;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class McpCustomOrderReader {
     private final CustomProductItemRepository customProductItemRepository;
     private final ConverterOrder converterOrder;
     private final CustomProductItemService itemService;
+    private final GetterOrderDTOByType getterOrderDTOByType;
 
     public List<OrderSummaryDTO> workableOrders() {
         return orderRepository.findWorkableCustomOrders().stream()
@@ -45,8 +47,19 @@ public class McpCustomOrderReader {
     }
 
     public List<ShipGroupDTO> groupsWithoutFileLinks(List<ShipGroupDTO> groups) {
-        groups.forEach(group -> withoutFileLinks(group.getItems()));
+        groupsWithoutPhones(groups).forEach(group -> withoutFileLinks(group.getItems()));
         return groups;
+    }
+
+    public List<ShipGroupDTO> groupsWithoutPhones(List<ShipGroupDTO> groups) {
+        groups.forEach(group -> group.getOrder().setContactPhone(null));
+        return groups;
+    }
+
+    public List<OrderSummaryDTO> retailOrdersWithoutTracker() {
+        List<OrderSummaryDTO> orders = getterOrderDTOByType.getOrdersWithoutTrackerDTOs();
+        orders.forEach(order -> order.setContactPhone(null));
+        return orders;
     }
 
     private void dropFileLinks(CustomProductItemDTO item) {
@@ -60,6 +73,7 @@ public class McpCustomOrderReader {
     private OrderSummaryDTO convertWithCount(Order order) {
         OrderSummaryDTO dto = converterOrder.convert(order);
         dto.setCustomItemsCount(customProductItemRepository.countByOrderId(order.getId()));
+        dto.setContactPhone(null);
         return dto;
     }
 }

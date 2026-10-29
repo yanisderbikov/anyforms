@@ -2,6 +2,9 @@ package ru.anyforms.service.mcp;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+
 public final class McpArguments {
 
     private McpArguments() {
@@ -27,6 +30,18 @@ public final class McpArguments {
             throw new IllegalArgumentException("Не передан обязательный параметр " + name);
         }
         return value;
+    }
+
+    public static LocalDate requireDate(JsonNode arguments, String name) {
+        String value = optionalText(arguments, name);
+        if (value == null) {
+            throw new IllegalArgumentException("Не передан обязательный параметр " + name);
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Параметр " + name + " должен быть датой в формате ГГГГ-ММ-ДД");
+        }
     }
 
     public static String optionalText(JsonNode arguments, String name) {

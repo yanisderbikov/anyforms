@@ -27,7 +27,8 @@ class ListCustomOrdersTool implements McpTool {
     @Override
     public String description() {
         return "Оплаченные заказы под заказ, которые ещё не отправлены (без трекера), от новых к старым. "
-                + "У каждого: id, клиент, телефон, ПВЗ СДЭК, дата, комментарий, customItemsCount — сколько позиций. "
+                + "У каждого: id, ФИО клиента, ПВЗ СДЭК, дата, комментарий, customItemsCount — сколько позиций. "
+                + "Телефон клиента MCP не отдаёт. "
                 + "Позиции заказа — get_custom_order.";
     }
 
