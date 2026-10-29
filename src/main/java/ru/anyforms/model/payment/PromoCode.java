@@ -103,14 +103,13 @@ public class PromoCode {
         return has(ownerEmail) || has(ownerPhoneLast10);
     }
 
-    public boolean belongsTo(String email, String phoneLast10, String deviceId) {
-        if (!isPersonal()) {
+    public boolean belongsTo(String email, String phoneLast10) {
+        if (!hasContactOwner()) {
             return true;
         }
         boolean emailMatches = has(ownerEmail) && email != null && ownerEmail.trim().equalsIgnoreCase(email.trim());
         boolean phoneMatches = has(ownerPhoneLast10) && ownerPhoneLast10.equals(phoneLast10);
-        boolean deviceMatches = has(ownerDeviceId) && deviceId != null && ownerDeviceId.equals(deviceId.trim());
-        return emailMatches || phoneMatches || deviceMatches;
+        return emailMatches || phoneMatches;
     }
 
     private static boolean has(String value) {

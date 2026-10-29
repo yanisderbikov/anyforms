@@ -134,26 +134,37 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
               AND (pt.status IN ('SUCCEEDED', 'REFUNDED')
                    OR (pt.status = 'PENDING'
                        AND pt.created_at >= :pendingSince
-                       AND NOT (pt.provider = 'TINKOFF' AND coalesce(o.device_id, '') = :deviceId)))
+                       AND NOT (pt.provider = 'TINKOFF'
+                                AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
+                                     OR (:phoneLast10 <> ''
+                                         AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                                     OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId)))))
             """, nativeQuery = true)
-    long countPromoUsesExceptDevicePending(@Param("promoCode") String promoCode,
-                                           @Param("pendingSince") Instant pendingSince,
-                                           @Param("deviceId") String deviceId);
+    long countPromoUsesExceptOwnPending(@Param("promoCode") String promoCode,
+                                        @Param("pendingSince") Instant pendingSince,
+                                        @Param("email") String email,
+                                        @Param("phoneLast10") String phoneLast10,
+                                        @Param("deviceId") String deviceId);
 
     @Query(value = """
             SELECT pt.external_payment_id
             FROM payment_transaction pt
-            JOIN orders o ON o.id = pt.order_id
+            LEFT JOIN orders o ON o.id = pt.order_id
             WHERE pt.promo_code = :promoCode
               AND pt.status = 'PENDING'
               AND pt.provider = 'TINKOFF'
               AND pt.created_at >= :since
-              AND o.device_id = :deviceId
+              AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
+                   OR (:phoneLast10 <> ''
+                       AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10) = :phoneLast10)
+                   OR (:deviceId <> '' AND coalesce(o.device_id, '') = :deviceId))
             ORDER BY pt.created_at
             """, nativeQuery = true)
-    List<String> findPendingTinkoffPaymentIds(@Param("promoCode") String promoCode,
-                                              @Param("deviceId") String deviceId,
-                                              @Param("since") Instant since);
+    List<String> findOwnPendingTinkoffPaymentIds(@Param("promoCode") String promoCode,
+                                                 @Param("email") String email,
+                                                 @Param("phoneLast10") String phoneLast10,
+                                                 @Param("deviceId") String deviceId,
+                                                 @Param("since") Instant since);
 
     @Query(value = """
             SELECT EXISTS (

@@ -20,7 +20,7 @@ import java.util.Objects;
 class CourseAccessServiceImpl implements CourseAccessService {
 
     private static final List<String> COURSE_CODES =
-            List.of(PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL);
+            List.of(PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL, PaymentProduct.CODE_COURSE_STREAM_2);
 
     private record AmoAccessTarget(long pipelineId, long statusId) {
     }
@@ -51,9 +51,13 @@ class CourseAccessServiceImpl implements CourseAccessService {
         boolean personal = paid.stream()
                 .anyMatch(t -> PaymentProduct.CODE_COURSE_PERSONAL.equals(t.getProductCode()));
 
-        return personal
-                ? new CourseAccessDTO(true, CourseAccessDTO.PLAN_PERSONAL, PaymentProduct.CODE_COURSE_PERSONAL)
-                : new CourseAccessDTO(true, CourseAccessDTO.PLAN_SELF, PaymentProduct.CODE_COURSE);
+        if (personal) {
+            return new CourseAccessDTO(true, CourseAccessDTO.PLAN_PERSONAL, PaymentProduct.CODE_COURSE_PERSONAL);
+        }
+        boolean firstStream = paid.stream()
+                .anyMatch(t -> PaymentProduct.CODE_COURSE.equals(t.getProductCode()));
+        return new CourseAccessDTO(true, CourseAccessDTO.PLAN_SELF,
+                firstStream ? PaymentProduct.CODE_COURSE : PaymentProduct.CODE_COURSE_STREAM_2);
     }
 
     private boolean hasAmoAccess(String email) {

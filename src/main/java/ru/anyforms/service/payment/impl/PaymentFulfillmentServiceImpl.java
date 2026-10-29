@@ -51,7 +51,7 @@ class PaymentFulfillmentServiceImpl implements PaymentFulfillmentService {
                         .build());
                 log.info("Поставлена таска на сделку АМО по гайду (транзакция {})", transaction.getId());
             }
-            case PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL -> {
+            case PaymentProduct.CODE_COURSE, PaymentProduct.CODE_COURSE_PERSONAL, PaymentProduct.CODE_COURSE_STREAM_2 -> {
                 taskAdder.addTask(CourseAmoLeadTaskPayload.builder()
                         .transactionId(transaction.getId())
                         .build());

@@ -40,4 +40,8 @@ public record PromoClient(String email, String phoneLast10, String deviceId) {
     public String deviceIdOrNull() {
         return deviceId.isEmpty() ? null : deviceId;
     }
+
+    public PromoClient contactOnly() {
+        return new PromoClient(email, phoneLast10, "");
+    }
 }

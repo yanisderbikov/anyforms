@@ -30,7 +30,7 @@ import java.util.Map;
 @RequestMapping("/api/mcp")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "Bearer")
-@Tag(name = "MCP", description = "API заказов под заказ для MCP")
+@Tag(name = "MCP", description = "API для MCP")
 public class McpCustomOrderController {
 
     private final McpCustomOrderReader reader;
@@ -77,13 +77,13 @@ public class McpCustomOrderController {
     @Operation(summary = "Заказы с позициями, готовыми к отправке")
     @GetMapping("/custom-items/ready-to-ship")
     public List<ShipGroupDTO> readyToShip() {
-        return itemService.getReadyToShipGroups();
+        return reader.groupsWithoutPhones(itemService.getReadyToShipGroups());
     }
 
     @Operation(summary = "Заказы с отправленными позициями, ещё не доставленные")
     @GetMapping("/custom-items/in-delivery")
     public List<ShipGroupDTO> inDelivery() {
-        return itemService.getInDeliveryGroups();
+        return reader.groupsWithoutPhones(itemService.getInDeliveryGroups());
     }
 
     @Operation(summary = "Кто моделирует: уникальные значения по всем позициям")
