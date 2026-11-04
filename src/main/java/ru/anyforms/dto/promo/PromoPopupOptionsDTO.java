@@ -8,8 +8,12 @@ import java.util.List;
 public record PromoPopupOptionsDTO(
         List<Option> responsibleUsers,
         List<Option> taskTypes,
-        String consentVersion
+        String consentVersion,
+        @Schema(description = "Продукты обучения для COURSE_AFTER_PURCHASE") List<Product> products
 ) {
     public record Option(Long id, String name) {
+    }
+
+    public record Product(String code, String title, Long priceKopecks) {
     }
 }

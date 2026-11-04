@@ -33,6 +33,8 @@ import ru.anyforms.service.payment.PaymentStatusConverter;
 import ru.anyforms.service.payment.PurchaseService;
 import ru.anyforms.service.payment.TinkoffService;
 import ru.anyforms.service.payment.YooKassaService;
+import ru.anyforms.service.promo.CoursePromoService;
+import ru.anyforms.service.promo.PromoClient;
 import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 import ru.anyforms.util.PhoneUtil;
@@ -68,6 +70,7 @@ class PurchaseServiceImpl implements PurchaseService {
     private final PaymentStatusConverter paymentStatusConverter;
     private final HttpServletRequest httpRequest;
     private final PromoClientChecker promoClientChecker;
+    private final CoursePromoService coursePromoService;
 
     @Value("${payment.default-domain}")
     private String defaultDomain;
@@ -89,7 +92,7 @@ class PurchaseServiceImpl implements PurchaseService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Продукт недоступен"));
 
         long basePriceKopecks = product.currentPriceKopecks();
-        PromoCode promo = resolvePromo(request, basePriceKopecks);
+        PromoCode promo = resolvePromo(request, product, basePriceKopecks);
         long priceKopecks = promo != null
                 ? MoneyUtil.applyPromoDiscount(basePriceKopecks, promo.getDiscountPercent(),
                         promo.getDiscountAmountKopecks())
@@ -190,7 +193,7 @@ class PurchaseServiceImpl implements PurchaseService {
     }
 
     /** Null, если код не передан; исключение, если передан, но невалиден — молча игнорировать нельзя. */
-    private PromoCode resolvePromo(PurchaseRequest request, long priceKopecks) {
+    private PromoCode resolvePromo(PurchaseRequest request, PaymentProduct product, long priceKopecks) {
         String rawCode = request.getPromoCode();
         if (rawCode == null || rawCode.isBlank()) {
             return null;
@@ -199,6 +202,13 @@ class PurchaseServiceImpl implements PurchaseService {
                 .orElseThrow(() -> new InvalidPromoCodeException("Промокод не найден: " + PromoCode.normalize(rawCode))));
         if (!promo.isCurrentlyValid()) {
             throw new InvalidPromoCodeException("Промокод недействителен или его срок истёк: " + promo.getCode());
+        }
+        if (promo.isProductOnly()) {
+            PromoClient client = PromoClient.of(request.getEmail(), request.getPhone(), null);
+            coursePromoService.checkoutRejection(promo, product, client).ifPresent(message -> {
+                throw new InvalidPromoCodeException(message);
+            });
+            return promo;
         }
         if (promo.getShopSlug() != null || promo.isPersonal()) {
             throw new InvalidPromoCodeException("Промокод " + promo.getCode() + " действует только в магазине.");

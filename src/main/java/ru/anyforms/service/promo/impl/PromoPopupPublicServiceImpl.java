@@ -270,7 +270,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
     }
 
     private Optional<PublicPromoPopupDTO> showFor(PromoPopup popup, PromoClient client, String shopSlug, Instant now) {
-        if (popup.isAfterPurchase()) {
+        if (popup.isSuccessPageBlock()) {
             return Optional.empty();
         }
         if (popup.hidesKnownContacts() && client.hasContact()) {

@@ -75,6 +75,9 @@ public class PromoCode {
     @Column(name = "first_order_only", nullable = false)
     private Boolean firstOrderOnly = Boolean.FALSE;
 
+    @Column(name = "product_code", length = 64)
+    private String productCode;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -114,6 +117,14 @@ public class PromoCode {
 
     private static boolean has(String value) {
         return value != null && !value.isBlank();
+    }
+
+    public boolean isProductOnly() {
+        return has(productCode);
+    }
+
+    public boolean isForProduct(String code) {
+        return productCode == null || productCode.equals(code);
     }
 
     public boolean allowedInShop(String shopSlug) {

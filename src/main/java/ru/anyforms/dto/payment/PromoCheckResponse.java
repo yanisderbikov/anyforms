@@ -50,4 +50,10 @@ public class PromoCheckResponse {
      */
     @JsonProperty("validUntil")
     private String validUntil;
+
+    @JsonProperty("personal")
+    private boolean personal;
+
+    @JsonProperty("productCode")
+    private String productCode;
 }

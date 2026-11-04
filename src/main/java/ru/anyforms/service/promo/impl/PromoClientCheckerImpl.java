@@ -71,6 +71,9 @@ class PromoClientCheckerImpl implements PromoClientChecker {
     private Optional<String> rejection(PromoCode promo, PromoClient client, String shopSlug, boolean exhausted) {
         String shop = shopSlug == null || shopSlug.isBlank() ? Shop.DEFAULT_SLUG : shopSlug.trim();
         String code = promo.getCode();
+        if (promo.isProductOnly()) {
+            return Optional.of("Промокод " + code + " действует только на курс anyforms — в магазине его применить нельзя.");
+        }
         if (!promo.allowedInShop(shop)) {
             return Optional.of("Промокод " + code + " действует только в другом магазине.");
         }

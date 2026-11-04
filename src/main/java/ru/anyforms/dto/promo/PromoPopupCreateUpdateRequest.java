@@ -99,6 +99,10 @@ public class PromoPopupCreateUpdateRequest {
 
     private Boolean firstOrderOnly;
 
+    @Size(max = 64, message = "Код продукта не длиннее 64 символов")
+    @Schema(description = "Для COURSE_AFTER_PURCHASE — продукт из payment_product, на который выдаётся скидка")
+    private String productCode;
+
     private Long amoResponsibleUserId;
 
     private Long amoTaskTypeId;

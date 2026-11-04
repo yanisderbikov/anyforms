@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.promo.AfterPurchasePromoDTO;
 import ru.anyforms.dto.promo.AfterPurchasePromoOutcome;
+import ru.anyforms.dto.promo.CoursePromoDTO;
+import ru.anyforms.dto.promo.CoursePromoOutcome;
 import ru.anyforms.dto.promo.PromoPopupActiveRequest;
 import ru.anyforms.dto.promo.PromoPopupClaimRequest;
 import ru.anyforms.dto.promo.PromoPopupAfterPurchaseRequest;
@@ -25,6 +27,7 @@ import ru.anyforms.dto.promo.PromoPopupIssueRequest;
 import ru.anyforms.dto.promo.PromoPopupViewRequest;
 import ru.anyforms.dto.promo.PublicPromoPopupDTO;
 import ru.anyforms.service.ClientIpResolver;
+import ru.anyforms.service.promo.CoursePromoService;
 import ru.anyforms.service.promo.PromoPopupPublicService;
 
 import java.util.Map;
@@ -38,6 +41,7 @@ import java.util.stream.Collectors;
 public class PublicPromoPopupController {
 
     private final PromoPopupPublicService promoPopupPublicService;
+    private final CoursePromoService coursePromoService;
     private final ClientIpResolver clientIpResolver;
 
     @Operation(summary = "Попап для посетителя витрины",
@@ -87,6 +91,21 @@ public class PublicPromoPopupController {
     public ResponseEntity<AfterPurchasePromoDTO> afterPurchase(@Valid @RequestBody PromoPopupAfterPurchaseRequest request,
                                                                HttpServletRequest httpRequest) {
         AfterPurchasePromoOutcome outcome = promoPopupPublicService.afterPurchase(request, clientIp(httpRequest));
+        return switch (outcome.status()) {
+            case READY -> ResponseEntity.ok(outcome.promo());
+            case AWAITING_PAYMENT -> ResponseEntity.status(HttpStatus.ACCEPTED).build();
+            case NONE -> ResponseEntity.noContent().build();
+        };
+    }
+
+    @Operation(summary = "Промокод на курс после оплаты заказа",
+            description = "Для оплаченного заказа выдаёт одноразовый код из попапа «скидка на курс после покупки»: "
+                    + "скидка равна сумме оплаченного заказа, код привязан к телефону и почте заказа, один код на заказ "
+                    + "(повторный запрос возвращает тот же код). 202 — оплата ещё не подтверждена; 204 — показывать нечего")
+    @PostMapping("/course-after-purchase")
+    public ResponseEntity<CoursePromoDTO> courseAfterPurchase(@Valid @RequestBody PromoPopupAfterPurchaseRequest request,
+                                                              HttpServletRequest httpRequest) {
+        CoursePromoOutcome outcome = coursePromoService.afterPurchase(request, clientIp(httpRequest));
         return switch (outcome.status()) {
             case READY -> ResponseEntity.ok(outcome.promo());
             case AWAITING_PAYMENT -> ResponseEntity.status(HttpStatus.ACCEPTED).build();
