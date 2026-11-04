@@ -56,6 +56,7 @@ class CoursePromoServiceImpl implements CoursePromoService {
     private static final Pattern ORDER_NUMBER = Pattern.compile("[A-Z0-9]{6}");
     private static final int MAX_PHONE_LENGTH = 32;
     private static final int MAX_IP_LENGTH = 64;
+    private static final long KOPECKS_PER_RUBLE = 100;
 
     private final GetterPromoPopup getterPromoPopup;
     private final GetterPromoPopupLead getterPromoPopupLead;
@@ -135,7 +136,8 @@ class CoursePromoServiceImpl implements CoursePromoService {
             return CoursePromoOutcome.none();
         }
         long paid = paidKopecks(order.getId());
-        long discount = discountFor(paid, popup.getDiscountAmountKopecks(), product.currentPriceKopecks());
+        long discount = discountFor(paid, popup.getDiscountPercent(), popup.getDiscountAmountKopecks(),
+                product.currentPriceKopecks());
         if (discount <= 0) {
             return CoursePromoOutcome.none();
         }
@@ -264,11 +266,10 @@ class CoursePromoServiceImpl implements CoursePromoService {
                 .sum();
     }
 
-    static long discountFor(long paidKopecks, Long maxDiscountKopecks, long coursePriceKopecks) {
-        long discount = paidKopecks;
-        if (maxDiscountKopecks != null) {
-            discount = Math.min(discount, maxDiscountKopecks);
-        }
+    static long discountFor(long paidKopecks, Integer percent, Long fixedKopecks, long coursePriceKopecks) {
+        long discount = fixedKopecks != null
+                ? fixedKopecks
+                : paidKopecks * (percent == null ? 0 : percent) / 100 / KOPECKS_PER_RUBLE * KOPECKS_PER_RUBLE;
         return Math.min(discount, coursePriceKopecks - MoneyUtil.MIN_PAYABLE_KOPECKS);
     }
 

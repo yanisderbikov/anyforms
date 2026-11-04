@@ -193,12 +193,17 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
         if (request.getCodeTtlDays() == null) {
             throw badRequest("Укажите срок действия кода");
         }
+        int percent = request.getDiscountPercent() == null ? 0 : request.getDiscountPercent();
+        Long fixedAmount = request.getDiscountAmountKopecks();
+        if ((percent > 0) == (fixedAmount != null)) {
+            throw badRequest("Укажите размер скидки: либо процент от заказа, либо фиксированную сумму");
+        }
         popup.setProductCode(product.getCode());
         popup.setPromoCodeId(null);
         popup.setSuccessTitle(null);
         popup.setSuccessText(null);
-        popup.setDiscountPercent(0);
-        popup.setDiscountAmountKopecks(request.getDiscountAmountKopecks());
+        popup.setDiscountPercent(percent);
+        popup.setDiscountAmountKopecks(fixedAmount);
         popup.setMinOrderKopecks(null);
         popup.setCodePrefix(PromoCode.normalize(request.getCodePrefix()));
         popup.setCodeTtlDays(request.getCodeTtlDays());

@@ -87,7 +87,7 @@ class CoursePromoServiceImplTest {
             .productCode(PaymentProduct.CODE_COURSE_STREAM_2)
             .codePrefix("COURSE")
             .codeTtlDays(90)
-            .discountPercent(0)
+            .discountPercent(100)
             .build();
 
     private final Order order = new Order();
@@ -195,10 +195,23 @@ class CoursePromoServiceImplTest {
     }
 
     @Test
-    void discountIsCappedByPopupAmountAndByCoursePrice() {
-        assertEquals(300_000L, CoursePromoServiceImpl.discountFor(500_000L, 300_000L, COURSE_PRICE));
-        assertEquals(500_000L, CoursePromoServiceImpl.discountFor(500_000L, null, COURSE_PRICE));
-        assertEquals(COURSE_PRICE - 100, CoursePromoServiceImpl.discountFor(2_000_000L, null, COURSE_PRICE));
+    void discountIsPercentOfOrderRoundedDownToRuble() {
+        assertEquals(500_000L, CoursePromoServiceImpl.discountFor(500_000L, 100, null, COURSE_PRICE));
+        assertEquals(50_000L, CoursePromoServiceImpl.discountFor(500_000L, 10, null, COURSE_PRICE));
+        assertEquals(33_300L, CoursePromoServiceImpl.discountFor(333_333L, 10, null, COURSE_PRICE));
+        assertEquals(0L, CoursePromoServiceImpl.discountFor(500_000L, 0, null, COURSE_PRICE));
+    }
+
+    @Test
+    void discountIsFixedAmountRegardlessOfOrderSum() {
+        assertEquals(300_000L, CoursePromoServiceImpl.discountFor(100_000L, 0, 300_000L, COURSE_PRICE));
+        assertEquals(300_000L, CoursePromoServiceImpl.discountFor(900_000L, 0, 300_000L, COURSE_PRICE));
+    }
+
+    @Test
+    void discountNeverReachesCoursePrice() {
+        assertEquals(COURSE_PRICE - 100, CoursePromoServiceImpl.discountFor(2_000_000L, 100, null, COURSE_PRICE));
+        assertEquals(COURSE_PRICE - 100, CoursePromoServiceImpl.discountFor(100_000L, 0, 2_000_000L, COURSE_PRICE));
     }
 
     @Test

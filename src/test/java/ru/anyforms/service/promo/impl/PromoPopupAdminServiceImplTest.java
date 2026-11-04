@@ -163,13 +163,45 @@ class PromoPopupAdminServiceImplTest {
     }
 
     @Test
-    void courseAfterPurchasePopupBindsProductAndUsesAmountAsCap() {
+    void courseAfterPurchasePopupStoresPercentOfOrder() {
         when(getterPaymentProduct.getByCode("COURSE_STREAM_2")).thenReturn(Optional.of(PaymentProduct.builder()
                 .code("COURSE_STREAM_2").title("Курс").priceKopecks(1_690_000L).active(true).build()));
 
         service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
                 .productCode("COURSE_STREAM_2")
                 .discountPercent(15)
+                .codePrefix("MOLD")
+                .codeTtlDays(90)
+                .build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup).save(saved.capture());
+        assertEquals(15, saved.getValue().getDiscountPercent());
+        assertNull(saved.getValue().getDiscountAmountKopecks());
+        assertEquals("MOLD", saved.getValue().getCodePrefix());
+    }
+
+    @Test
+    void courseAfterPurchasePopupRequiresExactlyOneDiscountKind() {
+        when(getterPaymentProduct.getByCode("COURSE_STREAM_2")).thenReturn(Optional.of(PaymentProduct.builder()
+                .code("COURSE_STREAM_2").title("Курс").priceKopecks(1_690_000L).active(true).build()));
+
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2").codePrefix("COURSE").codeTtlDays(90)
+                .discountPercent(15).discountAmountKopecks(1_000_000L).build()));
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2").codePrefix("COURSE").codeTtlDays(90)
+                .discountPercent(0).build()));
+        verify(saverPromoPopup, never()).save(any());
+    }
+
+    @Test
+    void courseAfterPurchasePopupBindsProductAndStoresFixedAmount() {
+        when(getterPaymentProduct.getByCode("COURSE_STREAM_2")).thenReturn(Optional.of(PaymentProduct.builder()
+                .code("COURSE_STREAM_2").title("Курс").priceKopecks(1_690_000L).active(true).build()));
+
+        service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2")
                 .discountAmountKopecks(1_000_000L)
                 .minOrderKopecks(5_000L)
                 .codePrefix("course")
