@@ -21,6 +21,8 @@ import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.OrderSource;
 import ru.anyforms.model.marketplace.Shop;
+import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.model.promo.PromoPopupLead;
@@ -29,6 +31,7 @@ import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterPromoPopupLead;
 import ru.anyforms.repository.GetterPromoPopupView;
+import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.repository.SaverPromoPopupLead;
@@ -75,6 +78,7 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
     private final SaverPromoCode saverPromoCode;
     private final PromoClientChecker promoClientChecker;
     private final OrderRepository orderRepository;
+    private final GetterTransaction getterTransaction;
     private final TaskAdder taskAdder;
     private final ClaimRateLimiter claimRateLimiter;
     private final TransactionLock transactionLock;
@@ -220,8 +224,10 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                 ? Shop.DEFAULT_SLUG
                 : order.getShop().getSlug();
         Instant now = Instant.now();
+        long paid = paidKopecks(order.getId());
         Optional<PromoPopup> live = getterPromoPopup.getLive(shopSlug, now).stream()
                 .filter(PromoPopup::isAfterPurchase)
+                .filter(p -> p.matchesOrderSum(paid))
                 .findFirst();
         if (live.isEmpty()) {
             return AfterPurchasePromoOutcome.none();
@@ -302,6 +308,13 @@ class PromoPopupPublicServiceImpl implements PromoPopupPublicService {
                     : Optional.empty();
         }
         return issued.isPresent() ? Optional.empty() : Optional.of(PublicPromoPopupDTO.forContact(popup, consentVersion));
+    }
+
+    private long paidKopecks(Long orderId) {
+        return getterTransaction.getByOrderId(orderId).stream()
+                .filter(t -> t.getStatus() == PaymentTransactionStatus.SUCCEEDED)
+                .mapToLong(PaymentTransaction::getAmount)
+                .sum();
     }
 
     private boolean reachedClientLimit(PromoPopup popup, PromoClient client) {

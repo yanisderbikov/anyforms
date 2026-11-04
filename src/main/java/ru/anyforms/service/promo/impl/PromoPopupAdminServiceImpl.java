@@ -176,6 +176,17 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
             case COURSE_AFTER_PURCHASE -> applyCourseAfterPurchase(popup, request);
             case CONTACT -> applyGeneratedCode(popup, request, true);
         }
+        applyOrderSumRange(popup, request);
+    }
+
+    private void applyOrderSumRange(PromoPopup popup, PromoPopupCreateUpdateRequest request) {
+        Long from = popup.isSuccessPageBlock() ? request.getOrderSumFromKopecks() : null;
+        Long to = popup.isSuccessPageBlock() ? request.getOrderSumToKopecks() : null;
+        if (from != null && to != null && from > to) {
+            throw badRequest("Сумма заказа «от» не может быть больше суммы «до»");
+        }
+        popup.setOrderSumFromKopecks(from);
+        popup.setOrderSumToKopecks(to);
     }
 
     private void applyCourseAfterPurchase(PromoPopup popup, PromoPopupCreateUpdateRequest request) {

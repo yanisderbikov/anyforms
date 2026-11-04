@@ -20,6 +20,8 @@ import ru.anyforms.dto.promo.PublicPromoPopupDTO;
 import ru.anyforms.model.Order;
 import ru.anyforms.model.OrderPaymentStatus;
 import ru.anyforms.model.OrderSource;
+import ru.anyforms.model.payment.PaymentTransaction;
+import ru.anyforms.model.payment.PaymentTransactionStatus;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.model.promo.PromoPopupLead;
@@ -29,6 +31,7 @@ import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterPromoPopupLead;
 import ru.anyforms.repository.GetterPromoPopupView;
+import ru.anyforms.repository.GetterTransaction;
 import ru.anyforms.repository.OrderRepository;
 import ru.anyforms.repository.SaverPromoCode;
 import ru.anyforms.repository.SaverPromoPopupLead;
@@ -77,13 +80,15 @@ class PromoPopupPublicServiceImplTest {
     private final SaverPromoCode saverPromoCode = mock(SaverPromoCode.class);
     private final PromoClientChecker checker = mock(PromoClientChecker.class);
     private final OrderRepository orderRepository = mock(OrderRepository.class);
+    private final GetterTransaction getterTransaction = mock(GetterTransaction.class);
     private final TaskAdder taskAdder = mock(TaskAdder.class);
     private final ClaimRateLimiter claimRateLimiter = mock(ClaimRateLimiter.class);
     private final TransactionLock transactionLock = mock(TransactionLock.class);
 
     private final PromoPopupPublicServiceImpl service = new PromoPopupPublicServiceImpl(
             getterPromoPopup, getterPromoPopupLead, saverPromoPopupLead, getterPromoPopupView, saverPromoPopupView,
-            getterPromoCode, saverPromoCode, checker, orderRepository, taskAdder, claimRateLimiter, transactionLock);
+            getterPromoCode, saverPromoCode, checker, orderRepository, getterTransaction, taskAdder, claimRateLimiter,
+            transactionLock);
 
     private PromoPopup contactPopup;
     private PromoPopup uniquePopup;
@@ -611,6 +616,23 @@ class PromoPopupPublicServiceImplTest {
 
         when(checker.usedCode(eq("NEXT-AAAAA"), any())).thenReturn(true);
         assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+    }
+
+    @Test
+    void afterPurchaseIssuesNothingWhenOrderSumIsOutsideTheRange() {
+        paidOrder(OrderPaymentStatus.PAID);
+        when(getterTransaction.getByOrderId(42L)).thenReturn(List.of(
+                PaymentTransaction.builder().status(PaymentTransactionStatus.SUCCEEDED).amount(300_000L).orderId(42L).build(),
+                PaymentTransaction.builder().status(PaymentTransactionStatus.CANCELED).amount(900_000L).orderId(42L).build()));
+        afterPurchasePopup.setOrderSumFromKopecks(500_000L);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(afterPurchasePopup));
+
+        assertEquals(AfterPurchasePromoOutcome.Status.NONE, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
+        verify(saverPromoCode, never()).save(any());
+
+        afterPurchasePopup.setOrderSumFromKopecks(100_000L);
+        afterPurchasePopup.setOrderSumToKopecks(300_000L);
+        assertEquals(AfterPurchasePromoOutcome.Status.READY, service.afterPurchase(afterPurchaseRequest(), "1.2.3.4").status());
     }
 
     @Test

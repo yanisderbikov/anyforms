@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -179,6 +180,31 @@ class PromoPopupAdminServiceImplTest {
         assertEquals(15, saved.getValue().getDiscountPercent());
         assertNull(saved.getValue().getDiscountAmountKopecks());
         assertEquals("MOLD", saved.getValue().getCodePrefix());
+    }
+
+    @Test
+    void successBlockStoresOrderSumRangeAndOtherTypesDropIt() {
+        service.create(base(PromoPopupType.AFTER_PURCHASE)
+                .discountPercent(10).codePrefix("NEXT").codeTtlDays(14)
+                .orderSumFromKopecks(100_000L).orderSumToKopecks(500_000L).build());
+        service.create(base(PromoPopupType.UNIQUE_CODE)
+                .discountPercent(10).codePrefix("ONE").codeTtlDays(14)
+                .orderSumFromKopecks(100_000L).orderSumToKopecks(500_000L).build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup, times(2)).save(saved.capture());
+        assertEquals(100_000L, saved.getAllValues().get(0).getOrderSumFromKopecks());
+        assertEquals(500_000L, saved.getAllValues().get(0).getOrderSumToKopecks());
+        assertNull(saved.getAllValues().get(1).getOrderSumFromKopecks());
+        assertNull(saved.getAllValues().get(1).getOrderSumToKopecks());
+    }
+
+    @Test
+    void orderSumFromCannotExceedTo() {
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.AFTER_PURCHASE)
+                .discountPercent(10).codePrefix("NEXT").codeTtlDays(14)
+                .orderSumFromKopecks(500_000L).orderSumToKopecks(100_000L).build()));
+        verify(saverPromoPopup, never()).save(any());
     }
 
     @Test

@@ -97,8 +97,10 @@ class CoursePromoServiceImpl implements CoursePromoService {
         String shopSlug = order.getShop() == null || order.getShop().getSlug() == null
                 ? Shop.DEFAULT_SLUG
                 : order.getShop().getSlug();
+        long paid = paidKopecks(order.getId());
         Optional<PromoPopup> live = getterPromoPopup.getLive(shopSlug, Instant.now()).stream()
                 .filter(PromoPopup::isCourseAfterPurchase)
+                .filter(p -> p.matchesOrderSum(paid))
                 .findFirst();
         if (live.isEmpty()) {
             return CoursePromoOutcome.none();
@@ -135,7 +137,6 @@ class CoursePromoServiceImpl implements CoursePromoService {
                     popup.getId(), order.getPublicId(), popup.getMaxShows());
             return CoursePromoOutcome.none();
         }
-        long paid = paidKopecks(order.getId());
         long discount = discountFor(paid, popup.getDiscountPercent(), popup.getDiscountAmountKopecks(),
                 product.currentPriceKopecks());
         if (discount <= 0) {

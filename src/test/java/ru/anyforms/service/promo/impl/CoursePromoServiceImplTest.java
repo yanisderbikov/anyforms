@@ -195,6 +195,31 @@ class CoursePromoServiceImplTest {
     }
 
     @Test
+    void nothingIssuedWhenOrderSumIsOutsideTheRange() {
+        popup.setOrderSumFromKopecks(600_000L);
+        assertEquals(CoursePromoOutcome.Status.NONE, service.afterPurchase(request(), null).status());
+
+        popup.setOrderSumFromKopecks(null);
+        popup.setOrderSumToKopecks(400_000L);
+        assertEquals(CoursePromoOutcome.Status.NONE, service.afterPurchase(request(), null).status());
+        verify(saverPromoCode, never()).save(any());
+    }
+
+    @Test
+    void popupIsChosenByOrderSumRangeWithBoundsIncluded() {
+        PromoPopup small = PromoPopup.builder().id(UUID.randomUUID()).popupType(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .orderSumToKopecks(499_999L).build();
+        popup.setOrderSumFromKopecks(500_000L);
+        popup.setOrderSumToKopecks(500_000L);
+        when(getterPromoPopup.getLive(eq("anyforms"), any())).thenReturn(List.of(small, popup));
+
+        CoursePromoOutcome outcome = service.afterPurchase(request(), null);
+
+        assertEquals(CoursePromoOutcome.Status.READY, outcome.status());
+        assertEquals(POPUP_ID, outcome.promo().popupId());
+    }
+
+    @Test
     void discountIsPercentOfOrderRoundedDownToRuble() {
         assertEquals(500_000L, CoursePromoServiceImpl.discountFor(500_000L, 100, null, COURSE_PRICE));
         assertEquals(50_000L, CoursePromoServiceImpl.discountFor(500_000L, 10, null, COURSE_PRICE));

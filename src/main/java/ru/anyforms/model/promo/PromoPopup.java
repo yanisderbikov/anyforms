@@ -98,6 +98,12 @@ public class PromoPopup {
     @Column(name = "product_code", length = 64)
     private String productCode;
 
+    @Column(name = "order_sum_from_kopecks")
+    private Long orderSumFromKopecks;
+
+    @Column(name = "order_sum_to_kopecks")
+    private Long orderSumToKopecks;
+
     @Column(name = "amo_responsible_user_id")
     private Long amoResponsibleUserId;
 
@@ -137,6 +143,11 @@ public class PromoPopup {
 
     public boolean isSuccessPageBlock() {
         return isAfterPurchase() || isCourseAfterPurchase();
+    }
+
+    public boolean matchesOrderSum(long paidKopecks) {
+        return (orderSumFromKopecks == null || paidKopecks >= orderSumFromKopecks)
+                && (orderSumToKopecks == null || paidKopecks <= orderSumToKopecks);
     }
 
     public boolean issuesCodes() {
