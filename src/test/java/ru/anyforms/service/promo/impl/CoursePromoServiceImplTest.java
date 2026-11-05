@@ -123,6 +123,35 @@ class CoursePromoServiceImplTest {
     }
 
     @Test
+    void issueForOrderIssuesCodeWithoutRateLimit() {
+        CoursePromoOutcome outcome = service.issueForOrder(ORDER_NUMBER);
+
+        assertEquals(CoursePromoOutcome.Status.READY, outcome.status());
+        assertEquals(500_000L, outcome.promo().discountKopecks());
+        verify(rateLimiter, never()).tryAcquire(anyString(), eq(ClaimRateLimiter.ISSUE_ATTEMPTS));
+    }
+
+    @Test
+    void issueForOrderReturnsCodeAlreadyShownOnSuccessPage() {
+        PromoCode issued = courseCode();
+        when(getterLead.getLatestForOrder(POPUP_ID, 42L)).thenReturn(Optional.of(
+                PromoPopupLead.builder().popupId(POPUP_ID).promoCodeId(issued.getId()).build()));
+        when(getterPromoCode.getById(issued.getId())).thenReturn(Optional.of(issued));
+
+        CoursePromoOutcome outcome = service.issueForOrder(ORDER_NUMBER);
+
+        assertEquals(issued.getCode(), outcome.promo().code());
+        verify(saverPromoCode, never()).save(any());
+    }
+
+    @Test
+    void issueForOrderWithoutPaymentHasNoOffer() {
+        order.setPaymentStatus(OrderPaymentStatus.AWAITING_PAYMENT);
+
+        assertNull(service.issueForOrder(ORDER_NUMBER).promo());
+    }
+
+    @Test
     void issuesSingleUseCodeForPaidAmountBoundToPhoneAndEmail() {
         CoursePromoOutcome outcome = service.afterPurchase(request(), "1.1.1.1");
 

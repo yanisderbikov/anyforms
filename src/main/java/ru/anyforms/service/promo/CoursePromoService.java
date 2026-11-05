@@ -11,6 +11,8 @@ public interface CoursePromoService {
 
     CoursePromoOutcome afterPurchase(PromoPopupAfterPurchaseRequest request, String ip);
 
+    CoursePromoOutcome issueForOrder(String orderPublicId);
+
     Optional<String> previewRejection(PromoCode promo, PaymentProduct product, PromoClient client);
 
     Optional<String> checkoutRejection(PromoCode promo, PaymentProduct product, PromoClient client);

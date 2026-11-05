@@ -2,12 +2,15 @@ package ru.anyforms.service.email;
 
 import ru.anyforms.dto.email.DeliveryStatusEmailPayload;
 import ru.anyforms.dto.email.MarketplaceOrderEmailPayload;
+import ru.anyforms.dto.promo.CoursePromoDTO;
 import ru.anyforms.model.DeliveryNotification;
 import ru.anyforms.model.marketplace.Shop;
+import ru.anyforms.service.promo.PromoDiscountFormatter;
 import ru.anyforms.util.MoneyUtil;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -68,12 +71,19 @@ public final class EmailTemplate {
      * Ссылка поддержки — бот магазина заказа; старые таски без полей получают вариант anyforms.
      */
     public static String getMarketplaceOrderEmail(MarketplaceOrderEmailPayload payload) {
+        return getMarketplaceOrderEmail(payload, null);
+    }
+
+    public static String getMarketplaceOrderEmail(MarketplaceOrderEmailPayload payload, CoursePromoDTO courseOffer) {
         String supportTelegram = payload.getSupportTelegram() == null || payload.getSupportTelegram().isBlank()
                 ? Shop.DEFAULT_SUPPORT_TELEGRAM
                 : payload.getSupportTelegram();
         String slug = normalizeSlug(payload.getShopSlug());
         return loadMarketplaceOrderTemplate(slug)
                 .replace("%ORDER%", esc(payload.getOrderPublicId() == null ? "" : payload.getOrderPublicId().toUpperCase()))
+                .replace("%COURSE_OFFER%", buildCourseOffer(courseOffer, slug))
+                .replace("%OFFER_PREHEADER%", buildOfferPreheader(courseOffer))
+                .replace("%ITEMS_COUNT%", itemsCount(payload.getItems()))
                 .replace("%ROWS%", buildRows(payload.getItems(), SHOP_ROW_STYLES.getOrDefault(slug, DEFAULT_ROW_STYLE)))
                 .replace("%TOTAL%", formatRub(payload.getTotalRub()))
                 .replace("%PVZ%", esc(buildPvz(payload)))
@@ -97,12 +107,106 @@ public final class EmailTemplate {
     private record RowStyle(String border, String name, String qty, String price, String sidePadding) {
     }
 
-    private static final RowStyle DEFAULT_ROW_STYLE = new RowStyle("#ececec", "#111111", "#8c8c8c", "#111111", "22px");
+    private static final RowStyle DEFAULT_ROW_STYLE = new RowStyle("#e2e2e2", "#6f6f6f", "#6f6f6f", "#6f6f6f", "22px");
 
     private static final Map<String, RowStyle> SHOP_ROW_STYLES = Map.of(
             "af_pastry", new RowStyle("#eadfcd", "#4a2e35", "#a08d80", "#4a2e35", "0"),
             "di_gips", new RowStyle("#f2dfe6", "#5f4c45", "#b39a8f", "#b44e70", "0"),
             "lunasvecha", new RowStyle("#e7e0d2", "#4a3c32", "#a89c90", "#4a3423", "0"));
+
+    private record OfferStyle(String background, String muted) {
+    }
+
+    private static final OfferStyle DEFAULT_OFFER_STYLE = new OfferStyle("#111111", "#bdbdbd");
+
+    private static final Map<String, OfferStyle> SHOP_OFFER_STYLES = Map.of(
+            "af_pastry", new OfferStyle("#572631", "#e3cfd4"),
+            "di_gips", new OfferStyle("#b44e70", "#fbe8ef"),
+            "lunasvecha", new OfferStyle("#4a3423", "#d8cdbf"));
+
+    private static final String OFFER_TEXT_ROW = """
+                            <tr>
+                                <td class="font" style="padding:8px 24px 0 24px; font-size:14px; line-height:1.5; white-space:pre-line; color:%OFFER_MUTED%;">%TEXT%</td>
+                            </tr>""";
+
+    private static String buildCourseOffer(CoursePromoDTO offer, String slug) {
+        if (offer == null) {
+            return "";
+        }
+        OfferStyle style = SHOP_OFFER_STYLES.getOrDefault(slug, DEFAULT_OFFER_STYLE);
+        String text = offer.description() == null || offer.description().isBlank()
+                ? ""
+                : OFFER_TEXT_ROW.replace("%TEXT%", fillOfferText(offer.description(), offer));
+        String button = offer.buttonText() == null || offer.buttonText().isBlank()
+                ? "Открыть курс со скидкой"
+                : offer.buttonText();
+        return load("templates/email-course-offer-block.html")
+                .replace("%OFFER_TEXT%", text)
+                .replace("%OFFER_BG%", style.background())
+                .replace("%OFFER_MUTED%", style.muted())
+                .replace("%OFFER_AMOUNT%", esc(MoneyUtil.formatRubles(offer.discountKopecks())))
+                .replace("%OFFER_TITLE%", fillOfferText(offer.title(), offer))
+                .replace("%OFFER_CODE%", esc(offer.code()))
+                .replace("%OFFER_LINK%", COURSE_PROMO_URL + URLEncoder.encode(offer.code(), StandardCharsets.UTF_8))
+                .replace("%OFFER_BUTTON%", esc(button))
+                .replace("%OFFER_NOTE%", offerNote(offer));
+    }
+
+    private static String buildOfferPreheader(CoursePromoDTO offer) {
+        return offer == null
+                ? ""
+                : " Внутри подарок: скидка " + esc(MoneyUtil.formatRubles(offer.discountKopecks())) + " на курс.";
+    }
+
+    private static String offerNote(CoursePromoDTO offer) {
+        List<String> parts = new ArrayList<>();
+        parts.add("Одноразовый");
+        parts.add(offer.phoneTail() == null
+                ? "только для телефона и почты из этого заказа"
+                : "только для номера …" + esc(offer.phoneTail()));
+        String lastDay = offerLastDay(offer);
+        if (!lastDay.isEmpty()) {
+            parts.add("действует по " + lastDay);
+        }
+        return String.join(", ", parts) + ". По кнопке скидка применится сама.";
+    }
+
+    private static String fillOfferText(String text, CoursePromoDTO offer) {
+        return esc(text)
+                .replace("{discount}", esc(MoneyUtil.formatRubles(offer.discountKopecks())))
+                .replace("{price}", esc(MoneyUtil.formatRubles(offer.discountedPriceKopecks())))
+                .replace("{oldPrice}", esc(MoneyUtil.formatRubles(offer.coursePriceKopecks())))
+                .replace("{days}", offer.codeTtlDays() == null ? "" : offer.codeTtlDays() + " " + pluralDays(offer.codeTtlDays()))
+                .replace("{until}", offerLastDay(offer))
+                .replace("{code}", esc(offer.code()))
+                .replace("{minOrder}", "");
+    }
+
+    private static String offerLastDay(CoursePromoDTO offer) {
+        return offer.validUntil() == null
+                ? ""
+                : esc(PromoDiscountFormatter.lastValidDay(Instant.parse(offer.validUntil())));
+    }
+
+    private static String itemsCount(List<MarketplaceOrderEmailPayload.Item> items) {
+        int count = items == null
+                ? 0
+                : items.stream().mapToInt(i -> i.getQuantity() == null ? 1 : i.getQuantity()).sum();
+        return count + " " + plural(count, "товар", "товара", "товаров");
+    }
+
+    private static String pluralDays(int days) {
+        return plural(days, "день", "дня", "дней");
+    }
+
+    private static String plural(int n, String one, String few, String many) {
+        int mod10 = n % 10;
+        int mod100 = n % 100;
+        if (mod10 == 1 && mod100 != 11) {
+            return one;
+        }
+        return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
+    }
 
     private static String normalizeSlug(String slug) {
         return slug != null && slug.matches("[a-z0-9_-]+") ? slug : Shop.DEFAULT_SLUG;
@@ -159,6 +263,8 @@ public final class EmailTemplate {
         }
         return sb.toString();
     }
+
+    private static final String COURSE_PROMO_URL = "https://anyforms.ru/course?promo=";
 
     private static final String CDEK_TRACKING_URL = "https://www.cdek.ru/ru/tracking?order_id=";
 

@@ -85,6 +85,16 @@ class CoursePromoServiceImpl implements CoursePromoService {
         if (!ORDER_NUMBER.matcher(orderNumber).matches()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден.");
         }
+        return issue(orderNumber, ip);
+    }
+
+    @Override
+    @Transactional
+    public CoursePromoOutcome issueForOrder(String orderPublicId) {
+        return issue(orderPublicId, null);
+    }
+
+    private CoursePromoOutcome issue(String orderNumber, String ip) {
         Order order = orderRepository.findByPublicId(orderNumber)
                 .filter(o -> o.getSource() == OrderSource.MARKETPLACE)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Заказ не найден."));
