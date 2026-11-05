@@ -237,4 +237,21 @@ interface TransactionRepo extends JpaRepository<PaymentTransaction, UUID> {
                                      @Param("email") String email,
                                      @Param("phoneLast10") String phoneLast10,
                                      @Param("since") Instant since);
+
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM payment_transaction pt
+                LEFT JOIN orders o ON o.id = pt.order_id
+                WHERE pt.product_code IN (:productCodes)
+                  AND pt.status = 'SUCCEEDED'
+                  AND ((:email <> '' AND lower(coalesce(pt.email, '')) = lower(:email))
+                       OR (:phoneLast10 <> ''
+                           AND right(regexp_replace(coalesce(o.contact_phone, pt.contact_phone, ''), '\\D', '', 'g'), 10)
+                               = :phoneLast10))
+            )
+            """, nativeQuery = true)
+    boolean customerPaidAnyProduct(@Param("productCodes") Collection<String> productCodes,
+                                   @Param("email") String email,
+                                   @Param("phoneLast10") String phoneLast10);
 }

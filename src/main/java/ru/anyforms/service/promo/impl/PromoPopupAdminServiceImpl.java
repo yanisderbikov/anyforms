@@ -13,9 +13,11 @@ import ru.anyforms.dto.promo.PromoPopupOptionsDTO;
 import ru.anyforms.model.amo.AmoTaskId;
 import ru.anyforms.model.amo.AmoTaskResponsibleUser;
 import ru.anyforms.model.marketplace.Shop;
+import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.payment.PromoCode;
 import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.model.promo.PromoPopupType;
+import ru.anyforms.repository.GetterPaymentProduct;
 import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterPromoPopupLead;
@@ -47,6 +49,7 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
     private final GetterPromoCode getterPromoCode;
     private final GetterPromoPopupView getterPromoPopupView;
     private final GetterTransaction getterTransaction;
+    private final GetterPaymentProduct getterPaymentProduct;
 
     @Value("${promo.popup.consent-version}")
     private String consentVersion;
@@ -124,7 +127,12 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
                 .filter(t -> t.getTaskId() != null)
                 .map(t -> new PromoPopupOptionsDTO.Option(t.getTaskId(), t.getName()))
                 .toList();
-        return new PromoPopupOptionsDTO(users, taskTypes, consentVersion);
+        List<PromoPopupOptionsDTO.Product> products = getterPaymentProduct.getAllActive().stream()
+                .filter(p -> !PaymentProduct.CODE_MARKETPLACE_CART.equals(p.getCode())
+                        && !PaymentProduct.CODE_MANUAL_INVOICE.equals(p.getCode()))
+                .map(p -> new PromoPopupOptionsDTO.Product(p.getCode(), p.getTitle(), p.currentPriceKopecks()))
+                .toList();
+        return new PromoPopupOptionsDTO(users, taskTypes, consentVersion, products);
     }
 
     private PromoCode promoOf(PromoPopup popup) {
@@ -160,12 +168,63 @@ class PromoPopupAdminServiceImpl implements PromoPopupAdminService {
                 ? request.getHideForKnownContacts()
                 : request.getPopupType() != PromoPopupType.PUBLIC_CODE);
 
+        popup.setProductCode(null);
         switch (request.getPopupType()) {
             case PUBLIC_CODE -> applyPublicCode(popup, request, shopSlug);
             case UNIQUE_CODE -> applyGeneratedCode(popup, request, false);
             case AFTER_PURCHASE -> applyAfterPurchase(popup, request);
+            case COURSE_AFTER_PURCHASE -> applyCourseAfterPurchase(popup, request);
             case CONTACT -> applyGeneratedCode(popup, request, true);
         }
+        applyOrderSumRange(popup, request);
+    }
+
+    private void applyOrderSumRange(PromoPopup popup, PromoPopupCreateUpdateRequest request) {
+        Long from = popup.isSuccessPageBlock() ? request.getOrderSumFromKopecks() : null;
+        Long to = popup.isSuccessPageBlock() ? request.getOrderSumToKopecks() : null;
+        if (from != null && to != null && from > to) {
+            throw badRequest("Сумма заказа «от» не может быть больше суммы «до»");
+        }
+        popup.setOrderSumFromKopecks(from);
+        popup.setOrderSumToKopecks(to);
+    }
+
+    private void applyCourseAfterPurchase(PromoPopup popup, PromoPopupCreateUpdateRequest request) {
+        if (request.getProductCode() == null || request.getProductCode().isBlank()) {
+            throw badRequest("Выберите продукт, на который выдаётся скидка");
+        }
+        PaymentProduct product = getterPaymentProduct.getByCode(request.getProductCode().trim())
+                .orElseThrow(() -> badRequest("Продукт " + request.getProductCode().trim() + " не найден"));
+        if (!Boolean.TRUE.equals(product.getActive())) {
+            throw badRequest("Продукт «" + product.getTitle() + "» выключен — скидку на него выдать нельзя");
+        }
+        if (request.getCodePrefix() == null || request.getCodePrefix().isBlank()) {
+            throw badRequest("Укажите префикс кода");
+        }
+        if (request.getCodeTtlDays() == null) {
+            throw badRequest("Укажите срок действия кода");
+        }
+        int percent = request.getDiscountPercent() == null ? 0 : request.getDiscountPercent();
+        Long fixedAmount = request.getDiscountAmountKopecks();
+        if ((percent > 0) == (fixedAmount != null)) {
+            throw badRequest("Укажите размер скидки: либо процент от заказа, либо фиксированную сумму");
+        }
+        popup.setProductCode(product.getCode());
+        popup.setPromoCodeId(null);
+        popup.setSuccessTitle(null);
+        popup.setSuccessText(null);
+        popup.setDiscountPercent(percent);
+        popup.setDiscountAmountKopecks(fixedAmount);
+        popup.setMinOrderKopecks(null);
+        popup.setCodePrefix(PromoCode.normalize(request.getCodePrefix()));
+        popup.setCodeTtlDays(request.getCodeTtlDays());
+        popup.setFirstOrderOnly(false);
+        popup.setHideForKnownContacts(false);
+        popup.setDelaySeconds(0);
+        popup.setRepeatAfterHours(0);
+        popup.setAmoResponsibleUserId(null);
+        popup.setAmoTaskTypeId(null);
+        popup.setAmoTaskDeadlineMinutes(DEFAULT_TASK_DEADLINE_MINUTES);
     }
 
     private void applyAfterPurchase(PromoPopup popup, PromoPopupCreateUpdateRequest request) {

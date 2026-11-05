@@ -8,8 +8,10 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.anyforms.dto.promo.PromoPopupCreateUpdateRequest;
 import ru.anyforms.dto.promo.PromoPopupDTO;
 import ru.anyforms.model.payment.PromoCode;
+import ru.anyforms.model.payment.PaymentProduct;
 import ru.anyforms.model.promo.PromoPopup;
 import ru.anyforms.model.promo.PromoPopupType;
+import ru.anyforms.repository.GetterPaymentProduct;
 import ru.anyforms.repository.GetterPromoCode;
 import ru.anyforms.repository.GetterPromoPopup;
 import ru.anyforms.repository.GetterPromoPopupLead;
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,10 +47,11 @@ class PromoPopupAdminServiceImplTest {
     private final GetterPromoCode getterPromoCode = mock(GetterPromoCode.class);
     private final GetterPromoPopupView getterPromoPopupView = mock(GetterPromoPopupView.class);
     private final GetterTransaction getterTransaction = mock(GetterTransaction.class);
+    private final GetterPaymentProduct getterPaymentProduct = mock(GetterPaymentProduct.class);
 
     private final PromoPopupAdminServiceImpl service = new PromoPopupAdminServiceImpl(
             getterPromoPopup, saverPromoPopup, promoPopupDeleter, getterPromoPopupLead, getterPromoCode,
-            getterPromoPopupView, getterTransaction);
+            getterPromoPopupView, getterTransaction, getterPaymentProduct);
 
     @BeforeEach
     void setUp() {
@@ -157,6 +161,106 @@ class PromoPopupAdminServiceImplTest {
         assertEquals(0, popup.getRepeatAfterHours());
         assertEquals(3, popup.getMaxShows());
         assertNull(popup.getAmoResponsibleUserId());
+    }
+
+    @Test
+    void courseAfterPurchasePopupStoresPercentOfOrder() {
+        when(getterPaymentProduct.getByCode("COURSE_STREAM_2")).thenReturn(Optional.of(PaymentProduct.builder()
+                .code("COURSE_STREAM_2").title("Курс").priceKopecks(1_690_000L).active(true).build()));
+
+        service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2")
+                .discountPercent(15)
+                .codePrefix("MOLD")
+                .codeTtlDays(90)
+                .build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup).save(saved.capture());
+        assertEquals(15, saved.getValue().getDiscountPercent());
+        assertNull(saved.getValue().getDiscountAmountKopecks());
+        assertEquals("MOLD", saved.getValue().getCodePrefix());
+    }
+
+    @Test
+    void successBlockStoresOrderSumRangeAndOtherTypesDropIt() {
+        service.create(base(PromoPopupType.AFTER_PURCHASE)
+                .discountPercent(10).codePrefix("NEXT").codeTtlDays(14)
+                .orderSumFromKopecks(100_000L).orderSumToKopecks(500_000L).build());
+        service.create(base(PromoPopupType.UNIQUE_CODE)
+                .discountPercent(10).codePrefix("ONE").codeTtlDays(14)
+                .orderSumFromKopecks(100_000L).orderSumToKopecks(500_000L).build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup, times(2)).save(saved.capture());
+        assertEquals(100_000L, saved.getAllValues().get(0).getOrderSumFromKopecks());
+        assertEquals(500_000L, saved.getAllValues().get(0).getOrderSumToKopecks());
+        assertNull(saved.getAllValues().get(1).getOrderSumFromKopecks());
+        assertNull(saved.getAllValues().get(1).getOrderSumToKopecks());
+    }
+
+    @Test
+    void orderSumFromCannotExceedTo() {
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.AFTER_PURCHASE)
+                .discountPercent(10).codePrefix("NEXT").codeTtlDays(14)
+                .orderSumFromKopecks(500_000L).orderSumToKopecks(100_000L).build()));
+        verify(saverPromoPopup, never()).save(any());
+    }
+
+    @Test
+    void courseAfterPurchasePopupRequiresExactlyOneDiscountKind() {
+        when(getterPaymentProduct.getByCode("COURSE_STREAM_2")).thenReturn(Optional.of(PaymentProduct.builder()
+                .code("COURSE_STREAM_2").title("Курс").priceKopecks(1_690_000L).active(true).build()));
+
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2").codePrefix("COURSE").codeTtlDays(90)
+                .discountPercent(15).discountAmountKopecks(1_000_000L).build()));
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2").codePrefix("COURSE").codeTtlDays(90)
+                .discountPercent(0).build()));
+        verify(saverPromoPopup, never()).save(any());
+    }
+
+    @Test
+    void courseAfterPurchasePopupBindsProductAndStoresFixedAmount() {
+        when(getterPaymentProduct.getByCode("COURSE_STREAM_2")).thenReturn(Optional.of(PaymentProduct.builder()
+                .code("COURSE_STREAM_2").title("Курс").priceKopecks(1_690_000L).active(true).build()));
+
+        service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE_STREAM_2")
+                .discountAmountKopecks(1_000_000L)
+                .minOrderKopecks(5_000L)
+                .codePrefix("course")
+                .codeTtlDays(90)
+                .firstOrderOnly(true)
+                .hideForKnownContacts(true)
+                .build());
+
+        ArgumentCaptor<PromoPopup> saved = ArgumentCaptor.forClass(PromoPopup.class);
+        verify(saverPromoPopup).save(saved.capture());
+        PromoPopup popup = saved.getValue();
+        assertEquals(PromoPopupType.COURSE_AFTER_PURCHASE, popup.getPopupType());
+        assertEquals("COURSE_STREAM_2", popup.getProductCode());
+        assertEquals("COURSE", popup.getCodePrefix());
+        assertEquals(0, popup.getDiscountPercent());
+        assertEquals(1_000_000L, popup.getDiscountAmountKopecks());
+        assertNull(popup.getMinOrderKopecks());
+        assertFalse(popup.getFirstOrderOnly());
+        assertFalse(popup.getHideForKnownContacts());
+        assertEquals(0, popup.getDelaySeconds());
+        assertNull(popup.getAmoResponsibleUserId());
+    }
+
+    @Test
+    void courseAfterPurchasePopupRequiresActiveProduct() {
+        when(getterPaymentProduct.getByCode("COURSE")).thenReturn(Optional.of(PaymentProduct.builder()
+                .code("COURSE").title("Старый курс").priceKopecks(1L).active(false).build()));
+
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .codePrefix("COURSE").codeTtlDays(30).build()));
+        assertThrows(ResponseStatusException.class, () -> service.create(base(PromoPopupType.COURSE_AFTER_PURCHASE)
+                .productCode("COURSE").codePrefix("COURSE").codeTtlDays(30).build()));
+        verify(saverPromoPopup, never()).save(any());
     }
 
     @Test

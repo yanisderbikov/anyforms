@@ -13,7 +13,8 @@ public record PromoPopupDTO(
         UUID id,
         String name,
         @Schema(description = "CONTACT — персональный код за контакт, UNIQUE_CODE — одноразовый код устройству, "
-                + "PUBLIC_CODE — готовый промокод для всех, AFTER_PURCHASE — код на следующий заказ после оплаты")
+                + "PUBLIC_CODE — готовый промокод для всех, AFTER_PURCHASE — код на следующий заказ после оплаты, "
+                + "COURSE_AFTER_PURCHASE — код на курс со скидкой на сумму оплаченного заказа")
         PromoPopupType popupType,
         Boolean active,
         Integer priority,
@@ -34,6 +35,9 @@ public record PromoPopupDTO(
         String codePrefix,
         Integer codeTtlDays,
         Boolean firstOrderOnly,
+        @Schema(description = "Для COURSE_AFTER_PURCHASE — продукт, на который выдаётся скидка") String productCode,
+        @Schema(description = "Блоки после оплаты: нижняя граница суммы заказа, копейки; null — без границы") Long orderSumFromKopecks,
+        @Schema(description = "Блоки после оплаты: верхняя граница суммы заказа, копейки; null — без границы") Long orderSumToKopecks,
         Long amoResponsibleUserId,
         Long amoTaskTypeId,
         Integer amoTaskDeadlineMinutes,
@@ -101,6 +105,9 @@ public record PromoPopupDTO(
                 p.getCodePrefix(),
                 p.getCodeTtlDays(),
                 p.getFirstOrderOnly(),
+                p.getProductCode(),
+                p.getOrderSumFromKopecks(),
+                p.getOrderSumToKopecks(),
                 p.getAmoResponsibleUserId(),
                 p.getAmoTaskTypeId(),
                 p.getAmoTaskDeadlineMinutes(),

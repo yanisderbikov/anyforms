@@ -199,6 +199,17 @@ class PaymentTransactionManager implements GetterTransaction, SaverTransaction {
     }
 
     @Override
+    public boolean customerPaidAnyProduct(Collection<String> productCodes, String email, String phoneLast10) {
+        try {
+            return transactionRepo.customerPaidAnyProduct(productCodes,
+                    email == null ? "" : email, phoneLast10 == null ? "" : phoneLast10);
+        } catch (Exception e) {
+            log.error(e);
+            throw new RuntimeException("Database exception", e);
+        }
+    }
+
+    @Override
     public boolean promoUsedByCustomer(String promoCode, String email, String phoneLast10, String deviceId) {
         try {
             return transactionRepo.promoUsedByCustomer(promoCode, email, phoneLast10, deviceId);

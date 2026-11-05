@@ -73,6 +73,15 @@ class PromoClientCheckerImplTest {
     }
 
     @Test
+    void shopRejectsCourseOnlyCode() {
+        PromoCode promo = PromoCode.builder().code("COURSE-AAAAA").productCode("COURSE_STREAM_2")
+                .ownerPhoneLast10("9991234567").maxUses(1).build();
+
+        assertTrue(checker.checkoutRejection(promo, client, "anyforms").orElseThrow().contains("только на курс"));
+        assertTrue(checker.previewRejection(promo, client, "anyforms").orElseThrow().contains("только на курс"));
+    }
+
+    @Test
     void checkoutRejectsOtherShop() {
         PromoCode promo = PromoCode.builder().code("ONE-AAAAA").shopSlug("anyforms").build();
 

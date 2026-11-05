@@ -29,7 +29,7 @@ public class PromoPopup {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "popup_type", nullable = false, length = 16)
+    @Column(name = "popup_type", nullable = false, length = 32)
     private PromoPopupType popupType;
 
     @Column(nullable = false)
@@ -95,6 +95,15 @@ public class PromoPopup {
     @Column(name = "first_order_only", nullable = false)
     private Boolean firstOrderOnly;
 
+    @Column(name = "product_code", length = 64)
+    private String productCode;
+
+    @Column(name = "order_sum_from_kopecks")
+    private Long orderSumFromKopecks;
+
+    @Column(name = "order_sum_to_kopecks")
+    private Long orderSumToKopecks;
+
     @Column(name = "amo_responsible_user_id")
     private Long amoResponsibleUserId;
 
@@ -128,8 +137,21 @@ public class PromoPopup {
         return popupType == PromoPopupType.AFTER_PURCHASE;
     }
 
+    public boolean isCourseAfterPurchase() {
+        return popupType == PromoPopupType.COURSE_AFTER_PURCHASE;
+    }
+
+    public boolean isSuccessPageBlock() {
+        return isAfterPurchase() || isCourseAfterPurchase();
+    }
+
+    public boolean matchesOrderSum(long paidKopecks) {
+        return (orderSumFromKopecks == null || paidKopecks >= orderSumFromKopecks)
+                && (orderSumToKopecks == null || paidKopecks <= orderSumToKopecks);
+    }
+
     public boolean issuesCodes() {
-        return isContact() || isUniqueCode() || isAfterPurchase();
+        return isContact() || isUniqueCode() || isSuccessPageBlock();
     }
 
     public boolean hidesKnownContacts() {

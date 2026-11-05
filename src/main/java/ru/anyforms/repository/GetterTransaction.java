@@ -87,4 +87,6 @@ public interface GetterTransaction {
                                      String email,
                                      String phoneLast10,
                                      Instant since);
+
+    boolean customerPaidAnyProduct(Collection<String> productCodes, String email, String phoneLast10);
 }

@@ -28,6 +28,8 @@ import ru.anyforms.service.payment.CartPurchaseService;
 import ru.anyforms.service.payment.InvalidPromoCodeException;
 import ru.anyforms.service.payment.PaymentConfirmService;
 import ru.anyforms.service.payment.PurchaseService;
+import ru.anyforms.service.promo.CoursePromoService;
+import ru.anyforms.service.promo.PromoClient;
 import ru.anyforms.service.promo.PromoClientChecker;
 import ru.anyforms.util.MoneyUtil;
 
@@ -47,6 +49,7 @@ public class PaymentController {
     private final GetterPaymentProduct getterPaymentProduct;
     private final GetterPromoCode getterPromoCode;
     private final PromoClientChecker promoClientChecker;
+    private final CoursePromoService coursePromoService;
 
     @Operation(summary = "Доступные продукты для покупки")
     @GetMapping("/products")
@@ -58,11 +61,15 @@ public class PaymentController {
     }
 
     @Operation(summary = "Проверить промокод",
-            description = "Возвращает скидку и цену продукта с учётом промокода; для невалидного кода valid=false с причиной")
+            description = "Возвращает скидку и цену продукта с учётом промокода; для невалидного кода valid=false с причиной. "
+                    + "Для персонального кода на курс email и phone нужны, чтобы проверить владельца; без них код "
+                    + "считается валидным, а владелец проверяется при оплате")
     @GetMapping("/promo-check")
     public ResponseEntity<PromoCheckResponse> promoCheck(
             @RequestParam("code") String code,
-            @RequestParam("productCode") String productCode) {
+            @RequestParam("productCode") String productCode,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "phone", required = false) String phone) {
         PaymentProduct product = getterPaymentProduct.getByCode(productCode)
                 .orElseThrow(() -> new RuntimeException("Продукт не найден: " + productCode));
         Long price = product.currentPriceKopecks();
@@ -77,6 +84,27 @@ public class PaymentController {
             return ResponseEntity.ok(PromoCheckResponse.builder()
                     .code(promo.getCode()).priceKopecks(price)
                     .message("Срок действия промокода истёк.").build());
+        }
+        if (promo.isProductOnly()) {
+            Optional<String> rejection = coursePromoService.previewRejection(promo, product,
+                    PromoClient.of(email, phone, null));
+            if (rejection.isPresent()) {
+                return ResponseEntity.ok(PromoCheckResponse.builder()
+                        .code(promo.getCode()).priceKopecks(price).personal(true).productCode(promo.getProductCode())
+                        .message(rejection.get()).build());
+            }
+            return ResponseEntity.ok(PromoCheckResponse.builder()
+                    .valid(true)
+                    .code(promo.getCode())
+                    .discountPercent(promo.getDiscountPercent())
+                    .discountAmountKopecks(promo.getDiscountAmountKopecks())
+                    .priceKopecks(price)
+                    .discountedPriceKopecks(MoneyUtil.applyPromoDiscount(
+                            price, promo.getDiscountPercent(), promo.getDiscountAmountKopecks()))
+                    .validUntil(promo.getValidUntil() != null ? promo.getValidUntil().toString() : null)
+                    .personal(true)
+                    .productCode(promo.getProductCode())
+                    .build());
         }
         if (promo.getShopSlug() != null || promo.isPersonal()) {
             return ResponseEntity.ok(PromoCheckResponse.builder()

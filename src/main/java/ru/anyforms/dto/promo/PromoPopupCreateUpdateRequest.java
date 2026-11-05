@@ -90,6 +90,14 @@ public class PromoPopupCreateUpdateRequest {
     @Positive(message = "Минимальная сумма должна быть больше нуля")
     private Long minOrderKopecks;
 
+    @Positive(message = "Сумма заказа «от» должна быть больше нуля")
+    @Schema(description = "Для блоков после оплаты — код выдаётся, если оплаченный заказ не меньше этой суммы; null — без нижней границы")
+    private Long orderSumFromKopecks;
+
+    @Positive(message = "Сумма заказа «до» должна быть больше нуля")
+    @Schema(description = "Для блоков после оплаты — код выдаётся, если оплаченный заказ не больше этой суммы; null — без верхней границы")
+    private Long orderSumToKopecks;
+
     @Pattern(regexp = "^[A-Za-z0-9]{2,10}$", message = "Префикс кода — 2–10 латинских букв или цифр")
     private String codePrefix;
 
@@ -98,6 +106,10 @@ public class PromoPopupCreateUpdateRequest {
     private Integer codeTtlDays;
 
     private Boolean firstOrderOnly;
+
+    @Size(max = 64, message = "Код продукта не длиннее 64 символов")
+    @Schema(description = "Для COURSE_AFTER_PURCHASE — продукт из payment_product, на который выдаётся скидка")
+    private String productCode;
 
     private Long amoResponsibleUserId;
 

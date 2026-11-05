@@ -16,15 +16,15 @@
         .font { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Helvetica Neue',Arial,sans-serif; }
         @media (max-width:600px){
             .card { width:100% !important; }
-            .pad { padding-left:24px !important; padding-right:24px !important; }
+            .pad { padding-left:20px !important; padding-right:20px !important; }
+            .step-sub { display:none !important; }
         }
     </style>
 </head>
 <body class="font" style="margin:0; padding:0; background-color:#f2f2f2; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Helvetica Neue',Arial,sans-serif; color:#111111;">
 
-<!-- preheader: показывается в превью, скрыт в теле -->
 <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f2f2f2; opacity:0;">
-    Заказ #%ORDER% оформлен и оплачен. Ниже — предварительный чек и адрес пункта выдачи СДЭК.
+    Заказ #%ORDER% оформлен и оплачен. Ниже — предварительный чек и адрес пункта выдачи СДЭК.%OFFER_PREHEADER%
     &#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;&#847;&zwnj;&#160;
 </div>
 
@@ -32,74 +32,97 @@
     <tr>
         <td align="center" style="padding:32px 12px;">
 
-            <!-- основная карточка -->
             <table role="presentation" width="560" class="card" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px; background-color:#ffffff; border:1px solid #e2e2e2; border-radius:16px; overflow:hidden;">
-                <!-- бренд -->
                 <tr>
-                    <td class="pad font" style="padding:36px 40px 0 40px;">
-                        <div style="font-size:12px; letter-spacing:0.5px; text-transform:lowercase; font-weight:600; color:#8c8c8c;">anyforms · маркетплейс</div>
+                    <td align="center" class="pad" style="padding:40px 40px 0 40px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td width="56" height="56" align="center" valign="middle" bgcolor="#111111" class="font" style="width:56px; height:56px; background-color:#111111; border-radius:50%; font-size:26px; line-height:56px; font-weight:700; color:#ffffff;">&#10003;</td>
+                            </tr>
+                        </table>
                     </td>
                 </tr>
-                <!-- заголовок -->
                 <tr>
-                    <td class="pad font" style="padding:12px 40px 0 40px;">
-                        <h1 style="margin:0; font-size:26px; line-height:1.15; font-weight:800; color:#111111; text-transform:lowercase;">заказ&nbsp;<span style="text-transform:uppercase;">#%ORDER%</span> оформлен</h1>
+                    <td align="center" class="pad font" style="padding:14px 40px 0 40px;">
+                        <h1 style="margin:0; font-size:26px; line-height:1.15; font-weight:700; letter-spacing:-0.02em; color:#111111;">Заказ&nbsp;<span style="text-transform:uppercase;">#%ORDER%</span> оформлен</h1>
                     </td>
                 </tr>
-                <!-- интро -->
                 <tr>
-                    <td class="pad font" style="padding:14px 40px 24px 40px; font-size:16px; line-height:1.6; color:#333333;">
-                        Здравствуйте, %CUSTOMER%! Спасибо за&nbsp;заказ в&nbsp;anyforms. Оплата товаров получена — ниже предварительный чек. Мы&nbsp;соберём заказ и&nbsp;отправим его в&nbsp;выбранный пункт выдачи СДЭК.
+                    <td align="center" class="pad font" style="padding:12px 40px 28px 40px; font-size:15px; line-height:1.5; color:#6f6f6f;">
+                        Здравствуйте, %CUSTOMER%! Спасибо за&nbsp;заказ. Оплата получена&nbsp;— ниже предварительный чек.
                     </td>
                 </tr>
-                <!-- чек: таблица позиций -->
+                <tr>
+                    <td class="pad" style="padding:0 40px 28px 40px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;">
+                            <tr>
+                                <td width="33%" align="center" valign="top" class="font" style="width:33%; font-size:12px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td width="50%" style="font-size:0; line-height:0;">&nbsp;</td>
+                                            <td width="28" height="28" align="center" valign="middle" bgcolor="#111111" class="font" style="width:28px; height:28px; background-color:#111111; border-radius:50%; font-size:14px; line-height:28px; font-weight:700; color:#ffffff;">&#10003;</td>
+                                            <td width="50%" valign="middle" style="font-size:0; line-height:0;"><div style="height:2px; background-color:#111111; font-size:0; line-height:0;">&nbsp;</div></td>
+                                        </tr>
+                                    </table>
+                                    <div style="padding:8px 4px 0 4px; font-size:12px; line-height:1.3; font-weight:600; color:#111111;">Чек отправлен</div>
+                                    <div class="step-sub" style="padding:2px 4px 0 4px; font-size:12px; line-height:1.4; color:#6f6f6f;">Это письмо</div>
+                                </td>
+                                <td width="34%" align="center" valign="top" class="font" style="width:34%; font-size:12px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td width="50%" valign="middle" style="font-size:0; line-height:0;"><div style="height:2px; background-color:#111111; font-size:0; line-height:0;">&nbsp;</div></td>
+                                            <td width="28" height="28" align="center" valign="middle" class="font" style="width:28px; height:28px; border:2px solid #111111; border-radius:50%; font-size:12px; line-height:24px; font-weight:700; color:#111111;">2</td>
+                                            <td width="50%" valign="middle" style="font-size:0; line-height:0;"><div style="height:2px; background-color:#e2e2e2; font-size:0; line-height:0;">&nbsp;</div></td>
+                                        </tr>
+                                    </table>
+                                    <div style="padding:8px 4px 0 4px; font-size:12px; line-height:1.3; font-weight:600; color:#111111;">Передадим в&nbsp;СДЭК</div>
+                                    <div class="step-sub" style="padding:2px 4px 0 4px; font-size:12px; line-height:1.4; color:#6f6f6f;">%PVZ%</div>
+                                </td>
+                                <td width="33%" align="center" valign="top" class="font" style="width:33%; font-size:12px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td width="50%" valign="middle" style="font-size:0; line-height:0;"><div style="height:2px; background-color:#e2e2e2; font-size:0; line-height:0;">&nbsp;</div></td>
+                                            <td width="28" height="28" align="center" valign="middle" class="font" style="width:28px; height:28px; border:2px solid #111111; border-radius:50%; font-size:12px; line-height:24px; font-weight:700; color:#111111;">3</td>
+                                            <td width="50%" style="font-size:0; line-height:0;">&nbsp;</td>
+                                        </tr>
+                                    </table>
+                                    <div style="padding:8px 4px 0 4px; font-size:12px; line-height:1.3; font-weight:600; color:#111111;">Пришлём трек-номер</div>
+                                    <div class="step-sub" style="padding:2px 4px 0 4px; font-size:12px; line-height:1.4; color:#6f6f6f;">Отдельным сообщением</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                %COURSE_OFFER%
                 <tr>
                     <td class="pad" style="padding:0 40px 8px 40px;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fafafa; border:1px solid #ececec; border-radius:12px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f5f5" style="background-color:#f5f5f5; border-radius:18px;">
                             <tr>
-                                <td colspan="3" class="font" style="padding:18px 22px 10px 22px; font-size:12px; line-height:1.5; color:#8c8c8c; text-transform:lowercase; letter-spacing:0.5px;">предварительный чек</td>
+                                <td colspan="2" class="font" style="padding:18px 22px 12px 22px; font-size:15px; line-height:1.4; font-weight:600; color:#111111;">Состав заказа · %ITEMS_COUNT%</td>
+                                <td class="font" align="right" style="padding:18px 22px 12px 22px; font-size:17px; line-height:1.4; font-weight:700; color:#111111; white-space:nowrap;">%TOTAL%&nbsp;&#8381;</td>
                             </tr>
                             %ROWS%
                             <tr>
-                                <td class="font" style="padding:16px 22px; font-size:15px; font-weight:700; color:#111111; border-top:2px solid #e2e2e2;">Итого</td>
-                                <td style="border-top:2px solid #e2e2e2;"></td>
-                                <td class="font" align="right" style="padding:16px 22px; font-size:16px; font-weight:800; color:#111111; border-top:2px solid #e2e2e2; white-space:nowrap;">%TOTAL%&nbsp;&#8381;</td>
+                                <td colspan="3" class="font" style="padding:4px 22px 18px 22px; font-size:13px; line-height:1.5; color:#6f6f6f;">СДЭК: %PVZ%</td>
                             </tr>
                         </table>
                     </td>
                 </tr>
-                <!-- доставка / ПВЗ -->
                 <tr>
-                    <td class="pad" style="padding:12px 40px 8px 40px;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fafafa; border:1px solid #ececec; border-radius:12px;">
-                            <tr>
-                                <td class="font" style="padding:18px 22px 6px 22px; font-size:12px; line-height:1.5; color:#8c8c8c; text-transform:lowercase; letter-spacing:0.5px;">пункт выдачи СДЭК</td>
-                            </tr>
-                            <tr>
-                                <td class="font" style="padding:0 22px 18px 22px; font-size:16px; line-height:1.5; font-weight:600; color:#111111;">%PVZ%</td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-                <!-- что дальше -->
-                <tr>
-                    <td class="pad font" style="padding:20px 40px 24px 40px; font-size:16px; line-height:1.6; color:#333333;">
+                    <td class="pad font" style="padding:16px 40px 24px 40px; font-size:14px; line-height:1.6; color:#6f6f6f;">
                         %DELIVERY_NOTE% Когда заказ будет передан в&nbsp;СДЭК, мы&nbsp;пришлём трек-номер для&nbsp;отслеживания.
                     </td>
                 </tr>
-                <!-- CTA-пилюля -->
                 <tr>
                     <td class="pad" style="padding:0 40px 32px 40px;">
-                        <a href="https://anyforms.ru/shop" class="font" style="display:inline-block; background-color:#000000; color:#ffffff; font-size:15px; font-weight:700; padding:14px 26px; border-radius:999px;">Перейти в магазин</a>
+                        <a href="https://anyforms.ru/shop" class="font" style="display:block; padding:13px 20px; border:2px solid #111111; border-radius:999px; font-size:15px; line-height:1.4; font-weight:700; text-align:center; color:#111111;">перейти в&nbsp;магазин&nbsp;&rarr;</a>
                     </td>
                 </tr>
-                <!-- поддержка -->
                 <tr>
                     <td class="pad font" style="padding:0 40px 32px 40px; font-size:14px; line-height:1.6; color:#333333; border-top:1px solid #ececec;">
                         <div style="padding-top:24px;">Есть вопросы по&nbsp;заказу? Напишите нам в&nbsp;Telegram&nbsp;<a href="https://t.me/%SUPPORT_TG%" style="color:#111111; font-weight:700; text-decoration:underline;">@%SUPPORT_TG%</a> и&nbsp;укажите номер заказа <strong style="color:#111111; text-transform:uppercase;">#%ORDER%</strong> — поможем.</div>
                     </td>
                 </tr>
-                <!-- логотип -->
                 <tr>
                     <td align="center" style="padding:28px 40px 36px 40px; border-top:1px solid #ececec;">
                         <img src="https://storage.yandexcloud.net/anyforms/3d-print/email/logoayforms.jpg" alt="anyforms" width="130" style="width:130px; height:auto; margin:0 auto;">
@@ -107,7 +130,6 @@
                 </tr>
             </table>
 
-            <!-- футер -->
             <table role="presentation" width="560" class="card" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px;">
                 <tr>
                     <td class="font" style="padding:20px 40px 8px 40px; font-size:12px; line-height:1.6; color:#a0a0a0; text-align:center;">

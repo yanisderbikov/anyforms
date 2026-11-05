@@ -4,5 +4,6 @@ public enum PromoPopupType {
     CONTACT,
     UNIQUE_CODE,
     PUBLIC_CODE,
-    AFTER_PURCHASE
+    AFTER_PURCHASE,
+    COURSE_AFTER_PURCHASE
 }
